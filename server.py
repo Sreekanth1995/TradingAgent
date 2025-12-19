@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
@@ -40,7 +41,12 @@ def webhook():
     }
     """
     try:
-        data = request.json
+        # Force JSON parsing even if Content-Type header is missing
+        data = request.get_json(force=True, silent=True)
+        logger.info(f"DEBUG - Received Payload: {data}")
+        
+        if not data:
+            return jsonify({"status": "error", "message": "Invalid or missing JSON payload"}), 400
         
         # 1. Security Check
         if data.get('secret') != SECRET:
@@ -59,7 +65,30 @@ def webhook():
         # Process each leg (Usually 1 for simple alerts, but handling list for robustness)
         results = []
         for leg in legs:
+            # 2.1 Parse Ticker if available (Override explicit fields)
+            ticker = leg.get('ticker')
+            if ticker:
+                # Format: NIFTY251223C25850 (Symbol + YYMMDD + Type + Strike)
+                # Regex to handle variable length symbol and strike
+                # Looking for: String chars + 6 digits (Date) + 1 char (C/P) + Digits (Strike)
+                match = re.match(r'^([A-Z]+)(\d{2})(\d{2})(\d{2})([CP])(\d+(\.\d+)?)$', ticker)
+                if match:
+                    groups = match.groups()
+                    leg['symbol'] = groups[0]
+                    # Expiry: YYMMDD -> YYYY-MM-DD
+                    leg['expiry_date'] = f"20{groups[1]}-{groups[2]}-{groups[3]}"
+                    # Option Type: C -> CE, P -> PE
+                    leg['option_type'] = "CE" if groups[4] == "C" else "PE"
+                    leg['strike_price'] = groups[5] # Keep as string or convert if needed
+                    
+                    logger.info(f"Parsed Ticker {ticker} -> {leg['symbol']} {leg['strike_price']} {leg['option_type']} Exp:{leg['expiry_date']}")
+                else:
+                    logger.warning(f"Could not parse ticker: {ticker}. Using existing fields.")
+
             symbol = leg.get('symbol')
+            if not symbol:
+                 logger.error(f"Missing Symbol for leg: {leg}")
+                 continue
             # Construct a unique ticker for the option contract
             # E.g., NIFTY 26000 CE 2025-10-28
             # For now, we will use a simplified unique key based on what's available
