@@ -4,3 +4,8 @@ __pycache__/
 .DS_Store
 dhan_scrip_master.csv
 test_signals.py
+server.log
+server.pid
+*.csv
+check_import.py
+test_token_refresh.py
