@@ -47,15 +47,29 @@ class DhanClient:
         
         # Redis for Token Persistence
         self.r = None
-        redis_host = os.getenv("REDIS_HOST", "localhost")
-        redis_port = int(os.getenv("REDIS_PORT", 6379))
+        
+        # Support both REDIS_URL (Railway) and REDIS_HOST/REDIS_PORT (manual config)
+        redis_url = os.getenv("REDIS_URL")
+        
         try:
             import redis
-            self.r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+            
+            if redis_url:
+                # Use Redis URL if provided (Railway format)
+                self.r = redis.from_url(redis_url, decode_responses=True)
+                logger.info("Connecting to Redis using REDIS_URL")
+            else:
+                # Fall back to host/port configuration
+                redis_host = os.getenv("REDIS_HOST", "localhost")
+                redis_port = int(os.getenv("REDIS_PORT", 6379))
+                self.r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+                logger.info(f"Connecting to Redis at {redis_host}:{redis_port}")
+            
+            # Test connection and load cached token
             cached_token = self.r.get("dhan_access_token")
             if cached_token:
                 self.access_token = cached_token
-                logger.info("Access Token loaded from Redis.")
+                logger.info("✅ Access Token loaded from Redis.")
         except Exception as e:
             logger.warning(f"Redis not available for Token Persistence: {e}")
 
