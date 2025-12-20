@@ -170,8 +170,8 @@
         <p class="subtitle">Daily token update for Trading Agent</p>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('manual')">Manual Token</button>
-            <button class="tab-btn" onclick="showTab('smart')">Smart Login</button>
+            <button class="tab-btn active" onclick="showTab('smart')">Smart Login</button>
+            <button class="tab-btn" onclick="showTab('manual')">Manual Token</button>
         </div>
 
         <div class="form-group">
@@ -179,17 +179,8 @@
             <input type="password" id="secret" placeholder="Enter your secret key">
         </div>
 
-        <!-- Manual Tab -->
-        <div id="manual-tab" class="tab-content">
-            <div class="form-group">
-                <label for="token">New Access Token</label>
-                <input type="text" id="token" placeholder="Paste your 24hr token here">
-            </div>
-            <button onclick="updateToken()">Update & Re-initialize</button>
-        </div>
-
         <!-- Smart Tab -->
-        <div id="smart-tab" class="tab-content" style="display: none;">
+        <div id="smart-tab" class="tab-content">
             <div style="text-align: center; padding: 20px 0;">
                 <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 24px; line-height: 1.5;">
                     Highly recommended for security. Connect your account once, and the agent will automatically refresh
@@ -200,6 +191,15 @@
                     Connect via Dhan Official Login
                 </button>
             </div>
+        </div>
+
+        <!-- Manual Tab -->
+        <div id="manual-tab" class="tab-content" style="display: none;">
+            <div class="form-group">
+                <label for="token">New Access Token</label>
+                <input type="text" id="token" placeholder="Paste your 24hr token here">
+            </div>
+            <button onclick="updateToken()">Update & Re-initialize</button>
         </div>
 
         <div id="status"></div>
@@ -258,8 +258,8 @@
             document.getElementById('smart-tab').style.display = type === 'smart' ? 'block' : 'none';
 
             const btns = document.querySelectorAll('.tab-btn');
-            btns[0].classList.toggle('active', type === 'manual');
-            btns[1].classList.toggle('active', type === 'smart');
+            btns[0].classList.toggle('active', type === 'smart');
+            btns[1].classList.toggle('active', type === 'manual');
             document.getElementById('status').style.display = 'none';
         }
 
