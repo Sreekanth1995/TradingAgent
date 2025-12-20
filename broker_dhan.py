@@ -79,11 +79,10 @@ class DhanClient:
         self.lot_map = {}   # security_id -> lot_size (int)
 
         
-        # Load Scrip Master
-        try:
-            self._load_scrip_master()
-        except Exception as e:
-            logger.error(f"Failed to load Scrip Master: {e}")
+        # Load Scrip Master (lazy load to prevent Railway startup timeout)
+        self.scrip_loaded = False
+        # Defer loading until first use to allow web server to start quickly
+        # self._load_scrip_master() will be called on first order placement
 
         if self.client_id and self.access_token and DHAN_AVAILABLE:
             if self.dry_run:
@@ -193,6 +192,15 @@ class DhanClient:
         """
         Internal method to execute order via Dhan API
         """
+        # Lazy load scrip master on first order
+        if not self.scrip_loaded:
+            try:
+                logger.info("Loading Scrip Master (first order)...")
+                self._load_scrip_master()
+                self.scrip_loaded = True
+            except Exception as e:
+                logger.error(f"Failed to load Scrip Master: {e}")
+        
         try:
             qty = int(leg_data.get('quantity', 1))
             
