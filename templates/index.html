@@ -169,52 +169,149 @@
         <h1>Dhan API Access</h1>
         <p class="subtitle">Daily token update for Trading Agent</p>
 
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('manual')">Manual Token</button>
+            <button class="tab-btn" onclick="showTab('smart')">Smart Login</button>
+        </div>
+
         <div class="form-group">
             <label for="secret">Webhook Secret</label>
             <input type="password" id="secret" placeholder="Enter your secret key">
         </div>
 
-        <div class="form-group">
-            <label for="token">New Access Token</label>
-            <input type="text" id="token" placeholder="Paste your 24hr token here">
+        <!-- Manual Tab -->
+        <div id="manual-tab" class="tab-content">
+            <div class="form-group">
+                <label for="token">New Access Token</label>
+                <input type="text" id="token" placeholder="Paste your 24hr token here">
+            </div>
+            <button onclick="updateToken()">Update & Re-initialize</button>
         </div>
 
-        <button onclick="updateToken()">Update & Re-initialize</button>
+        <!-- Smart Tab -->
+        <div id="smart-tab" class="tab-content" style="display: none;">
+            <div style="text-align: center; padding: 20px 0;">
+                <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 24px; line-height: 1.5;">
+                    Highly recommended for security. Connect your account once, and the agent will automatically refresh
+                    its own 24-hour token. Supports <b>QR Scan</b> and <b>Mobile OTP</b>.
+                </p>
+                <button onclick="startOfficialAuth()"
+                    style="background: linear-gradient(to right, #00f2fe, #4facfe); color: #000; font-weight: 700;">
+                    Connect via Dhan Official Login
+                </button>
+            </div>
+        </div>
 
         <div id="status"></div>
 
         <div class="footer">
-            Admin Dashboard v1.0 • Connected to Cloud Redis
+            Admin Dashboard v1.2 • Connected to Cloud Redis
         </div>
     </div>
 
+    <style>
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 4px;
+            border-radius: 14px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            font-size: 13px;
+            background: transparent;
+            color: var(--text-dim);
+            margin: 0;
+            border-radius: 10px;
+        }
+
+        .tab-btn.active {
+            background: var(--glass);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .tab-btn:hover {
+            transform: none;
+            box-shadow: none;
+        }
+    </style>
+
     <script>
+        // Check for auth_status from server-side redirect
+        window.onload = function () {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('auth_status') === 'success' || "{{ auth_status }}" === "success") {
+                showStatus('✅ Authentication Successful! Your token is updated.', 'success');
+                // Clean up URL parameters after showing status
+                window.history.replaceState({}, document.title, "/");
+            }
+        }
+
+        function showTab(type) {
+            document.getElementById('manual-tab').style.display = type === 'manual' ? 'block' : 'none';
+            document.getElementById('smart-tab').style.display = type === 'smart' ? 'block' : 'none';
+
+            const btns = document.querySelectorAll('.tab-btn');
+            btns[0].classList.toggle('active', type === 'manual');
+            btns[1].classList.toggle('active', type === 'smart');
+            document.getElementById('status').style.display = 'none';
+        }
+
         async function updateToken() {
             const secret = document.getElementById('secret').value;
             const token = document.getElementById('token').value;
-            const statusDiv = document.getElementById('status');
+            if (!secret || !token) return showStatus('Please fill in both fields.', 'error');
 
-            if (!secret || !token) {
-                showStatus('Please fill in both fields.', 'error');
-                return;
-            }
+            await apiCall('/update-token', { secret, token });
+        }
 
-            statusDiv.style.display = 'none';
+        async function startOfficialAuth() {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return showStatus('Please enter your Webhook Secret first.', 'error');
+
+            showStatus('🚀 Preparing secure connection...', 'success');
 
             try {
-                const response = await fetch('/update-token', {
+                const response = await fetch('/auth/initiate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret, token })
+                    body: JSON.stringify({ secret })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.url) {
+                    // Redirect the user to Dhan's login page
+                    window.location.href = result.url;
+                } else {
+                    showStatus('❌ ' + (result.message || 'Failed to initiate auth'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error. Is the server running?', 'error');
+            }
+        }
+
+        async function apiCall(endpoint, payload) {
+            const statusDiv = document.getElementById('status');
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
 
                 const result = await response.json();
 
                 if (response.ok) {
-                    showStatus('✅ Token updated successfully!', 'success');
-                    document.getElementById('token').value = '';
+                    showStatus('✅ ' + (result.message || 'Success!'), 'success');
                 } else {
-                    showStatus('❌ ' + (result.message || 'Update failed'), 'error');
+                    showStatus('❌ ' + (result.message || 'Operation failed'), 'error');
                 }
             } catch (error) {
                 showStatus('❌ Network error. Is the server running?', 'error');

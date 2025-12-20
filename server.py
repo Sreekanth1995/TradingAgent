@@ -133,6 +133,36 @@ def update_token():
     else:
         return jsonify({"status": "error", "message": "Failed to update token"}), 500
 
+@app.route('/auth/initiate', methods=['POST'])
+def auth_initiate():
+    """
+    Step 1: Get Dhan Consent URL and return to frontend.
+    """
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    consent_url = broker.get_consent_url()
+    if consent_url:
+        return jsonify({"status": "success", "url": consent_url}), 200
+    else:
+        return jsonify({"status": "error", "message": "Failed to generate consent URL"}), 500
+
+@app.route('/auth/callback')
+def auth_callback():
+    """
+    Step 3: Receive tokenId from Dhan redirect and finalize authentication.
+    """
+    token_id = request.args.get('tokenId')
+    if not token_id:
+        return "Authentication Error: Missing tokenId", 400
+    
+    success, message = broker.consume_consent(token_id)
+    if success:
+        return render_template('index.html', auth_status="success")
+    else:
+        return f"Authentication Failed: {message}", 500
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 5000))
     app.run(host='0.0.0.0', port=port)

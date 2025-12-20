@@ -2,6 +2,7 @@ import logging
 import os
 import csv
 import requests
+import pyotp
 from datetime import datetime
 
 from dhanhq import dhanhq
@@ -41,6 +42,8 @@ class DhanClient:
     def __init__(self):
         self.client_id = os.getenv("DHAN_CLIENT_ID")
         self.access_token = os.getenv("DHAN_ACCESS_TOKEN")
+        self.api_id = os.getenv("DHAN_API_ID")
+        self.api_secret = os.getenv("DHAN_API_SECRET")
         
         # Redis for Token Persistence
         self.r = None
@@ -238,3 +241,61 @@ class DhanClient:
                 logger.info("Dhan Client Re-initialized with new token.")
             return True
         return False
+
+    def get_consent_url(self):
+        """
+        Generates the Dhan consent URL for browser-based login.
+        """
+        if not self.api_id or not self.api_secret or not self.client_id:
+            logger.error("DHAN_API_ID or DHAN_API_SECRET missing in .env")
+            return None
+        url = f"https://auth.dhan.co/app/generate-consent?client_id={self.client_id}"
+        headers = {
+            'app_id': self.api_id,
+            'app_secret': self.api_secret,
+            'Content-Type': 'application/json'
+        }
+        
+        try:
+            resp = requests.post(url, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                consent_id = data.get("consentAppId")
+                if consent_id:
+                    # Construct the final login URL
+
+                    return f"https://auth.dhan.co/login/consentApp-login?consentAppId={consent_id}"
+            
+            logger.error(f"Failed to generate consent: {resp.status_code} - {resp.text}")
+            return None
+        except Exception as e:
+            logger.error(f"Error generating consent URL: {e}")
+            return None
+
+    def consume_consent(self, token_id):
+        """
+        Exchanges the tokenId for a 24-hour access token.
+        """
+        if not self.api_id or not self.api_secret:
+            return False, "API credentials missing"
+
+        url = f"https://auth.dhan.co/app/consumeApp-consent?tokenId={token_id}"
+        headers = {
+            'app_id': self.api_id,
+            'app_secret': self.api_secret
+        }
+
+        try:
+            resp = requests.post(url, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                access_token = data.get("accessToken")
+                if access_token:
+                    self.refresh_client(access_token)
+                    return True, "Authentication Successful"
+            
+            logger.error(f"Failed to consume consent: {resp.status_code} - {resp.text}")
+            return False, f"Auth failed: {resp.status_code}"
+        except Exception as e:
+            logger.error(f"Error consuming consent: {e}")
+            return False, str(e)
