@@ -113,6 +113,26 @@ def webhook():
         logger.error(f"Webhook Processing Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/update-token', methods=['POST'])
+def update_token():
+    """
+    Endpoint to update Dhan Access Token dynamically.
+    Expected Payload: {"secret": "...", "token": "..."}
+    """
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    new_token = data.get('token')
+    if not new_token:
+        return jsonify({"status": "error", "message": "Missing token"}), 400
+    
+    success = broker.refresh_client(new_token)
+    if success:
+        return jsonify({"status": "success", "message": "Dhan token updated and client re-initialized"}), 200
+    else:
+        return jsonify({"status": "error", "message": "Failed to update token"}), 500
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
