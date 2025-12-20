@@ -1,7 +1,7 @@
 import os
 import re
 import logging
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from ranking_engine import RankingEngine
 from broker_dhan import DhanClient
@@ -28,17 +28,17 @@ except Exception as e:
     logger.error(f"Initialization Failed: {e}")
     raise e
 
+@app.route('/')
+def dashboard():
+    """
+    Serves the Admin Dashboard UI.
+    """
+    return render_template('index.html')
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     """
     Endpoint to receive TradingView Alerts.
-    Expected Payload:
-    {
-      "secret": "60pgS",
-      "alertType": "multi_leg_order",
-      "timeframe": 1,
-      "order_legs": [...]
-    }
     """
     try:
         # Force JSON parsing even if Content-Type header is missing
@@ -112,6 +112,26 @@ def webhook():
     except Exception as e:
         logger.error(f"Webhook Processing Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/update-token', methods=['POST'])
+def update_token():
+    """
+    Endpoint to update Dhan Access Token dynamically.
+    Expected Payload: {"secret": "...", "token": "..."}
+    """
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    new_token = data.get('token')
+    if not new_token:
+        return jsonify({"status": "error", "message": "Missing token"}), 400
+    
+    success = broker.refresh_client(new_token)
+    if success:
+        return jsonify({"status": "success", "message": "Dhan token updated and client re-initialized"}), 200
+    else:
+        return jsonify({"status": "error", "message": "Failed to update token"}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 5000))

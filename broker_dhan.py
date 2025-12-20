@@ -41,6 +41,21 @@ class DhanClient:
     def __init__(self):
         self.client_id = os.getenv("DHAN_CLIENT_ID")
         self.access_token = os.getenv("DHAN_ACCESS_TOKEN")
+        
+        # Redis for Token Persistence
+        self.r = None
+        redis_host = os.getenv("REDIS_HOST", "localhost")
+        redis_port = int(os.getenv("REDIS_PORT", 6379))
+        try:
+            import redis
+            self.r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+            cached_token = self.r.get("dhan_access_token")
+            if cached_token:
+                self.access_token = cached_token
+                logger.info("Access Token loaded from Redis.")
+        except Exception as e:
+            logger.warning(f"Redis not available for Token Persistence: {e}")
+
         self.dry_run = os.getenv("DRY_RUN", "false").lower() == "true"
         self.dhan = None
         self.scrip_map = {} # (symbol, strike, opt_type, expiry_date) -> security_id
@@ -202,3 +217,24 @@ class DhanClient:
         except Exception as e:
             logger.error(f"Order Placement FAILED: {e}")
             return {"success": False, "order_id": None, "error": str(e)}
+
+    def refresh_client(self, new_token):
+        """
+        Updates the access token and re-initializes the Dhan client.
+        """
+        self.access_token = new_token
+        # Persist to Redis if available
+        if self.r:
+            try:
+                self.r.set("dhan_access_token", new_token)
+                logger.info("New Access Token persisted to Redis.")
+            except Exception as e:
+                logger.error(f"Failed to persist token to Redis: {e}")
+
+        # Re-initialize
+        if self.client_id and self.access_token and DHAN_AVAILABLE:
+            if not self.dry_run:
+                self.dhan = dhanhq(self.client_id, self.access_token)
+                logger.info("Dhan Client Re-initialized with new token.")
+            return True
+        return False
