@@ -79,10 +79,19 @@ class DhanClient:
         self.lot_map = {}   # security_id -> lot_size (int)
 
         
-        # Load Scrip Master (lazy load to prevent Railway startup timeout)
+        # Load Scrip Master in background thread to prevent Railway startup timeout
         self.scrip_loaded = False
-        # Defer loading until first use to allow web server to start quickly
-        # self._load_scrip_master() will be called on first order placement
+        import threading
+        def load_scrip_background():
+            try:
+                self._load_scrip_master()
+                self.scrip_loaded = True
+                logger.info("✅ Scrip Master loaded successfully in background")
+            except Exception as e:
+                logger.error(f"Failed to load Scrip Master: {e}")
+        
+        # Start background download immediately
+        threading.Thread(target=load_scrip_background, daemon=True).start()
 
         if self.client_id and self.access_token and DHAN_AVAILABLE:
             if self.dry_run:
@@ -192,14 +201,19 @@ class DhanClient:
         """
         Internal method to execute order via Dhan API
         """
-        # Lazy load scrip master on first order
+        # Wait for scrip master to load if still in progress
         if not self.scrip_loaded:
-            try:
-                logger.info("Loading Scrip Master (first order)...")
-                self._load_scrip_master()
-                self.scrip_loaded = True
-            except Exception as e:
-                logger.error(f"Failed to load Scrip Master: {e}")
+            logger.warning("Scrip Master still loading, waiting...")
+            import time
+            max_wait = 30  # seconds
+            waited = 0
+            while not self.scrip_loaded and waited < max_wait:
+                time.sleep(1)
+                waited += 1
+            
+            if not self.scrip_loaded:
+                logger.error("Scrip Master failed to load in time")
+                return {"success": False, "order_id": None, "error": "Scrip Master not ready"}
         
         try:
             qty = int(leg_data.get('quantity', 1))
