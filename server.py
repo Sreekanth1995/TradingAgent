@@ -19,14 +19,32 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Initialize Components
+# Initialize Components with graceful error handling
+broker = None
+engine = None
+init_error = None
+
 try:
     broker = DhanClient()
     engine = RankingEngine(broker)
-    logger.info("System Initialized Successfully")
+    logger.info("✅ System Initialized Successfully")
 except Exception as e:
-    logger.error(f"Initialization Failed: {e}")
-    raise e
+    init_error = str(e)
+    logger.error(f"⚠️ Initialization Failed: {e}")
+    logger.warning("App will start in degraded mode. Please check environment variables.")
+
+@app.route('/health')
+def health():
+    """
+    Health check endpoint for Railway and monitoring.
+    """
+    status = {
+        "status": "healthy" if broker and engine else "degraded",
+        "broker_initialized": broker is not None,
+        "engine_initialized": engine is not None,
+        "error": init_error
+    }
+    return jsonify(status), 200
 
 @app.route('/')
 def dashboard():
@@ -40,6 +58,14 @@ def webhook():
     """
     Endpoint to receive TradingView Alerts.
     """
+    # Check if components are initialized
+    if not broker or not engine:
+        logger.error("Webhook called but system not initialized")
+        return jsonify({
+            "status": "error", 
+            "message": "System not initialized. Check /health endpoint for details."
+        }), 503
+    
     try:
         # Force JSON parsing even if Content-Type header is missing
         data = request.get_json(force=True, silent=True)
@@ -119,6 +145,13 @@ def update_token():
     Endpoint to update Dhan Access Token dynamically.
     Expected Payload: {"secret": "...", "token": "..."}
     """
+    # Check if broker is initialized
+    if not broker:
+        return jsonify({
+            "status": "error", 
+            "message": "Broker not initialized. Check /health endpoint."
+        }), 503
+    
     data = request.get_json(force=True, silent=True)
     if not data or data.get('secret') != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
@@ -138,6 +171,13 @@ def auth_initiate():
     """
     Step 1: Get Dhan Consent URL and return to frontend.
     """
+    # Check if broker is initialized
+    if not broker:
+        return jsonify({
+            "status": "error", 
+            "message": "Broker not initialized. Check /health endpoint."
+        }), 503
+    
     data = request.get_json(force=True, silent=True)
     if not data or data.get('secret') != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
@@ -153,6 +193,10 @@ def auth_callback():
     """
     Step 3: Receive tokenId from Dhan redirect and finalize authentication.
     """
+    # Check if broker is initialized
+    if not broker:
+        return "Broker not initialized. Please check server configuration.", 503
+    
     token_id = request.args.get('tokenId')
     if not token_id:
         return "Authentication Error: Missing tokenId", 400
