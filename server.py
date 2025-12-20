@@ -62,25 +62,21 @@ def webhook():
         if not legs:
              return jsonify({"status": "error", "message": "No order legs found"}), 400
              
-        # Process each leg (Usually 1 for simple alerts, but handling list for robustness)
+        # Process each leg
         results = []
+        failure_count = 0
+        
         for leg in legs:
-            # 2.1 Parse Ticker if available (Override explicit fields)
+            # 2.1 Parse Ticker if available
             ticker = leg.get('ticker')
             if ticker:
-                # Format: NIFTY251223C25850 (Symbol + YYMMDD + Type + Strike)
-                # Regex to handle variable length symbol and strike
-                # Looking for: String chars + 6 digits (Date) + 1 char (C/P) + Digits (Strike)
                 match = re.match(r'^([A-Z]+)(\d{2})(\d{2})(\d{2})([CP])(\d+(\.\d+)?)$', ticker)
                 if match:
                     groups = match.groups()
                     leg['symbol'] = groups[0]
-                    # Expiry: YYMMDD -> YYYY-MM-DD
                     leg['expiry_date'] = f"20{groups[1]}-{groups[2]}-{groups[3]}"
-                    # Option Type: C -> CE, P -> PE
                     leg['option_type'] = "CE" if groups[4] == "C" else "PE"
-                    leg['strike_price'] = groups[5] # Keep as string or convert if needed
-                    
+                    leg['strike_price'] = groups[5]
                     logger.info(f"Parsed Ticker {ticker} -> {leg['symbol']} {leg['strike_price']} {leg['option_type']} Exp:{leg['expiry_date']}")
                 else:
                     logger.warning(f"Could not parse ticker: {ticker}. Using existing fields.")
@@ -88,21 +84,29 @@ def webhook():
             symbol = leg.get('symbol')
             if not symbol:
                  logger.error(f"Missing Symbol for leg: {leg}")
+                 results.append({"error": "Missing Symbol", "leg": leg})
+                 failure_count += 1
                  continue
-            # Construct a unique ticker for the option contract
-            # E.g., NIFTY 26000 CE 2025-10-28
-            # For now, we will use a simplified unique key based on what's available
-            # Or just use the raw symbol if it's unique enough for the user's charts
-            instrument_key = f"{symbol}_{leg.get('strike_price')}_{leg.get('option_type')}"
             
-            transaction_type = leg.get('transactionType') # B or S
+            # Construct Unique Key
+            instrument_key = f"{symbol}_{leg.get('strike_price')}_{leg.get('option_type')}"
+            transaction_type = leg.get('transactionType')
             
             logger.info(f"Received Signal: {transaction_type} for {instrument_key} on {timeframe}m timeframe")
             
             # 3. Process with Ranking Engine
             action = engine.process_signal(instrument_key, transaction_type, int(timeframe), leg)
             results.append(action)
+            
+            # Check for Logic Failures
+            if action.get('action', '').startswith("FAILED"):
+                logger.error(f"Processing Failed for {instrument_key}: {action}")
+                failure_count += 1
 
+        if failure_count > 0:
+            logger.error(f"Webhook completed with {failure_count} errors.")
+            return jsonify({"status": "error", "actions": results, "message": "One or more orders failed."}), 500
+            
         return jsonify({"status": "success", "actions": results}), 200
 
     except Exception as e:

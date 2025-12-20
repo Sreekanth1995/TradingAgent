@@ -4,18 +4,36 @@ import csv
 import requests
 from datetime import datetime
 
-try:
-    from dhanhq import dhanhq
-    from dhanhq.constants import ExchangeSegment, TransactionType, OrderType, ProductType, Validity
-    DHAN_AVAILABLE = True
-except ImportError:
-    DHAN_AVAILABLE = False
-    # Define dummy constants if library is missing to prevent NameError in code
-    class ExchangeSegment: NSE_FNO = "NSE_FNO"
-    class TransactionType: BUY = "BUY"; SELL = "SELL"
-    class OrderType: MARKET = "MARKET"
-    class ProductType: INTRADAY = "INTRADAY"
-    class Validity: DAY = "DAY"
+from dhanhq import dhanhq
+
+# Define constants locally as they are missing in dhanhq 2.0.2
+class ExchangeSegment:
+    NSE_FNO = "NSE_FNO"
+    NSE_EQ = "NSE_EQ"
+    BSE_EQ = "BSE_EQ"
+
+class TransactionType:
+    BUY = "BUY"
+    SELL = "SELL"
+
+class OrderType:
+    MARKET = "MARKET"
+    LIMIT = "LIMIT"
+    STOP_LOSS = "STOP_LOSS"
+    STOP_LOSS_MARKET = "STOP_LOSS_MARKET"
+
+class ProductType:
+    INTRADAY = "INTRADAY"
+    CNC = "CNC"
+    MARGIN = "MARGIN"
+    CO = "CO"
+    BO = "BO"
+
+class Validity:
+    DAY = "DAY"
+    IOC = "IOC"
+
+DHAN_AVAILABLE = True
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +41,11 @@ class DhanClient:
     def __init__(self):
         self.client_id = os.getenv("DHAN_CLIENT_ID")
         self.access_token = os.getenv("DHAN_ACCESS_TOKEN")
+        self.dry_run = os.getenv("DRY_RUN", "false").lower() == "true"
         self.dhan = None
         self.scrip_map = {} # (symbol, strike, opt_type, expiry_date) -> security_id
+        self.lot_map = {}   # security_id -> lot_size (int)
+
         
         # Load Scrip Master
         try:
@@ -33,8 +54,11 @@ class DhanClient:
             logger.error(f"Failed to load Scrip Master: {e}")
 
         if self.client_id and self.access_token and DHAN_AVAILABLE:
-            logger.info("Dhan Credentials found. Connected to DhanHQ.")
-            self.dhan = dhanhq(self.client_id, self.access_token)
+            if self.dry_run:
+                logger.info("!!!! DRY RUN MODE ENABLED !!!! - No real orders will be placed, state will update normally.")
+            else:
+                logger.info("Dhan Credentials found. Connected to DhanHQ.")
+                self.dhan = dhanhq(self.client_id, self.access_token)
         elif not DHAN_AVAILABLE:
             logger.warning("dhanhq library not found. Install with `pip install dhanhq`.")
         else:
@@ -74,7 +98,13 @@ class DhanClient:
                     # Filter for NSE Options
                     if row['SEM_EXM_EXCH_ID'] == 'NSE' and row['SEM_INSTRUMENT_NAME'] in ['OPTIDX', 'OPTSTK', 'FUTIDX', 'FUTSTK']:
                         # Extract Key Fields
-                        sym = row['SM_SYMBOL_NAME'] # NIFTY
+                        sym = row.get('SM_SYMBOL_NAME', '').strip()
+                        if not sym:
+                             # Fallback for Options where SM_SYMBOL_NAME is often empty
+                             # e.g., BANKNIFTY-Dec2025-69700-CE -> BANKNIFTY
+                             sym = row.get('SEM_TRADING_SYMBOL', '').split('-')[0]
+                        
+                        sym = sym.strip()
                         strike = float(row.get('SEM_STRIKE_PRICE', 0)) # 26000.00
                         opt_type = row.get('SEM_OPTION_TYPE') # CE
                         
@@ -82,7 +112,15 @@ class DhanClient:
                         expiry_raw = row.get('SEM_EXPIRY_DATE', '').split(" ")[0]
                         
                         key = (sym, strike, opt_type, expiry_raw)
-                        self.scrip_map[key] = row['SEM_SMST_SECURITY_ID']
+                        sec_id = row.get('SEM_SMST_SECURITY_ID')
+                        self.scrip_map[key] = sec_id
+                        
+                        # Store lot size
+                        try:
+                            self.lot_map[sec_id] = int(float(row.get('SEM_LOT_UNITS', 1)))
+                        except:
+                            self.lot_map[sec_id] = 1
+                            
                         count += 1
             logger.info(f"Loaded {count} instruments into Scrip Map.")
         except Exception as e:
@@ -127,20 +165,26 @@ class DhanClient:
             qty = int(leg_data.get('quantity', 1))
             
             # 1. Resolve Security ID
+            base_symbol = leg_data.get('symbol', symbol)
             strike = leg_data.get('strike_price')
             opt_type = leg_data.get('option_type')
             expiry = leg_data.get('expiry_date')
-            sec_id = self._get_security_id(symbol, strike, opt_type, expiry)
+            sec_id = self._get_security_id(base_symbol, strike, opt_type, expiry)
+            
+            # 2. Convert Lots to actual Quantity
+            lots = int(leg_data.get('quantity', 1))
+            lot_size = self.lot_map.get(sec_id, 1)
+            final_qty = lots * lot_size
+            
+            logger.info(f"$$$ [BROKER] PLACING {transaction_type} ORDER: {lots} Lots ({final_qty} units) x {symbol} (ID: {sec_id}, LotSize: {lot_size}) $$$")
 
-            logger.info(f"$$$ [BROKER] PLACING {transaction_type} ORDER: {qty} x {symbol} (ID: {sec_id}) $$$")
-
-            if self.dhan:
+            if self.dhan and not self.dry_run:
                 # Real API Call
                 resp = self.dhan.place_order(
                     security_id=sec_id,
                     exchange_segment=ExchangeSegment.NSE_FNO,
                     transaction_type=transaction_type,
-                    quantity=qty,
+                    quantity=final_qty,
                     order_type=OrderType.MARKET,
                     product_type=ProductType.INTRADAY, # Assuming Intraday based on user flow
                     price=0,
