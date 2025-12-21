@@ -29,31 +29,67 @@ class RankingEngine:
         else:
             logger.warning("Redis library not installed. Using in-memory storage (NOT PERSISTENT).")
 
-    def _get_rank(self, key):
+    def _get_active_instruments(self, underlying, side):
+        """Returns a set of active instrument keys for a given underlying and side."""
         if self.use_redis:
-            val = self.r.get(f"rank:{key}")
-            return int(val) if val else 0
+            val = self.r.smembers(f"active_instruments:{underlying}:{side}")
+            return set(val) if val else set()
         else:
-            return self.memory_store.get(key, 0)
+            return self.memory_store.get(f"active_instruments:{underlying}:{side}", set())
 
-    def _set_rank(self, key, value):
-        logger.info(f"Setting Rank for {key} to {value}")
+    def _add_active_instrument(self, underlying, side, instrument_key):
+        """Adds an instrument to the active set for a given side."""
         if self.use_redis:
-            self.r.set(f"rank:{key}", value)
+            self.r.sadd(f"active_instruments:{underlying}:{side}", instrument_key)
         else:
-            self.memory_store[key] = value
+            if f"active_instruments:{underlying}:{side}" not in self.memory_store:
+                self.memory_store[f"active_instruments:{underlying}:{side}"] = set()
+            self.memory_store[f"active_instruments:{underlying}:{side}"].add(instrument_key)
+
+    def _remove_active_instrument(self, underlying, side, instrument_key):
+        """Removes an instrument from the active set for a given side."""
+        if self.use_redis:
+            self.r.srem(f"active_instruments:{underlying}:{side}", instrument_key)
+        else:
+            active_set = self.memory_store.get(f"active_instruments:{underlying}:{side}", set())
+            if instrument_key in active_set:
+                active_set.remove(instrument_key)
 
     def process_signal(self, instrument_key, transaction_type, timeframe, leg_data):
         """
         Main logic for Multi-Timeframe Ranking.
         Buy (+1) | Sell (-Timeframe)
+        Includes Mutual Exclusion: Cannot open a side if the opposite side is active.
         """
         current_rank = self._get_rank(instrument_key)
         new_rank = current_rank
         action_taken = "NONE"
 
+        # 1. Identify Side and Underlying for Mutual Exclusion
+        option_type = leg_data.get('option_type') # 'CE' or 'PE'
+        underlying = leg_data.get('symbol')      # 'NIFTY', etc.
+        
+        # Determine counterpart
+        counterpart_side = None
+        if option_type == 'CE':
+            counterpart_side = 'PE'
+        elif option_type == 'PE':
+            counterpart_side = 'CE'
+
         # Apply Logic
         if transaction_type == "B":
+            # Mutual Exclusion Check: Only for NEW entries
+            if current_rank <= 0 and counterpart_side and underlying:
+                active_counterparts = self._get_active_instruments(underlying, counterpart_side)
+                if active_counterparts:
+                    logger.warning(f"MUTUAL EXCLUSION: Blocking {option_type} entry for {underlying} because {counterpart_side} is active: {active_counterparts}")
+                    return {
+                        "symbol": instrument_key,
+                        "old_rank": current_rank,
+                        "new_rank": current_rank,
+                        "action": "BLOCKED_BY_MUTUAL_EXCLUSION"
+                    }
+
             # Buy Logic: Hybrid (Jump Start, Slow Build)
             if current_rank <= 0:
                 # First Entry: Set Rank to Timeframe (e.g. 2m -> Rank 2)
@@ -72,6 +108,8 @@ class RankingEngine:
                 
                 if resp['success']:
                     action_taken = "OPEN_LONG"
+                    if option_type and underlying:
+                        self._add_active_instrument(underlying, option_type, instrument_key)
                 else:
                     logger.error(f"BUY FAILED: {resp['error']}. Reverting Rank to {current_rank}.")
                     new_rank = current_rank # ROLLBACK: Pretend signal never happened
@@ -97,12 +135,10 @@ class RankingEngine:
                 if resp['success']:
                      new_rank = 0 # Clamp to 0
                      action_taken = "CLOSE_LONG"
+                     if option_type and underlying:
+                         self._remove_active_instrument(underlying, option_type, instrument_key)
                 else:
                     logger.critical(f"SELL FAILED: {resp['error']}. Keeping Rank at {current_rank} (STUCK POSITION).")
-                    # If sell fails, we are technically still holding the position.
-                    # We should probably NOT decrement the rank so the system knows we are still exposed.
-                    # Or we should keep the rank low but flag an error?
-                    # Safer to Revert Rank so the next sell signal tries again.
                     new_rank = current_rank # ROLLBACK
                     action_taken = "FAILED_EXIT"
 
@@ -116,10 +152,10 @@ class RankingEngine:
                 action_taken = "WEAKEN_HOLD"
 
         # Save State (Only if order succeeded or no trade was required)
-        if action_taken not in ["FAILED_ENTRY", "FAILED_EXIT"]:
+        if action_taken not in ["FAILED_ENTRY", "FAILED_EXIT", "BLOCKED_BY_MUTUAL_EXCLUSION"]:
             self._set_rank(instrument_key, new_rank)
         else:
-             logger.info(f"Skipping State Update due to Failure. Rank remains {self._get_rank(instrument_key)}")
+             logger.info(f"Skipping State Update due to Failure/Block. Rank remains {self._get_rank(instrument_key)}")
         
         return {
             "symbol": instrument_key,
