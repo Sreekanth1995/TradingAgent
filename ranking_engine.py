@@ -17,17 +17,24 @@ class RankingEngine:
         self.memory_store = {}
 
         if REDIS_AVAILABLE:
-            redis_host = os.getenv("REDIS_HOST", "localhost")
-            redis_port = int(os.getenv("REDIS_PORT", 6379))
+            redis_url = os.getenv("REDIS_URL")
             try:
-                self.r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+                if redis_url:
+                    self.r = redis.from_url(redis_url, decode_responses=True)
+                    logger.info("RankingEngine: Connecting to Redis using REDIS_URL")
+                else:
+                    redis_host = os.getenv("REDIS_HOST", "localhost")
+                    redis_port = int(os.getenv("REDIS_PORT", 6379))
+                    self.r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+                    logger.info(f"RankingEngine: Connecting to Redis at {redis_host}:{redis_port}")
+                
                 self.r.ping()
-                logger.info(f"Connected to Redis at {redis_host}:{redis_port}")
+                logger.info("✅ RankingEngine: Connected to Redis successfully")
                 self.use_redis = True
-            except (redis.ConnectionError, NameError):
-                logger.warning("Redis connection failed. Using in-memory storage (NOT PERSISTENT).")
+            except Exception as e:
+                logger.warning(f"RankingEngine: Redis connection failed ({e}). Using in-memory storage (NOT PERSISTENT).")
         else:
-            logger.warning("Redis library not installed. Using in-memory storage (NOT PERSISTENT).")
+            logger.warning("RankingEngine: Redis library not installed. Using in-memory storage (NOT PERSISTENT).")
 
     def _get_rank(self, key):
         if self.use_redis:
