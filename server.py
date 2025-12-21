@@ -1,36 +1,10 @@
 import os
 import re
 import logging
-import sys
-
-# Force unbuffered output for Railway logs
-sys.stdout.reconfigure(line_buffering=True)
-sys.stderr.reconfigure(line_buffering=True)
-
-print("=" * 50, flush=True)
-print("🚀 STARTING TRADING AGENT SERVER", flush=True)
-print("=" * 50, flush=True)
-
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
-
-print("✅ Flask imports successful", flush=True)
-
-try:
-    from ranking_engine import RankingEngine
-    print("✅ RankingEngine imported", flush=True)
-except Exception as e:
-    print(f"❌ Failed to import RankingEngine: {e}", flush=True)
-    raise
-
-try:
-    from broker_dhan import DhanClient
-    print("✅ DhanClient imported", flush=True)
-except Exception as e:
-    print(f"❌ Failed to import DhanClient: {e}", flush=True)
-    raise
-
-print("✅ All imports successful", flush=True)
+from ranking_engine import RankingEngine
+from broker_dhan import DhanClient
 
 # Load Environment Variables
 load_dotenv()
