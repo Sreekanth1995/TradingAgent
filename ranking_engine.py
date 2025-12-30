@@ -1,5 +1,9 @@
 import os
 import logging
+from datetime import datetime
+import pytz
+
+IST = pytz.timezone('Asia/Kolkata')
 
 try:
     import redis
@@ -15,6 +19,15 @@ class RankingEngine:
         # Initialize Redis
         self.use_redis = False
         self.memory_store = {}
+        
+        # User Defined Timeframe Weights
+        self.timeframe_weights = {
+            1: 1,
+            2: 1,
+            3: 2,
+            5: 2,
+            8: 3
+        }
 
         if REDIS_AVAILABLE:
             redis_url = os.getenv("REDIS_URL")
@@ -50,87 +63,138 @@ class RankingEngine:
         else:
             self.memory_store[key] = value
 
-    def process_signal(self, instrument_key, transaction_type, timeframe, leg_data):
+    def process_signal(self, underlying, transaction_type, timeframe, leg_data, now_override=None):
         """
-        Main logic for Multi-Timeframe Ranking.
-        Buy (+1) | Sell (-Timeframe)
+        Refactored Index-Based Sequential Trading with Custom Weightage.
+        underlying: 'NIFTY'
         """
-        current_rank = self._get_rank(instrument_key)
+        # 0. Market Hours Filter: Ignore signals before 09:30 IST
+        now_ist = now_override if now_override else datetime.now(IST)
+        
+        # If now_ist is naive, assume it's already in IST or local (not ideal, but common in sim)
+        if now_ist.tzinfo is None:
+             now_ist = IST.localize(now_ist)
+             
+        if now_ist.hour < 9 or (now_ist.hour == 9 and now_ist.minute < 30):
+            logger.info(f"MARKET HOUR FILTER: Ignoring signal for {underlying} at {now_ist.strftime('%H:%M:%S')} IST (Pre-09:30)")
+            return {
+                "underlying": underlying,
+                "action": "SKIPPED_MARKET_HOURS",
+                "time": now_ist.strftime('%H:%M:%S'),
+                "new_rank": self._get_rank(underlying),
+                "side": self._get_global_side()
+            }
+
+        # Get weight for the signal's timeframe
+        weight = self.timeframe_weights.get(timeframe, 1)
+
+        # 1. Manage Global Side Lock
+        current_side = self._get_global_side()
+        signal_side = leg_data.get('option_type') # 'CE' or 'PE'
+        
+        if current_side != 'NONE':
+            intended_side = 'CALL' if signal_side == 'CE' else 'PUT'
+            if current_side != intended_side:
+                logger.info(f"FLIP-FLOP LOCK: Ignoring {signal_side} signal because we are in {current_side} mode.")
+                return {"symbol": underlying, "action": f"BLOCKED_BY_{current_side}_STATE", "side": current_side}
+
+        # 2. Handle Underlying Rank
+        current_rank = self._get_rank(underlying)
         new_rank = current_rank
         action_taken = "NONE"
 
-        # Apply Logic
         if transaction_type == "B":
-            # Buy Logic: Hybrid (Jump Start, Slow Build)
             if current_rank <= 0:
-                # First Entry: Set Rank to Timeframe (e.g. 2m -> Rank 2)
-                new_rank = timeframe
-                logger.info(f"Buy Signal ({timeframe}m - INITIAL). Rank {current_rank} -> {new_rank}")
+                new_rank = weight
+                logger.info(f"Buy Signal ({timeframe}m - INITIAL, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
             else:
-                # Subsequent Entry: Add +1 only
-                new_rank += 1
-                logger.info(f"Buy Signal ({timeframe}m - ADD). Rank {current_rank} -> {new_rank}")
+                new_rank += weight
+                logger.info(f"Buy Signal ({timeframe}m - ADD, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
             
-            # Execution Logic
+            # Entry/Modify Execution
             if current_rank <= 0 and new_rank > 0:
-                # First Entry (crossed 0 threshold)
-                logger.info(f"OPENING LONG Position for {instrument_key}")
-                resp = self.broker.place_buy_order(instrument_key, leg_data)
+                side = 'CE' if signal_side == 'CE' else 'PE'
+                self._set_global_side('CALL' if side == 'CE' else 'PUT')
                 
-                if resp['success']:
-                    action_taken = "OPEN_LONG"
+                spot = leg_data.get('current_price', 0)
+                itm = self.broker.get_itm_contract(underlying, side, spot)
+                
+                if itm:
+                    # ALWAYS 1 LOT AS REQUESTED
+                    logger.info(f"OPENING {side} position via ITM selection: {itm['symbol']} (1 Lot)")
+                    resp = self.broker.place_buy_order(itm['symbol'], itm)
+                    if resp['success']:
+                        action_taken = f"OPEN_{side}"
+                        self._set_active_contract(underlying, itm['symbol'])
+                    else:
+                        logger.error(f"ENTRY FAILED: {resp['error']}")
+                        self._set_global_side('NONE')
+                        new_rank = 0
+                        action_taken = "FAILED_ENTRY"
                 else:
-                    logger.error(f"BUY FAILED: {resp['error']}. Reverting Rank to {current_rank}.")
-                    new_rank = current_rank # ROLLBACK: Pretend signal never happened
-                    action_taken = "FAILED_ENTRY"
+                    logger.error("Failed to resolve ITM contract.")
+                    self._set_global_side('NONE')
+                    new_rank = 0
+                    action_taken = "FAILED_ITM"
                     
             elif current_rank > 0:
-                # Already open, maybe pyramid?
-                logger.info(f"Rank increased {current_rank} -> {new_rank}. Holding/Pyramiding.")
                 action_taken = "HOLD_STRONG"
 
         elif transaction_type == "S":
-            # Sell Logic: -Timeframe
-            decrement = timeframe
-            new_rank -= decrement
-            logger.info(f"Sell Signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
+            new_rank -= weight
+            logger.info(f"Sell Signal ({timeframe}m, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
             
-            # Trigger Logic
             if new_rank <= 0 and current_rank > 0:
-                # Close Condition met
-                logger.info(f"Rank dropped to {new_rank} <= 0. CLOSING Position for {instrument_key}")
-                resp = self.broker.place_sell_order(instrument_key, leg_data)
+                active_contract = self._get_active_contract(underlying)
+                logger.info(f"Rank for {underlying} exhausted. CLOSING {active_contract} for current trend.")
                 
-                if resp['success']:
-                     new_rank = 0 # Clamp to 0
-                     action_taken = "CLOSE_LONG"
-                else:
-                    logger.critical(f"SELL FAILED: {resp['error']}. Keeping Rank at {current_rank} (STUCK POSITION).")
-                    # If sell fails, we are technically still holding the position.
-                    # We should probably NOT decrement the rank so the system knows we are still exposed.
-                    # Or we should keep the rank low but flag an error?
-                    # Safer to Revert Rank so the next sell signal tries again.
-                    new_rank = current_rank # ROLLBACK
-                    action_taken = "FAILED_EXIT"
-
-            elif new_rank <= 0 and current_rank <= 0:
-                 # Already flat
-                 new_rank = 0
-                 action_taken = "FLAT"
+                if active_contract:
+                    # Trigger real sell for the contract we actually bought
+                    self.broker.place_sell_order(active_contract, leg_data)
+                
+                action_taken = "CLOSE_TREND"
+                self._set_global_side('NONE')
+                self._set_active_contract(underlying, None)
+                new_rank = 0
+            elif new_rank <= 0:
+                new_rank = 0
+                action_taken = "FLAT"
             else:
-                # Still positive (e.g., 4 -> 3)
-                logger.info(f"Rank dropped but still > 0. Holding.")
                 action_taken = "WEAKEN_HOLD"
 
-        # Save State (Only if order succeeded or no trade was required)
-        if action_taken not in ["FAILED_ENTRY", "FAILED_EXIT"]:
-            self._set_rank(instrument_key, new_rank)
-        else:
-             logger.info(f"Skipping State Update due to Failure. Rank remains {self._get_rank(instrument_key)}")
-        
+        self._set_rank(underlying, new_rank)
         return {
-            "symbol": instrument_key,
+            "underlying": underlying,
             "old_rank": current_rank,
             "new_rank": new_rank,
-            "action": action_taken
+            "action": action_taken,
+            "side": self._get_global_side()
         }
+
+    def _get_global_side(self):
+        if self.use_redis:
+            val = self.r.get("trading_side")
+            return val if val else 'NONE'
+        else:
+            return self.memory_store.get("trading_side", 'NONE')
+
+    def _set_global_side(self, side):
+        logger.info(f"Global Trading Side set to: {side}")
+        if self.use_redis:
+            self.r.set("trading_side", side)
+        else:
+            self.memory_store["trading_side"] = side
+
+    def _get_active_contract(self, underlying):
+        if self.use_redis:
+            return self.r.get(f"active_contract:{underlying}")
+        else:
+            return self.memory_store.get(f"active_contract:{underlying}")
+
+    def _set_active_contract(self, underlying, contract):
+        if self.use_redis:
+            if contract: self.r.set(f"active_contract:{underlying}", contract)
+            else: self.r.delete(f"active_contract:{underlying}")
+        else:
+            if contract: self.memory_store[f"active_contract:{underlying}"] = contract
+            else: self.memory_store.pop(f"active_contract:{underlying}", None)

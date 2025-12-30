@@ -168,6 +168,60 @@ class DhanClient:
         except Exception as e:
             logger.error(f"Error parsing CSV: {e}")
 
+    def get_nearest_expiry(self, symbol):
+        """
+        Finds the closest expiry date for the given symbol in the scrip map.
+        """
+        expiries = set()
+        for key in self.scrip_map.keys():
+            if key[0] == symbol:
+                expiries.add(key[3])
+        
+        if not expiries:
+            return None
+            
+        # Sort YYYY-MM-DD
+        sorted_exp = sorted(list(expiries))
+        # Return the first one (nearest)
+        return sorted_exp[0]
+
+    def get_itm_contract(self, underlying, side, spot_price):
+        """
+        Determines the best ITM strike and returns the security ID.
+        CE ITM = Spot - 100
+        PE ITM = Spot + 100
+        """
+        try:
+            spot = float(spot_price)
+            # Round to nearest 50
+            atm_strike = round(spot / 50) * 50
+            
+            if side == 'CE':
+                strike = atm_strike - 100
+            else:
+                strike = atm_strike + 100
+                
+            expiry = self.get_nearest_expiry(underlying)
+            if not expiry:
+                logger.error(f"No expiry found for {underlying}")
+                return None
+            
+            sec_id = self._get_security_id(underlying, strike, side, expiry)
+            if sec_id:
+                logger.info(f"Selected ITM for {underlying} ({side}): {strike} Exp: {expiry} -> ID: {sec_id}")
+                return {
+                    "security_id": sec_id,
+                    "strike": strike,
+                    "expiry": expiry,
+                    "symbol": f"{underlying}_{int(strike)}_{side}"
+                }
+            else:
+                logger.error(f"Could not find exact ITM contract for {underlying} {strike} {side} {expiry}")
+                return None
+        except Exception as e:
+            logger.error(f"Error in ITM Selection: {e}")
+            return None
+
     def _get_security_id(self, symbol, strike, opt_type, expiry):
         """
         Look up Security ID from the loaded map.
@@ -235,14 +289,14 @@ class DhanClient:
             logger.info(f"$$$ [BROKER] PLACING {transaction_type} ORDER: {lots} Lots ({final_qty} units) x {symbol} (ID: {sec_id}, LotSize: {lot_size}) $$$")
 
             if self.dhan and not self.dry_run:
-                # Real API Call
+                # Real API Call (Normal Order)
                 resp = self.dhan.place_order(
                     security_id=sec_id,
                     exchange_segment=ExchangeSegment.NSE_FNO,
                     transaction_type=transaction_type,
                     quantity=final_qty,
                     order_type=OrderType.MARKET,
-                    product_type=ProductType.INTRADAY, # Assuming Intraday based on user flow
+                    product_type=ProductType.INTRADAY, 
                     price=0,
                     validity=Validity.DAY
                 )
