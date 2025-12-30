@@ -97,8 +97,15 @@ def simulate():
                     transaction_type = leg.get('transactionType')
                     current_price = float(leg.get('current_price', 0))
                     
+                    # Parse Time for Engine Filter
+                    # 2025-12-30T09:15:00Z -> datetime
+                    try:
+                        dt_obj = datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%SZ")
+                    except:
+                        dt_obj = None
+
                     # Process Signal (Index Mode)
-                    res = engine.process_signal(underlying, transaction_type, int(timeframe), leg)
+                    res = engine.process_signal(underlying, transaction_type, int(timeframe), leg, now_override=dt_obj)
                     
                     action = res['action']
                     new_rank = res.get('new_rank', 0)

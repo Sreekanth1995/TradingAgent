@@ -1,5 +1,9 @@
 import os
 import logging
+from datetime import datetime
+import pytz
+
+IST = pytz.timezone('Asia/Kolkata')
 
 try:
     import redis
@@ -52,11 +56,28 @@ class RankingEngine:
         else:
             self.memory_store[key] = value
 
-    def process_signal(self, underlying, transaction_type, timeframe, leg_data):
+    def process_signal(self, underlying, transaction_type, timeframe, leg_data, now_override=None):
         """
         Refactored Index-Based Sequential Trading with Custom Weightage.
         underlying: 'NIFTY'
         """
+        # 0. Market Hours Filter: Ignore signals before 09:30 IST
+        now_ist = now_override if now_override else datetime.now(IST)
+        
+        # If now_ist is naive, assume it's already in IST or local (not ideal, but common in sim)
+        if now_ist.tzinfo is None:
+             now_ist = IST.localize(now_ist)
+             
+        if now_ist.hour < 9 or (now_ist.hour == 9 and now_ist.minute < 30):
+            logger.info(f"MARKET HOUR FILTER: Ignoring signal for {underlying} at {now_ist.strftime('%H:%M:%S')} IST (Pre-09:30)")
+            return {
+                "underlying": underlying,
+                "action": "SKIPPED_MARKET_HOURS",
+                "time": now_ist.strftime('%H:%M:%S'),
+                "new_rank": self._get_rank(underlying),
+                "side": self._get_global_side()
+            }
+
         # Get weight for the signal's timeframe
         weight = self.timeframe_weights.get(timeframe, 1)
 
