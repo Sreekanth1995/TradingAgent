@@ -97,6 +97,7 @@ class RankingEngine:
                     resp = self.broker.place_buy_order(itm['symbol'], itm)
                     if resp['success']:
                         action_taken = f"OPEN_{side}"
+                        self._set_active_contract(underlying, itm['symbol'])
                     else:
                         logger.error(f"ENTRY FAILED: {resp['error']}")
                         self._set_global_side('NONE')
@@ -116,9 +117,16 @@ class RankingEngine:
             logger.info(f"Sell Signal ({timeframe}m, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
             
             if new_rank <= 0 and current_rank > 0:
-                logger.info(f"Rank for {underlying} exhausted. CLOSING all positions for current trend.")
+                active_contract = self._get_active_contract(underlying)
+                logger.info(f"Rank for {underlying} exhausted. CLOSING {active_contract} for current trend.")
+                
+                if active_contract:
+                    # Trigger real sell for the contract we actually bought
+                    self.broker.place_sell_order(active_contract, leg_data)
+                
                 action_taken = "CLOSE_TREND"
                 self._set_global_side('NONE')
+                self._set_active_contract(underlying, None)
                 new_rank = 0
             elif new_rank <= 0:
                 new_rank = 0
@@ -148,3 +156,17 @@ class RankingEngine:
             self.r.set("trading_side", side)
         else:
             self.memory_store["trading_side"] = side
+
+    def _get_active_contract(self, underlying):
+        if self.use_redis:
+            return self.r.get(f"active_contract:{underlying}")
+        else:
+            return self.memory_store.get(f"active_contract:{underlying}")
+
+    def _set_active_contract(self, underlying, contract):
+        if self.use_redis:
+            if contract: self.r.set(f"active_contract:{underlying}", contract)
+            else: self.r.delete(f"active_contract:{underlying}")
+        else:
+            if contract: self.memory_store[f"active_contract:{underlying}"] = contract
+            else: self.memory_store.pop(f"active_contract:{underlying}", None)
