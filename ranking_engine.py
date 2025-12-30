@@ -15,6 +15,15 @@ class RankingEngine:
         # Initialize Redis
         self.use_redis = False
         self.memory_store = {}
+        
+        # User Defined Timeframe Weights
+        self.timeframe_weights = {
+            1: 1,
+            2: 1,
+            3: 2,
+            5: 2,
+            8: 3
+        }
 
         if REDIS_AVAILABLE:
             redis_host = os.getenv("REDIS_HOST", "localhost")
@@ -29,137 +38,113 @@ class RankingEngine:
         else:
             logger.warning("Redis library not installed. Using in-memory storage (NOT PERSISTENT).")
 
-    def _get_active_instruments(self, underlying, side):
-        """Returns a set of active instrument keys for a given underlying and side."""
+    def _get_rank(self, key):
         if self.use_redis:
-            val = self.r.smembers(f"active_instruments:{underlying}:{side}")
-            return set(val) if val else set()
+            val = self.r.get(f"rank:{key}")
+            return int(val) if val else 0
         else:
-            return self.memory_store.get(f"active_instruments:{underlying}:{side}", set())
+            return self.memory_store.get(key, 0)
 
-    def _add_active_instrument(self, underlying, side, instrument_key):
-        """Adds an instrument to the active set for a given side."""
+    def _set_rank(self, key, value):
+        logger.info(f"Setting Rank for {key} to {value}")
         if self.use_redis:
-            self.r.sadd(f"active_instruments:{underlying}:{side}", instrument_key)
+            self.r.set(f"rank:{key}", value)
         else:
-            if f"active_instruments:{underlying}:{side}" not in self.memory_store:
-                self.memory_store[f"active_instruments:{underlying}:{side}"] = set()
-            self.memory_store[f"active_instruments:{underlying}:{side}"].add(instrument_key)
+            self.memory_store[key] = value
 
-    def _remove_active_instrument(self, underlying, side, instrument_key):
-        """Removes an instrument from the active set for a given side."""
-        if self.use_redis:
-            self.r.srem(f"active_instruments:{underlying}:{side}", instrument_key)
-        else:
-            active_set = self.memory_store.get(f"active_instruments:{underlying}:{side}", set())
-            if instrument_key in active_set:
-                active_set.remove(instrument_key)
-
-    def process_signal(self, instrument_key, transaction_type, timeframe, leg_data):
+    def process_signal(self, underlying, transaction_type, timeframe, leg_data):
         """
-        Main logic for Multi-Timeframe Ranking.
-        Buy (+1) | Sell (-Timeframe)
-        Includes Mutual Exclusion: Cannot open a side if the opposite side is active.
+        Refactored Index-Based Sequential Trading with Custom Weightage.
+        underlying: 'NIFTY'
         """
-        current_rank = self._get_rank(instrument_key)
+        # Get weight for the signal's timeframe
+        weight = self.timeframe_weights.get(timeframe, 1)
+
+        # 1. Manage Global Side Lock
+        current_side = self._get_global_side()
+        signal_side = leg_data.get('option_type') # 'CE' or 'PE'
+        
+        if current_side != 'NONE':
+            intended_side = 'CALL' if signal_side == 'CE' else 'PUT'
+            if current_side != intended_side:
+                logger.info(f"FLIP-FLOP LOCK: Ignoring {signal_side} signal because we are in {current_side} mode.")
+                return {"symbol": underlying, "action": f"BLOCKED_BY_{current_side}_STATE", "side": current_side}
+
+        # 2. Handle Underlying Rank
+        current_rank = self._get_rank(underlying)
         new_rank = current_rank
         action_taken = "NONE"
 
-        # 1. Identify Side and Underlying for Mutual Exclusion
-        option_type = leg_data.get('option_type') # 'CE' or 'PE'
-        underlying = leg_data.get('symbol')      # 'NIFTY', etc.
-        
-        # Determine counterpart
-        counterpart_side = None
-        if option_type == 'CE':
-            counterpart_side = 'PE'
-        elif option_type == 'PE':
-            counterpart_side = 'CE'
-
-        # Apply Logic
         if transaction_type == "B":
-            # Mutual Exclusion Check: Only for NEW entries
-            if current_rank <= 0 and counterpart_side and underlying:
-                active_counterparts = self._get_active_instruments(underlying, counterpart_side)
-                if active_counterparts:
-                    logger.warning(f"MUTUAL EXCLUSION: Blocking {option_type} entry for {underlying} because {counterpart_side} is active: {active_counterparts}")
-                    return {
-                        "symbol": instrument_key,
-                        "old_rank": current_rank,
-                        "new_rank": current_rank,
-                        "action": "BLOCKED_BY_MUTUAL_EXCLUSION"
-                    }
-
-            # Buy Logic: Hybrid (Jump Start, Slow Build)
             if current_rank <= 0:
-                # First Entry: Set Rank to Timeframe (e.g. 2m -> Rank 2)
-                new_rank = timeframe
-                logger.info(f"Buy Signal ({timeframe}m - INITIAL). Rank {current_rank} -> {new_rank}")
+                new_rank = weight
+                logger.info(f"Buy Signal ({timeframe}m - INITIAL, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
             else:
-                # Subsequent Entry: Add +1 only
-                new_rank += 1
-                logger.info(f"Buy Signal ({timeframe}m - ADD). Rank {current_rank} -> {new_rank}")
+                new_rank += weight
+                logger.info(f"Buy Signal ({timeframe}m - ADD, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
             
-            # Execution Logic
+            # Entry/Modify Execution
             if current_rank <= 0 and new_rank > 0:
-                # First Entry (crossed 0 threshold)
-                logger.info(f"OPENING LONG Position for {instrument_key}")
-                resp = self.broker.place_buy_order(instrument_key, leg_data)
+                side = 'CE' if signal_side == 'CE' else 'PE'
+                self._set_global_side('CALL' if side == 'CE' else 'PUT')
                 
-                if resp['success']:
-                    action_taken = "OPEN_LONG"
-                    if option_type and underlying:
-                        self._add_active_instrument(underlying, option_type, instrument_key)
+                spot = leg_data.get('current_price', 0)
+                itm = self.broker.get_itm_contract(underlying, side, spot)
+                
+                if itm:
+                    # ALWAYS 1 LOT AS REQUESTED
+                    logger.info(f"OPENING {side} position via ITM selection: {itm['symbol']} (1 Lot)")
+                    resp = self.broker.place_buy_order(itm['symbol'], itm)
+                    if resp['success']:
+                        action_taken = f"OPEN_{side}"
+                    else:
+                        logger.error(f"ENTRY FAILED: {resp['error']}")
+                        self._set_global_side('NONE')
+                        new_rank = 0
+                        action_taken = "FAILED_ENTRY"
                 else:
-                    logger.error(f"BUY FAILED: {resp['error']}. Reverting Rank to {current_rank}.")
-                    new_rank = current_rank # ROLLBACK: Pretend signal never happened
-                    action_taken = "FAILED_ENTRY"
+                    logger.error("Failed to resolve ITM contract.")
+                    self._set_global_side('NONE')
+                    new_rank = 0
+                    action_taken = "FAILED_ITM"
                     
             elif current_rank > 0:
-                # Already open, maybe pyramid?
-                logger.info(f"Rank increased {current_rank} -> {new_rank}. Holding/Pyramiding.")
                 action_taken = "HOLD_STRONG"
 
         elif transaction_type == "S":
-            # Sell Logic: -Timeframe
-            decrement = timeframe
-            new_rank -= decrement
-            logger.info(f"Sell Signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
+            new_rank -= weight
+            logger.info(f"Sell Signal ({timeframe}m, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
             
-            # Trigger Logic
             if new_rank <= 0 and current_rank > 0:
-                # Close Condition met
-                logger.info(f"Rank dropped to {new_rank} <= 0. CLOSING Position for {instrument_key}")
-                resp = self.broker.place_sell_order(instrument_key, leg_data)
-                
-                if resp['success']:
-                     new_rank = 0 # Clamp to 0
-                     action_taken = "CLOSE_LONG"
-                     if option_type and underlying:
-                         self._remove_active_instrument(underlying, option_type, instrument_key)
-                else:
-                    logger.critical(f"SELL FAILED: {resp['error']}. Keeping Rank at {current_rank} (STUCK POSITION).")
-                    new_rank = current_rank # ROLLBACK
-                    action_taken = "FAILED_EXIT"
-
-            elif new_rank <= 0 and current_rank <= 0:
-                 # Already flat
-                 new_rank = 0
-                 action_taken = "FLAT"
+                logger.info(f"Rank for {underlying} exhausted. CLOSING all positions for current trend.")
+                action_taken = "CLOSE_TREND"
+                self._set_global_side('NONE')
+                new_rank = 0
+            elif new_rank <= 0:
+                new_rank = 0
+                action_taken = "FLAT"
             else:
-                # Still positive (e.g., 4 -> 3)
-                logger.info(f"Rank dropped but still > 0. Holding.")
                 action_taken = "WEAKEN_HOLD"
 
-        # Save State (Only if order succeeded or no trade was required)
-        if action_taken not in ["FAILED_ENTRY", "FAILED_EXIT", "BLOCKED_BY_MUTUAL_EXCLUSION"]:
-            self._set_rank(instrument_key, new_rank)
-        else:
-             logger.info(f"Skipping State Update due to Failure/Block. Rank remains {self._get_rank(instrument_key)}")
-        
+        self._set_rank(underlying, new_rank)
         return {
-            "symbol": instrument_key,
+            "underlying": underlying,
             "old_rank": current_rank,
             "new_rank": new_rank,
-            "action": action_taken
+            "action": action_taken,
+            "side": self._get_global_side()
         }
+
+    def _get_global_side(self):
+        if self.use_redis:
+            val = self.r.get("trading_side")
+            return val if val else 'NONE'
+        else:
+            return self.memory_store.get("trading_side", 'NONE')
+
+    def _set_global_side(self, side):
+        logger.info(f"Global Trading Side set to: {side}")
+        if self.use_redis:
+            self.r.set("trading_side", side)
+        else:
+            self.memory_store["trading_side"] = side

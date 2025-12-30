@@ -100,33 +100,26 @@ def webhook():
                 if match:
                     groups = match.groups()
                     leg['symbol'] = groups[0]
-                    leg['expiry_date'] = f"20{groups[1]}-{groups[2]}-{groups[3]}"
                     leg['option_type'] = "CE" if groups[4] == "C" else "PE"
                     leg['strike_price'] = groups[5]
-                    logger.info(f"Parsed Ticker {ticker} -> {leg['symbol']} {leg['strike_price']} {leg['option_type']} Exp:{leg['expiry_date']}")
-                else:
-                    logger.warning(f"Could not parse ticker: {ticker}. Using existing fields.")
-
-            symbol = leg.get('symbol')
-            if not symbol:
-                 logger.error(f"Missing Symbol for leg: {leg}")
-                 results.append({"error": "Missing Symbol", "leg": leg})
+            
+            underlying = leg.get('symbol') or leg.get('underlying')
+            if not underlying:
+                 logger.error(f"Missing Underlying for leg: {leg}")
+                 results.append({"error": "Missing Underlying", "leg": leg})
                  failure_count += 1
                  continue
             
-            # Construct Unique Key
-            instrument_key = f"{symbol}_{leg.get('strike_price')}_{leg.get('option_type')}"
             transaction_type = leg.get('transactionType')
+            logger.info(f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe")
             
-            logger.info(f"Received Signal: {transaction_type} for {instrument_key} on {timeframe}m timeframe")
-            
-            # 3. Process with Ranking Engine
-            action = engine.process_signal(instrument_key, transaction_type, int(timeframe), leg)
+            # 3. Process with Ranking Engine (Index-Based)
+            action = engine.process_signal(underlying, transaction_type, int(timeframe), leg)
             results.append(action)
             
             # Check for Logic Failures
             if action.get('action', '').startswith("FAILED"):
-                logger.error(f"Processing Failed for {instrument_key}: {action}")
+                logger.error(f"Processing Failed for {underlying}: {action}")
                 failure_count += 1
 
         if failure_count > 0:
