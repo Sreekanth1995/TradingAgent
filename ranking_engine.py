@@ -101,7 +101,7 @@ class RankingEngine:
                 new_rank = weight
                 logger.info(f"Buy Signal ({timeframe}m - INITIAL, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
             else:
-                new_rank += weight
+                new_rank += 1
                 logger.info(f"Buy Signal ({timeframe}m - ADD, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
             
             # Entry/Modify Execution
