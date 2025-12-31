@@ -91,9 +91,6 @@ def simulate():
                     else:
                          underlying = "NIFTY"
                     
-                    # Determine signal side from alert name if not explicitly CE/PE in leg
-                    leg['option_type'] = "CE" if "CALL" in alert_name.upper() else "PE"
-
                     transaction_type = leg.get('transactionType')
                     current_price = float(leg.get('current_price', 0))
                     

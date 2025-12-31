@@ -58,13 +58,12 @@ class RankingEngine:
 
     def process_signal(self, underlying, transaction_type, timeframe, leg_data, now_override=None):
         """
-        Refactored Index-Based Sequential Trading with Custom Weightage.
-        underlying: 'NIFTY'
+        Refactored Index-Based Sequential Trading with Intelligent Side Inference.
+        transaction_type: 'B' (Bullish/Long Bias), 'S' (Bearish/Short Bias)
         """
         # 0. Market Hours Filter: Ignore signals before 09:30 IST
         now_ist = now_override if now_override else datetime.now(IST)
         
-        # If now_ist is naive, assume it's already in IST or local (not ideal, but common in sim)
         if now_ist.tzinfo is None:
              now_ist = IST.localize(now_ist)
              
@@ -80,80 +79,95 @@ class RankingEngine:
 
         # Get weight for the signal's timeframe
         weight = self.timeframe_weights.get(timeframe, 1)
-
-        # 1. Manage Global Side Lock
         current_side = self._get_global_side()
-        signal_side = leg_data.get('option_type') # 'CE' or 'PE'
-        
-        if current_side != 'NONE':
-            intended_side = 'CALL' if signal_side == 'CE' else 'PUT'
-            if current_side != intended_side:
-                logger.info(f"FLIP-FLOP LOCK: Ignoring {signal_side} signal because we are in {current_side} mode.")
-                return {"symbol": underlying, "action": f"BLOCKED_BY_{current_side}_STATE", "side": current_side}
-
-        # 2. Handle Underlying Rank
         current_rank = self._get_rank(underlying)
         new_rank = current_rank
         action_taken = "NONE"
 
-        if transaction_type == "B":
-            if current_rank <= 0:
+        # 1. State: IDLE (NONE)
+        if current_side == 'NONE':
+            if transaction_type == "B":
+                # Start CALL Trend
                 new_rank = weight
-                logger.info(f"Buy Signal ({timeframe}m - INITIAL, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
+                side_to_set = 'CALL'
+                option_type = 'CE'
+                logger.info(f"START CALL: Bullish signal ({timeframe}m) detected. Rank 0 -> {new_rank}")
+            elif transaction_type == "S":
+                # Start PUT Trend
+                new_rank = weight
+                side_to_set = 'PUT'
+                option_type = 'PE'
+                logger.info(f"START PUT: Bearish signal ({timeframe}m) detected. Rank 0 -> {new_rank}")
             else:
-                new_rank += 1
-                logger.info(f"Buy Signal ({timeframe}m - ADD, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
+                return {"underlying": underlying, "action": "INVALID_TX"}
+
+            # Execute Entry
+            self._set_global_side(side_to_set)
+            spot = leg_data.get('current_price', 0)
+            itm = self.broker.get_itm_contract(underlying, option_type, spot)
             
-            # Entry/Modify Execution
-            if current_rank <= 0 and new_rank > 0:
-                side = 'CE' if signal_side == 'CE' else 'PE'
-                self._set_global_side('CALL' if side == 'CE' else 'PUT')
-                
-                spot = leg_data.get('current_price', 0)
-                itm = self.broker.get_itm_contract(underlying, side, spot)
-                
-                if itm:
-                    # ALWAYS 1 LOT AS REQUESTED
-                    logger.info(f"OPENING {side} position via ITM selection: {itm['symbol']} (1 Lot)")
-                    resp = self.broker.place_buy_order(itm['symbol'], itm)
-                    if resp['success']:
-                        action_taken = f"OPEN_{side}"
-                        self._set_active_contract(underlying, itm['symbol'])
-                    else:
-                        logger.error(f"ENTRY FAILED: {resp['error']}")
-                        self._set_global_side('NONE')
-                        new_rank = 0
-                        action_taken = "FAILED_ENTRY"
+            if itm:
+                logger.info(f"OPENING {side_to_set} ({option_type}) position: {itm['symbol']} (1 Lot)")
+                resp = self.broker.place_buy_order(itm['symbol'], itm)
+                if resp['success']:
+                    action_taken = f"OPEN_{side_to_set}"
+                    self._set_active_contract(underlying, itm['symbol'])
                 else:
-                    logger.error("Failed to resolve ITM contract.")
+                    logger.error(f"ENTRY FAILED: {resp['error']}")
                     self._set_global_side('NONE')
                     new_rank = 0
-                    action_taken = "FAILED_ITM"
-                    
-            elif current_rank > 0:
-                action_taken = "HOLD_STRONG"
-
-        elif transaction_type == "S":
-            new_rank -= weight
-            logger.info(f"Sell Signal ({timeframe}m, Weight:{weight}). Index {underlying} Rank {current_rank} -> {new_rank}")
-            
-            if new_rank <= 0 and current_rank > 0:
-                active_contract = self._get_active_contract(underlying)
-                logger.info(f"Rank for {underlying} exhausted. CLOSING {active_contract} for current trend.")
-                
-                if active_contract:
-                    # Trigger real sell for the contract we actually bought
-                    self.broker.place_sell_order(active_contract, leg_data)
-                
-                action_taken = "CLOSE_TREND"
-                self._set_global_side('NONE')
-                self._set_active_contract(underlying, None)
-                new_rank = 0
-            elif new_rank <= 0:
-                new_rank = 0
-                action_taken = "FLAT"
+                    action_taken = "FAILED_ENTRY"
             else:
-                action_taken = "WEAKEN_HOLD"
+                logger.error("Failed to resolve ITM contract.")
+                self._set_global_side('NONE')
+                new_rank = 0
+                action_taken = "FAILED_ITM"
+
+        # 2. State: ACTIVE CALL
+        elif current_side == 'CALL':
+            if transaction_type == "B":
+                # Pyramiding (Bullish signal in Bullish trend)
+                new_rank += 1
+                logger.info(f"UPHOLD CALL: Signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
+                action_taken = "HOLD_STRONG"
+            elif transaction_type == "S":
+                # Hard Exit or Decay
+                if timeframe == 0:
+                    new_rank = 0
+                    logger.warning("HARD EXIT: Closing CALL trend immediately.")
+                else:
+                    new_rank -= weight
+                    logger.info(f"DECAY CALL: Bearish signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
+                
+                if new_rank <= 0 and current_rank > 0:
+                    self._close_active_trend(underlying, leg_data)
+                    action_taken = "CLOSE_TREND"
+                    new_rank = 0
+                else:
+                    action_taken = "WEAKEN_HOLD"
+
+        # 3. State: ACTIVE PUT
+        elif current_side == 'PUT':
+            if transaction_type == "S":
+                # Pyramiding (Bearish signal in Bearish trend)
+                new_rank += 1
+                logger.info(f"UPHOLD PUT: Signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
+                action_taken = "HOLD_STRONG"
+            elif transaction_type == "B":
+                # Hard Exit or Decay
+                if timeframe == 0:
+                    new_rank = 0
+                    logger.warning("HARD EXIT: Closing PUT trend immediately.")
+                else:
+                    new_rank -= weight
+                    logger.info(f"DECAY PUT: Bullish signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
+                
+                if new_rank <= 0 and current_rank > 0:
+                    self._close_active_trend(underlying, leg_data)
+                    action_taken = "CLOSE_TREND"
+                    new_rank = 0
+                else:
+                    action_taken = "WEAKEN_HOLD"
 
         self._set_rank(underlying, new_rank)
         return {
