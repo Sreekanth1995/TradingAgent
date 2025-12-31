@@ -111,7 +111,11 @@ class RankingEngine:
                 resp = self.broker.place_buy_order(itm['symbol'], itm)
                 if resp['success']:
                     action_taken = f"OPEN_{side_to_set}"
-                    self._set_active_contract(underlying, itm['symbol'])
+                    # Store both symbol and security_id
+                    self._set_active_contract(underlying, {
+                        "symbol": itm['symbol'],
+                        "security_id": itm['security_id']
+                    })
                 else:
                     logger.error(f"ENTRY FAILED: {resp['error']}")
                     self._set_global_side('NONE')
@@ -192,16 +196,36 @@ class RankingEngine:
         else:
             self.memory_store["trading_side"] = side
 
-    def _get_active_contract(self, underlying):
-        if self.use_redis:
-            return self.r.get(f"active_contract:{underlying}")
-        else:
-            return self.memory_store.get(f"active_contract:{underlying}")
+    def _close_active_trend(self, underlying, leg_data):
+        """Helper to close the active contract and reset state."""
+        contract_data = self._get_active_contract(underlying)
+        if contract_data:
+            symbol = contract_data.get('symbol')
+            # Pass the contract data (including security_id) to the broker
+            logger.info(f"Exhausting trend. Closing {symbol}")
+            self.broker.place_sell_order(symbol, contract_data)
+        
+        self._set_global_side('NONE')
+        self._set_active_contract(underlying, None)
 
-    def _set_active_contract(self, underlying, contract):
+    def _get_active_contract(self, underlying):
+        import json
         if self.use_redis:
-            if contract: self.r.set(f"active_contract:{underlying}", contract)
-            else: self.r.delete(f"active_contract:{underlying}")
+            val = self.r.get(f"active_contract:{underlying}")
+            return json.loads(val) if val else None
         else:
-            if contract: self.memory_store[f"active_contract:{underlying}"] = contract
-            else: self.memory_store.pop(f"active_contract:{underlying}", None)
+            val = self.memory_store.get(f"active_contract:{underlying}")
+            return json.loads(val) if val else None
+
+    def _set_active_contract(self, underlying, contract_dict):
+        import json
+        if self.use_redis:
+            if contract_dict: 
+                self.r.set(f"active_contract:{underlying}", json.dumps(contract_dict))
+            else: 
+                self.r.delete(f"active_contract:{underlying}")
+        else:
+            if contract_dict: 
+                self.memory_store[f"active_contract:{underlying}"] = json.dumps(contract_dict)
+            else: 
+                self.memory_store.pop(f"active_contract:{underlying}", None)

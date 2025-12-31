@@ -237,11 +237,13 @@ class DhanClient:
             qty = int(leg_data.get('quantity', 1))
             
             # 1. Resolve Security ID
-            base_symbol = leg_data.get('symbol', symbol)
-            strike = leg_data.get('strike_price')
-            opt_type = leg_data.get('option_type')
-            expiry = leg_data.get('expiry_date')
-            sec_id = self._get_security_id(base_symbol, strike, opt_type, expiry)
+            sec_id = leg_data.get('security_id')
+            if not sec_id:
+                base_symbol = leg_data.get('symbol', symbol)
+                strike = leg_data.get('strike_price')
+                opt_type = leg_data.get('option_type')
+                expiry = leg_data.get('expiry_date')
+                sec_id = self._get_security_id(base_symbol, strike, opt_type, expiry)
             
             # 2. Convert Lots to actual Quantity
             lots = int(leg_data.get('quantity', 1))
