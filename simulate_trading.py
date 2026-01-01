@@ -78,7 +78,7 @@ def simulate():
     print("-" * 90)
 
     try:
-        with open('test_data.csv', mode='r') as f:
+        with open('test_data_2.csv', mode='r') as f:
             reader = csv.DictReader(f)
             rows = list(reader)[::-1]
 
