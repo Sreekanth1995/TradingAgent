@@ -4,6 +4,7 @@ import logging
 import re
 import os
 from datetime import datetime
+import pytz
 from ranking_engine import RankingEngine
 
 # Configure Logging
@@ -47,7 +48,15 @@ class MockBroker:
         
         if instrument_key in self.positions and self.positions[instrument_key]['qty'] > 0:
             pos = self.positions[instrument_key]
-            pnl = (price - pos['avg_price']) * pos['qty']
+            
+            # PnL Calculation (Spot Proxy)
+            # CALL: (Exit - Entry) * Qty
+            # PUT:  (Entry - Exit) * Qty (Inverse PnL)
+            if 'PE' in instrument_key or 'PUT' in instrument_key:
+                 pnl = (pos['avg_price'] - price) * pos['qty']
+            else:
+                 pnl = (price - pos['avg_price']) * pos['qty']
+
             self.total_pnl += pnl
             self.trade_log.append(f"CLOSE {instrument_key} @ {price} | PnL: {pnl:.2f}")
             del self.positions[instrument_key]
@@ -71,7 +80,7 @@ def simulate():
     try:
         with open('test_data_2.csv', mode='r') as f:
             reader = csv.DictReader(f)
-            rows = sorted(list(reader), key=lambda x: x['Time'])
+            rows = list(reader)[::-1]
 
             for row in rows:
                 time_str = row['Time']
@@ -97,7 +106,10 @@ def simulate():
                     # Parse Time for Engine Filter
                     # 2025-12-30T09:15:00Z -> datetime
                     try:
-                        dt_obj = datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%SZ")
+                        # Parse as UTC
+                        dt_utc = datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=pytz.UTC)
+                        # Convert to IST
+                        dt_obj = dt_utc.astimezone(pytz.timezone('Asia/Kolkata'))
                     except:
                         dt_obj = None
 
@@ -109,6 +121,16 @@ def simulate():
                     side = res.get('side', 'NONE')
                     
                     print(f"{time_str:<20} | {underlying:<6} | {current_price:<8.2f} | {side:<5} | {new_rank:<5} | {action:<25}")
+
+            # End of Data Cleanup: Close any open positions
+            print("-" * 30)
+            print("End of Simulation: Closing open positions...")
+            for key in list(broker.positions.keys()):
+                 # Use the last known price from the final row
+                 # Warning: This assumes 'current_price' is available from the last iteration
+                 # We construct a dummy leg_data with the last price
+                 logger.info(f"Force Closing {key} at {current_price}")
+                 broker.place_sell_order(key, {'current_price': current_price})
 
     except FileNotFoundError:
         print("Error: test_data_2.csv not found.")

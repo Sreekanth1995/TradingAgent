@@ -114,6 +114,7 @@ class RankingEngine:
             itm = self.broker.get_itm_contract(underlying, option_type, spot)
             
             if itm:
+                itm['current_price'] = spot # Inject Spot Price for Mock Broker
                 logger.info(f"OPENING {side_to_set} ({option_type}) position: {itm['symbol']} (1 Lot)")
                 resp = self.broker.place_buy_order(itm['symbol'], itm)
                 if resp['success']:
@@ -210,6 +211,10 @@ class RankingEngine:
             symbol = contract_data.get('symbol')
             # Pass the contract data (including security_id) to the broker
             logger.info(f"Exhausting trend. Closing {symbol}")
+            # Inject current price for PnL
+            current_price = leg_data.get('current_price', 0)
+            contract_data['current_price'] = current_price
+            
             self.broker.place_sell_order(symbol, contract_data)
         
         self._set_global_side('NONE')
