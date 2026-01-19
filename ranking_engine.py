@@ -19,6 +19,7 @@ class RankingEngine:
         # Initialize Redis
         self.use_redis = False
         self.memory_store = {}
+        self.last_signals = {}  # Store last signal per underlying
         
         # User Defined Timeframe Weights
         self.timeframe_weights = {
@@ -56,26 +57,85 @@ class RankingEngine:
         else:
             self.memory_store[key] = value
 
+    def _open_new_trend(self, underlying, side, rank, leg_data, flip=False):
+        """Helper to resolve ITM and place buy order."""
+        option_type = 'CE' if side == 'CALL' else 'PE'
+        self._set_global_side(side)
+        self._set_rank(underlying, rank)
+        
+        spot = leg_data.get('current_price', 0)
+        itm = self.broker.get_itm_contract(underlying, option_type, spot)
+        
+        prefix = "FLIP OPEN" if flip else "START"
+        if itm:
+            itm['current_price'] = spot
+            logger.info(f"{prefix} {side}: {itm['symbol']} at {spot}")
+            resp = self.broker.place_buy_order(itm['symbol'], itm)
+            if resp['success']:
+                self._set_active_contract(underlying, {
+                    "symbol": itm['symbol'],
+                    "security_id": itm['security_id']
+                })
+                return f"OPEN_{side}"
+            else:
+                logger.error(f"ENTRY FAILED: {resp['error']}")
+                self._set_global_side('NONE')
+                self._set_rank(underlying, 0)
+                return "FAILED_ENTRY"
+        else:
+            logger.error("Failed to resolve ITM contract.")
+            self._set_global_side('NONE')
+            self._set_rank(underlying, 0)
+            return "FAILED_ITM"
+
     def process_signal(self, underlying, transaction_type, timeframe, leg_data, now_override=None):
         """
         Refactored Index-Based Sequential Trading with Intelligent Side Inference.
         transaction_type: 'B' (Bullish/Long Bias), 'S' (Bearish/Short Bias)
         """
-        # 0. Market Hours Filter: Ignore signals before 09:30 IST
+        # 0. Market Hours and Daily Square-off
         now_ist = now_override if now_override else datetime.now(IST)
-        
         if now_ist.tzinfo is None:
              now_ist = IST.localize(now_ist)
+
+        is_market_open = (now_ist.hour > 9 or (now_ist.hour == 9 and now_ist.minute >= 30))
+        is_market_closing = (now_ist.hour > 15 or (now_ist.hour == 15 and now_ist.minute >= 25))
              
-        if now_ist.hour < 9 or (now_ist.hour == 9 and now_ist.minute < 30):
-            logger.info(f"MARKET HOUR FILTER: Ignoring signal for {underlying} at {now_ist.strftime('%H:%M:%S')} IST (Pre-09:30)")
+        # Daily Square-off After 15:25 IST
+        if is_market_closing:
+            current_side = self._get_global_side()
+            if current_side != 'NONE':
+                logger.info(f"DAILY SQUARE-OFF: Time {now_ist.strftime('%H:%M:%S')} IST is past 15:25. Closing position.")
+                self._close_active_trend(underlying, leg_data, now_ist)
+                return {
+                    "underlying": underlying,
+                    "action": "DAILY_SQUARE_OFF",
+                    "time": now_ist.strftime('%H:%M:%S'),
+                    "new_rank": 0,
+                    "side": "NONE"
+                }
             return {
                 "underlying": underlying,
-                "action": "SKIPPED_MARKET_HOURS",
+                "action": "MARKET_CLOSED",
+                "time": now_ist.strftime('%H:%M:%S'),
+                "new_rank": 0,
+                "side": "NONE"
+            }
+
+        # 0.2 Signal De-duplication Filter (Per-Timeframe)
+        last_type = self._get_last_signal(underlying, timeframe)
+        if last_type == transaction_type:
+            logger.info(f"DUPLICATE SIGNAL: Ignoring {transaction_type} for {underlying} on {timeframe}m (Same as last {timeframe}m signal)")
+            return {
+                "underlying": underlying,
+                "action": "SKIPPED_DUPLICATE",
                 "time": now_ist.strftime('%H:%M:%S'),
                 "new_rank": self._get_rank(underlying),
                 "side": self._get_global_side()
             }
+        
+        # Update last signal for THIS timeframe before processing
+        self._set_last_signal(underlying, timeframe, transaction_type)
 
         # Get weight for the signal's timeframe
         weight = self.timeframe_weights.get(timeframe, 1)
@@ -87,56 +147,31 @@ class RankingEngine:
         # 1. State: IDLE (NONE)
         if current_side == 'NONE':
             if transaction_type == "B":
-                # Start CALL Trend
                 new_rank = weight
-                side_to_set = 'CALL'
-                option_type = 'CE'
-                logger.info(f"START CALL: Bullish signal ({timeframe}m) detected. Rank 0 -> {new_rank}")
+                current_side = 'CALL'
+                if is_market_open:
+                    action_taken = self._open_new_trend(underlying, 'CALL', weight, leg_data)
+                else:
+                    self._set_global_side('CALL')
+                    action_taken = "PREMARKET_RANK_CALL"
             elif transaction_type == "S":
-                # Start PUT Trend
                 new_rank = weight
-                side_to_set = 'PUT'
-                option_type = 'PE'
-                logger.info(f"START PUT: Bearish signal ({timeframe}m) detected. Rank 0 -> {new_rank}")
+                current_side = 'PUT'
+                if is_market_open:
+                    action_taken = self._open_new_trend(underlying, 'PUT', weight, leg_data)
+                else:
+                    self._set_global_side('PUT')
+                    action_taken = "PREMARKET_RANK_PUT"
             else:
                 return {"underlying": underlying, "action": "INVALID_TX"}
-
-            # Execute Entry
-            self._set_global_side(side_to_set)
-            spot = leg_data.get('current_price', 0)
-            itm = self.broker.get_itm_contract(underlying, option_type, spot)
-            
-            if itm:
-                itm['current_price'] = spot # Inject Spot Price for Mock Broker
-                logger.info(f"OPENING {side_to_set} ({option_type}) position: {itm['symbol']} (1 Lot)")
-                resp = self.broker.place_buy_order(itm['symbol'], itm)
-                if resp['success']:
-                    action_taken = f"OPEN_{side_to_set}"
-                    # Store both symbol and security_id
-                    self._set_active_contract(underlying, {
-                        "symbol": itm['symbol'],
-                        "security_id": itm['security_id']
-                    })
-                else:
-                    logger.error(f"ENTRY FAILED: {resp['error']}")
-                    self._set_global_side('NONE')
-                    new_rank = 0
-                    action_taken = "FAILED_ENTRY"
-            else:
-                logger.error("Failed to resolve ITM contract.")
-                self._set_global_side('NONE')
-                new_rank = 0
-                action_taken = "FAILED_ITM"
 
         # 2. State: ACTIVE CALL
         elif current_side == 'CALL':
             if transaction_type == "B":
-                # Pyramiding (Bullish signal in Bullish trend)
                 new_rank += 1
                 logger.info(f"UPHOLD CALL: Signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
                 action_taken = "HOLD_STRONG"
             elif transaction_type == "S":
-                # Hard Exit or Decay
                 if timeframe == 0:
                     new_rank = 0
                     logger.warning("HARD EXIT: Closing CALL trend immediately.")
@@ -144,22 +179,32 @@ class RankingEngine:
                     new_rank -= weight
                     logger.info(f"DECAY CALL: Bearish signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
                 
-                if new_rank <= 0 and current_rank > 0:
-                    self._close_active_trend(underlying, leg_data)
+                if new_rank < 0:
+                    flip_rank = abs(new_rank)
+                    logger.info(f"FLIP CALL -> PUT: Rank {new_rank} detected. Reversing position.")
+                    if is_market_open:
+                        self._close_active_trend(underlying, leg_data, now_ist)
+                        action_taken = self._open_new_trend(underlying, 'PUT', flip_rank, leg_data, flip=True)
+                    else:
+                        self._set_global_side('PUT')
+                        action_taken = "PREMARKET_FLIP_PUT"
+                    new_rank = flip_rank
+                elif new_rank == 0:
+                    if is_market_open:
+                        self._close_active_trend(underlying, leg_data, now_ist)
+                    else:
+                        self._set_global_side('NONE')
                     action_taken = "CLOSE_TREND"
-                    new_rank = 0
                 else:
                     action_taken = "WEAKEN_HOLD"
 
         # 3. State: ACTIVE PUT
         elif current_side == 'PUT':
             if transaction_type == "S":
-                # Pyramiding (Bearish signal in Bearish trend)
                 new_rank += 1
                 logger.info(f"UPHOLD PUT: Signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
                 action_taken = "HOLD_STRONG"
             elif transaction_type == "B":
-                # Hard Exit or Decay
                 if timeframe == 0:
                     new_rank = 0
                     logger.warning("HARD EXIT: Closing PUT trend immediately.")
@@ -167,20 +212,42 @@ class RankingEngine:
                     new_rank -= weight
                     logger.info(f"DECAY PUT: Bullish signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
                 
-                if new_rank <= 0 and current_rank > 0:
-                    self._close_active_trend(underlying, leg_data)
+                if new_rank < 0:
+                    flip_rank = abs(new_rank)
+                    logger.info(f"FLIP PUT -> CALL: Rank {new_rank} detected. Reversing position.")
+                    if is_market_open:
+                        self._close_active_trend(underlying, leg_data, now_ist)
+                        action_taken = self._open_new_trend(underlying, 'CALL', flip_rank, leg_data, flip=True)
+                    else:
+                        self._set_global_side('CALL')
+                        action_taken = "PREMARKET_FLIP_CALL"
+                    new_rank = flip_rank
+                elif new_rank == 0:
+                    if is_market_open:
+                        self._close_active_trend(underlying, leg_data, now_ist)
+                    else:
+                        self._set_global_side('NONE')
                     action_taken = "CLOSE_TREND"
-                    new_rank = 0
                 else:
                     action_taken = "WEAKEN_HOLD"
 
+        # 4. Catch-up Logic: If market is open but we have no active contract for the current trend
         self._set_rank(underlying, new_rank)
+        
+        if is_market_open and action_taken in ["HOLD_STRONG", "WEAKEN_HOLD", "NONE"]:
+            active_contract = self._get_active_contract(underlying)
+            current_side = self._get_global_side()
+            if not active_contract and current_side != 'NONE':
+                logger.info(f"MARKET OPEN CATCH-UP: Realizing pre-market trend {current_side} with Rank {new_rank}")
+                action_taken = self._open_new_trend(underlying, current_side, new_rank, leg_data)
+
         return {
             "underlying": underlying,
             "old_rank": current_rank,
             "new_rank": new_rank,
             "action": action_taken,
-            "side": self._get_global_side()
+            "side": self._get_global_side(),
+            "time": now_ist.strftime('%H:%M:%S')
         }
 
     def _get_global_side(self):
@@ -197,7 +264,7 @@ class RankingEngine:
         else:
             self.memory_store["trading_side"] = side
 
-    def _close_active_trend(self, underlying, leg_data):
+    def _close_active_trend(self, underlying, leg_data, exit_time=None):
         """Helper to close the active contract and reset state."""
         contract_data = self._get_active_contract(underlying)
         if contract_data:
@@ -235,3 +302,23 @@ class RankingEngine:
                 self.memory_store[f"active_contract:{underlying}"] = json.dumps(contract_dict)
             else: 
                 self.memory_store.pop(f"active_contract:{underlying}", None)
+
+    def _get_last_signal(self, underlying, timeframe):
+        key = f"{underlying}:{timeframe}"
+        if self.use_redis:
+            return self.r.get(f"last_signal:{key}")
+        else:
+            return self.last_signals.get(key)
+
+    def _set_last_signal(self, underlying, timeframe, signal_type):
+        key = f"{underlying}:{timeframe}"
+        if self.use_redis:
+            if signal_type:
+                self.r.set(f"last_signal:{key}", signal_type)
+            else:
+                self.r.delete(f"last_signal:{key}")
+        else:
+            if signal_type:
+                self.last_signals[key] = signal_type
+            else:
+                self.last_signals.pop(key, None)
