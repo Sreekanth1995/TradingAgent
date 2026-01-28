@@ -21,12 +21,12 @@ class RankingEngine:
         self.memory_store = {}
         self.last_signals = {}  # Store last signal per underlying
         
-        # User Defined Timeframe Weights (Uniform weight of 1)
+        # User Defined Timeframe Weights
         self.timeframe_weights = {
             1: 1,
             2: 1,
-            3: 1,
-            5: 1
+            3: 2,
+            5: 3
         }
 
         if REDIS_AVAILABLE:
@@ -161,12 +161,13 @@ class RankingEngine:
         action_taken = "NONE"
 
         # 0.3 Calculate New Rank
+        weight = self.timeframe_weights.get(timeframe, 1)
         if transaction_type == "B":
-            new_rank += 1
-            logger.info(f"BULLISH SIGNAL: Rank {current_rank} -> {new_rank}")
+            new_rank += weight
+            logger.info(f"BULLISH SIGNAL ({timeframe}m): Weight {weight}. Rank {current_rank} -> {new_rank}")
         elif transaction_type == "S":
-            new_rank -= 1
-            logger.info(f"BEARISH SIGNAL: Rank {current_rank} -> {new_rank}")
+            new_rank -= weight
+            logger.info(f"BEARISH SIGNAL ({timeframe}m): Weight {weight}. Rank {current_rank} -> {new_rank}")
         elif transaction_type == "ZONE":
             level = timeframe # We use timeframe field to pass the level name
             logger.info(f"ZONE LEVEL ALERT: {underlying} touched {level}")
