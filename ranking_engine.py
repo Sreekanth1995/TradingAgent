@@ -21,13 +21,12 @@ class RankingEngine:
         self.memory_store = {}
         self.last_signals = {}  # Store last signal per underlying
         
-        # User Defined Timeframe Weights
+        # User Defined Timeframe Weights (Uniform weight of 1)
         self.timeframe_weights = {
             1: 1,
             2: 1,
-            3: 2,
-            5: 2,
-            8: 3
+            3: 1,
+            5: 1
         }
 
         if REDIS_AVAILABLE:
@@ -122,124 +121,111 @@ class RankingEngine:
                 "side": "NONE"
             }
 
-        # 0.2 Signal De-duplication Filter (Per-Timeframe)
-        last_type = self._get_last_signal(underlying, timeframe)
-        if last_type == transaction_type:
-            logger.info(f"DUPLICATE SIGNAL: Ignoring {transaction_type} for {underlying} on {timeframe}m (Same as last {timeframe}m signal)")
-            return {
-                "underlying": underlying,
-                "action": "SKIPPED_DUPLICATE",
-                "time": now_ist.strftime('%H:%M:%S'),
-                "new_rank": self._get_rank(underlying),
-                "side": self._get_global_side()
-            }
-        
-        # Update last signal for THIS timeframe before processing
-        self._set_last_signal(underlying, timeframe, transaction_type)
+        # 0.2 Signal De-duplication (Toggle Logic)
+        if transaction_type == "ZONE":
+            last_zone = self._get_last_signal(underlying, "ZONE_STATE")
+            if last_zone == timeframe:
+                logger.info(f"ZONE TOGGLE: Ignoring repeat touch of {timeframe} for {underlying}")
+                return {
+                    "underlying": underlying,
+                    "action": "SKIPPED_ZONE_TOGGLE",
+                    "time": now_ist.strftime('%H:%M:%S'),
+                    "new_rank": self._get_rank(underlying),
+                    "side": self._get_global_side()
+                }
+            # Update last zone hit
+            self._set_last_signal(underlying, "ZONE_STATE", timeframe)
+        else:
+            last_type = self._get_last_signal(underlying, timeframe)
+            if last_type == transaction_type:
+                logger.info(f"TOGGLE FILTER: Ignoring {transaction_type} for {underlying} on {timeframe}m (Same as last state)")
+                return {
+                    "underlying": underlying,
+                    "action": "SKIPPED_TOGGLE",
+                    "time": now_ist.strftime('%H:%M:%S'),
+                    "new_rank": self._get_rank(underlying),
+                    "side": self._get_global_side()
+                }
+            # Update last signal (toggle state) for this timeframe
+            self._set_last_signal(underlying, timeframe, transaction_type)
 
-        # Get weight for the signal's timeframe
-        weight = self.timeframe_weights.get(timeframe, 1)
-        current_side = self._get_global_side()
         current_rank = self._get_rank(underlying)
         new_rank = current_rank
         action_taken = "NONE"
 
-        # 1. State: IDLE (NONE)
-        if current_side == 'NONE':
-            if transaction_type == "B":
-                new_rank = weight
-                current_side = 'CALL'
-                if is_market_open:
-                    action_taken = self._open_new_trend(underlying, 'CALL', weight, leg_data)
-                else:
-                    self._set_global_side('CALL')
-                    action_taken = "PREMARKET_RANK_CALL"
-            elif transaction_type == "S":
-                new_rank = weight
-                current_side = 'PUT'
-                if is_market_open:
-                    action_taken = self._open_new_trend(underlying, 'PUT', weight, leg_data)
-                else:
-                    self._set_global_side('PUT')
-                    action_taken = "PREMARKET_RANK_PUT"
-            else:
-                return {"underlying": underlying, "action": "INVALID_TX"}
-
-        # 2. State: ACTIVE CALL
-        elif current_side == 'CALL':
-            if transaction_type == "B":
+        # 0.3 Calculate New Rank
+        if transaction_type == "B":
+            new_rank += 1
+            logger.info(f"BULLISH SIGNAL: Rank {current_rank} -> {new_rank}")
+        elif transaction_type == "S":
+            new_rank -= 1
+            logger.info(f"BEARISH SIGNAL: Rank {current_rank} -> {new_rank}")
+        elif transaction_type == "ZONE":
+            level = timeframe # We use timeframe field to pass the level name
+            logger.info(f"ZONE LEVEL ALERT: {underlying} touched {level}")
+            # Zone Decay Logic: Reduce rank magnitude by 1
+            if current_rank > 0:
+                new_rank -= 1
+                logger.info(f"ZONE DECAY (CALL): Rank {current_rank} -> {new_rank}")
+            elif current_rank < 0:
                 new_rank += 1
-                logger.info(f"UPHOLD CALL: Signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
-                action_taken = "HOLD_STRONG"
-            elif transaction_type == "S":
-                if timeframe == 0:
-                    new_rank = 0
-                    logger.warning("HARD EXIT: Closing CALL trend immediately.")
-                else:
-                    new_rank -= weight
-                    logger.info(f"DECAY CALL: Bearish signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
-                
-                if new_rank < 0:
-                    flip_rank = abs(new_rank)
-                    logger.info(f"FLIP CALL -> PUT: Rank {new_rank} detected. Reversing position.")
-                    if is_market_open:
-                        self._close_active_trend(underlying, leg_data, now_ist)
-                        action_taken = self._open_new_trend(underlying, 'PUT', flip_rank, leg_data, flip=True)
-                    else:
-                        self._set_global_side('PUT')
-                        action_taken = "PREMARKET_FLIP_PUT"
-                    new_rank = flip_rank
-                elif new_rank == 0:
-                    if is_market_open:
-                        self._close_active_trend(underlying, leg_data, now_ist)
-                    else:
-                        self._set_global_side('NONE')
-                    action_taken = "CLOSE_TREND"
-                else:
-                    action_taken = "WEAKEN_HOLD"
+                logger.info(f"ZONE DECAY (PUT): Rank {current_rank} -> {new_rank}")
+            action_taken = "ZONE_DECAY"
 
-        # 3. State: ACTIVE PUT
-        elif current_side == 'PUT':
-            if transaction_type == "S":
-                new_rank += 1
-                logger.info(f"UPHOLD PUT: Signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
-                action_taken = "HOLD_STRONG"
-            elif transaction_type == "B":
-                if timeframe == 0:
-                    new_rank = 0
-                    logger.warning("HARD EXIT: Closing PUT trend immediately.")
-                else:
-                    new_rank -= weight
-                    logger.info(f"DECAY PUT: Bullish signal ({timeframe}m). Rank {current_rank} -> {new_rank}")
-                
-                if new_rank < 0:
-                    flip_rank = abs(new_rank)
-                    logger.info(f"FLIP PUT -> CALL: Rank {new_rank} detected. Reversing position.")
-                    if is_market_open:
-                        self._close_active_trend(underlying, leg_data, now_ist)
-                        action_taken = self._open_new_trend(underlying, 'CALL', flip_rank, leg_data, flip=True)
-                    else:
-                        self._set_global_side('CALL')
-                        action_taken = "PREMARKET_FLIP_CALL"
-                    new_rank = flip_rank
-                elif new_rank == 0:
-                    if is_market_open:
-                        self._close_active_trend(underlying, leg_data, now_ist)
-                    else:
-                        self._set_global_side('NONE')
-                    action_taken = "CLOSE_TREND"
-                else:
-                    action_taken = "WEAKEN_HOLD"
-
-        # 4. Catch-up Logic: If market is open but we have no active contract for the current trend
-        self._set_rank(underlying, new_rank)
-        
-        if is_market_open and action_taken in ["HOLD_STRONG", "WEAKEN_HOLD", "NONE"]:
-            active_contract = self._get_active_contract(underlying)
+        # 1. Execution Window and Order Placement
+        # We only place orders AFTER 09:30 AM IST.
+        if is_market_open:
             current_side = self._get_global_side()
-            if not active_contract and current_side != 'NONE':
-                logger.info(f"MARKET OPEN CATCH-UP: Realizing pre-market trend {current_side} with Rank {new_rank}")
-                action_taken = self._open_new_trend(underlying, current_side, new_rank, leg_data)
+            
+            # Determine target side from signed rank
+            if new_rank > 0:
+                target_side = 'CALL'
+            elif new_rank < 0:
+                target_side = 'PUT'
+            else:
+                target_side = 'NONE'
+
+            # A. If side changes (Flip or Exit)
+            if target_side != current_side:
+                # Close existing if any
+                if current_side != 'NONE':
+                    logger.info(f"TREND CHANGE: Closing {current_side} position.")
+                    self._close_active_trend(underlying, leg_data, now_ist)
+                
+                # Open new if needed
+                if target_side != 'NONE':
+                    logger.info(f"TREND START: Opening {target_side} position with rank {new_rank}")
+                    action_taken = self._open_new_trend(underlying, target_side, new_rank, leg_data, flip=(current_side != 'NONE'))
+                else:
+                    action_taken = "CLOSE_TREND"
+            
+            # B. If side is same but rank changed (Pyramiding/Decay)
+            else:
+                if target_side == 'CALL':
+                    action_taken = "UPHOLD_CALL" if new_rank > current_rank else "DECAY_CALL"
+                elif target_side == 'PUT':
+                    action_taken = "UPHOLD_PUT" if new_rank < current_rank else "DECAY_PUT"
+                
+                # Catch-up logic: if market is open and it's our first signal of the day
+                active_contract = self._get_active_contract(underlying)
+                if not active_contract and target_side != 'NONE':
+                    logger.info(f"MARKET OPEN CATCH-UP: Realizing pre-market trend {target_side} with Rank {new_rank}")
+                    action_taken = self._open_new_trend(underlying, target_side, new_rank, leg_data)
+
+        # Update persistent state
+        self._set_rank(underlying, new_rank)
+        # Note: _open_new_trend and _close_active_trend already handle _set_global_side('NONE') etc.
+        # But for pre-market (is_market_open=False), we still need to track the intended side.
+        if not is_market_open:
+            if new_rank > 0:
+                self._set_global_side('CALL')
+                action_taken = "PREMARKET_RANK_CALL"
+            elif new_rank < 0:
+                self._set_global_side('PUT')
+                action_taken = "PREMARKET_RANK_PUT"
+            else:
+                self._set_global_side('NONE')
+                action_taken = "PREMARKET_NEUTRAL"
 
         return {
             "underlying": underlying,
