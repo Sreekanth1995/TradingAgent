@@ -171,7 +171,6 @@
 
         <div class="tabs">
             <button class="tab-btn active" onclick="showTab('smart')">Smart Login</button>
-            <button class="tab-btn" onclick="showTab('manual')">Manual Token</button>
             <button class="tab-btn" onclick="showTab('control')">Control</button>
         </div>
 
@@ -192,15 +191,6 @@
                     Connect via Dhan Official Login
                 </button>
             </div>
-        </div>
-
-        <!-- Manual Tab -->
-        <div id="manual-tab" class="tab-content" style="display: none;">
-            <div class="form-group">
-                <label for="token">New Access Token</label>
-                <input type="text" id="token" placeholder="Paste your 24hr token here">
-            </div>
-            <button onclick="updateToken()">Update & Re-initialize</button>
         </div>
 
         <!-- Control Tab -->
@@ -269,14 +259,12 @@
         }
 
         function showTab(type) {
-            document.getElementById('manual-tab').style.display = type === 'manual' ? 'block' : 'none';
             document.getElementById('smart-tab').style.display = type === 'smart' ? 'block' : 'none';
             document.getElementById('control-tab').style.display = type === 'control' ? 'block' : 'none';
 
             const btns = document.querySelectorAll('.tab-btn');
             btns[0].classList.toggle('active', type === 'smart');
-            btns[1].classList.toggle('active', type === 'manual');
-            btns[2].classList.toggle('active', type === 'control');
+            btns[1].classList.toggle('active', type === 'control');
             document.getElementById('status').style.display = 'none';
         }
 
@@ -290,13 +278,6 @@
             await apiCall('/manual-exit', { secret });
         }
 
-        async function updateToken() {
-            const secret = document.getElementById('secret').value;
-            const token = document.getElementById('token').value;
-            if (!secret || !token) return showStatus('Please fill in both fields.', 'error');
-
-            await apiCall('/update-token', { secret, token });
-        }
 
         async function startOfficialAuth() {
             const secret = document.getElementById('secret').value.trim();
