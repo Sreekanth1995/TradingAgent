@@ -97,6 +97,9 @@ class RankingEngine:
         if now_ist.tzinfo is None:
              now_ist = IST.localize(now_ist)
 
+        # 0.0 Daily Signal Reset (Ensures toggle logic starts fresh every morning)
+        self._check_daily_reset(now_ist)
+
         is_market_open = (now_ist.hour > 9 or (now_ist.hour == 9 and now_ist.minute >= 30))
         is_market_closing = (now_ist.hour > 15 or (now_ist.hour == 15 and now_ist.minute >= 25))
              
@@ -267,6 +270,40 @@ class RankingEngine:
         
         self._set_global_side('NONE')
         self._set_active_contract(underlying, None)
+
+    def _check_daily_reset(self, now_ist):
+        """Checks if a new day has started and clears timeframe toggles if so."""
+        current_date = now_ist.date().isoformat()
+        last_reset = self._get_last_reset_date()
+        
+        if last_reset != current_date:
+            logger.info(f"NEW DAY DETECTED ({current_date}). Clearing signal history/toggles.")
+            
+            # Clear all timeframe toggles
+            if self.use_redis:
+                keys = self.r.keys("last_signal:*")
+                if keys:
+                    self.r.delete(*keys)
+            else:
+                self.last_signals = {}
+                
+            # Clear zone state specifically
+            if self.use_redis:
+                self.r.delete("last_signal:ZONE_STATE")
+            
+            self._set_last_reset_date(current_date)
+
+    def _get_last_reset_date(self):
+        if self.use_redis:
+            return self.r.get("last_reset_date")
+        else:
+            return self.memory_store.get("last_reset_date")
+
+    def _set_last_reset_date(self, date_str):
+        if self.use_redis:
+            self.r.set("last_reset_date", date_str)
+        else:
+            self.memory_store["last_reset_date"] = date_str
 
     def _get_active_contract(self, underlying):
         import json
