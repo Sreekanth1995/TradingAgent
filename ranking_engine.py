@@ -277,19 +277,27 @@ class RankingEngine:
         last_reset = self._get_last_reset_date()
         
         if last_reset != current_date:
-            logger.info(f"NEW DAY DETECTED ({current_date}). Clearing signal history/toggles.")
+            logger.info(f"NEW DAY DETECTED ({current_date}). Clearing signal history/toggles and resetting ranks.")
             
-            # Clear all timeframe toggles
             if self.use_redis:
+                # Clear all timeframe toggles
                 keys = self.r.keys("last_signal:*")
                 if keys:
                     self.r.delete(*keys)
+                
+                # Clear all ranks
+                rank_keys = self.r.keys("rank:*")
+                if rank_keys:
+                    self.r.delete(*rank_keys)
+                
+                # Reset global side
+                self.r.delete("trading_side")
+                
+                # Clear zone state specifically
+                self.r.delete("last_signal:ZONE_STATE")
             else:
                 self.last_signals = {}
-                
-            # Clear zone state specifically
-            if self.use_redis:
-                self.r.delete("last_signal:ZONE_STATE")
+                self.memory_store = {} # This clears ranks and trading side in memory
             
             self._set_last_reset_date(current_date)
 
