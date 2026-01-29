@@ -114,7 +114,12 @@ def webhook():
             logger.info(f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe")
             
             # 3. Process with Ranking Engine (Index-Based)
-            action = engine.process_signal(underlying, transaction_type, int(timeframe), leg)
+            try:
+                tf_val = int(timeframe)
+            except ValueError:
+                tf_val = timeframe # Pass as string (e.g. "TP0", "TP1")
+            
+            action = engine.process_signal(underlying, transaction_type, tf_val, leg)
             results.append(action)
             
             # Check for Logic Failures

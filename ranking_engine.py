@@ -25,8 +25,8 @@ class RankingEngine:
         self.timeframe_weights = {
             1: 1,
             2: 1,
-            3: 2,
-            5: 3
+            3: 1,
+            5: 1
         }
 
         if REDIS_AVAILABLE:
@@ -145,9 +145,30 @@ class RankingEngine:
                     "new_rank": self._get_rank(underlying),
                     "side": self._get_global_side()
                 }
-            # Update last zone hit
-            self._set_last_signal(underlying, "ZONE_STATE", timeframe)
-        else:
+        
+        # TP0 Red Zone Filtering (Move BEFORE toggle check)
+        current_rank = self._get_rank(underlying)
+        weight = self.timeframe_weights.get(timeframe, 1)
+        
+        if transaction_type != "ZONE":
+            last_zone_state = self._get_last_signal(underlying, "ZONE_STATE")
+            if last_zone_state and str(last_zone_state).startswith("TP0"):
+                current_side = self._get_global_side()
+                if current_side == "NONE":
+                    logger.info(f"TP0 FILTER: Blocking NEW entry for {underlying} (Price in Red Zone)")
+                    return {
+                        "underlying": underlying,
+                        "action": "SKIPPED_TP0_FILTER",
+                        "time": now_ist.strftime('%H:%M:%S'),
+                        "new_rank": current_rank,
+                        "side": "NONE"
+                    }
+                else:
+                    weight = 1 # Cap weight in TP0 for existing positions
+                    logger.info(f"TP0 WEIGHT CAP: Reducing signal weight to 1 for active {current_side} position.")
+
+        # Toggle Logic for B/S signals
+        if transaction_type != "ZONE":
             last_type = self._get_last_signal(underlying, timeframe)
             if last_type == transaction_type:
                 logger.info(f"TOGGLE FILTER: Ignoring {transaction_type} for {underlying} on {timeframe}m (Same as last state)")
@@ -155,18 +176,19 @@ class RankingEngine:
                     "underlying": underlying,
                     "action": "SKIPPED_TOGGLE",
                     "time": now_ist.strftime('%H:%M:%S'),
-                    "new_rank": self._get_rank(underlying),
+                    "new_rank": current_rank,
                     "side": self._get_global_side()
                 }
-            # Update last signal (toggle state) for this timeframe
-            self._set_last_signal(underlying, timeframe, transaction_type)
 
-        current_rank = self._get_rank(underlying)
+        # Update persistent state
+        if transaction_type == "ZONE":
+             self._set_last_signal(underlying, "ZONE_STATE", timeframe)
+        else:
+             self._set_last_signal(underlying, timeframe, transaction_type)
+
         new_rank = current_rank
         action_taken = "NONE"
 
-        # 0.3 Calculate New Rank
-        weight = self.timeframe_weights.get(timeframe, 1)
         if transaction_type == "B":
             new_rank += weight
             logger.info(f"BULLISH SIGNAL ({timeframe}m): Weight {weight}. Rank {current_rank} -> {new_rank}")
@@ -176,6 +198,21 @@ class RankingEngine:
         elif transaction_type == "ZONE":
             level = timeframe # We use timeframe field to pass the level name
             logger.info(f"ZONE LEVEL ALERT: {underlying} touched {level}")
+            
+            # Profit Booking for TP2/TP3
+            if "TP2" in level or "TP3" in level:
+                current_side = self._get_global_side()
+                if current_side != 'NONE':
+                    logger.info(f"PROFIT BOOKING: {level} reached. Closing {current_side} position.")
+                    self._close_active_trend(underlying, leg_data, now_ist)
+                    return {
+                        "underlying": underlying,
+                        "action": f"PROFIT_BOOKING_{level}",
+                        "time": now_ist.strftime('%H:%M:%S'),
+                        "new_rank": 0,
+                        "side": "NONE"
+                    }
+
             # Zone Decay Logic: Reduce rank magnitude by 1
             if current_rank > 0:
                 new_rank -= 1
@@ -184,6 +221,7 @@ class RankingEngine:
                 new_rank += 1
                 logger.info(f"ZONE DECAY (PUT): Rank {current_rank} -> {new_rank}")
             action_taken = "ZONE_DECAY"
+
 
         # 1. Execution Window and Order Placement
         # We only place orders AFTER 09:30 AM IST.
