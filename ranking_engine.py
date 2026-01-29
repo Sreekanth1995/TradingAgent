@@ -259,12 +259,55 @@ class RankingEngine:
             "time": now_ist.strftime('%H:%M:%S')
         }
 
+    def manual_exit_all(self):
+        """Emergency exit: Close all active positions and reset all ranks to 0."""
+        logger.warning("MANUAL EXIT TRIGGERED: Closing all positions and resetting ranks.")
+        
+        # 1. Find all active contracts
+        underlyings = []
+        if self.use_redis:
+            keys = self.r.keys("active_contract:*")
+            underlyings = [k.split(":")[1] for k in keys]
+        else:
+            underlyings = [k.split(":")[1] for k in self.memory_store.keys() if k.startswith("active_contract:")]
+
+        # 2. Close each active contract
+        for u in underlyings:
+            # We use a dummy price of 0 as we don't have real-time data here. 
+            # The broker will usually handle the square-off at market price.
+            self._close_active_trend(u, {"current_price": 0})
+            self._set_rank(u, 0)
+        
+        # 3. Reset all ranks and global side (even for underlyings without active contracts)
+        if self.use_redis:
+            rank_keys = self.r.keys("rank:*")
+            if rank_keys:
+                self.r.delete(*rank_keys)
+            self.r.delete("trading_side")
+            # Also clear signal history to avoid toggle issues after reset
+            sig_keys = self.r.keys("last_signal:*")
+            if sig_keys:
+                self.r.delete(*sig_keys)
+        else:
+            # For memory store, we selectively clear keys that aren't system-internal
+            # But since memory_store is mostly ranks and trading_side, we can be aggressive.
+            # We keep last_reset_date if it exists.
+            reset_date = self._get_last_reset_date()
+            self.memory_store = {}
+            if reset_date:
+                self._set_last_reset_date(reset_date)
+            self.last_signals = {}
+            
+        logger.info("MANUAL EXIT COMPLETE: All ranks reset and positions closed.")
+
+
     def _get_global_side(self):
         if self.use_redis:
             val = self.r.get("trading_side")
             return val if val else 'NONE'
         else:
             return self.memory_store.get("trading_side", 'NONE')
+
 
     def _set_global_side(self, side):
         logger.info(f"Global Trading Side set to: {side}")

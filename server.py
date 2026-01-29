@@ -137,7 +137,26 @@ def webhook():
         logger.error(f"Webhook Processing Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/update-token', methods=['POST'])
+@app.route('/manual-exit', methods=['POST'])
+def manual_exit():
+    """
+    Emergency Exit: Close all positions and reset ranks manually.
+    """
+    if not broker or not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+        
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    try:
+        engine.manual_exit_all()
+        return jsonify({"status": "success", "message": "All positions closed and ranks reset successfully."}), 200
+    except Exception as e:
+        logger.error(f"Manual Exit Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 def update_token():
     """
     Endpoint to update Dhan Access Token dynamically.

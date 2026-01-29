@@ -172,6 +172,7 @@
         <div class="tabs">
             <button class="tab-btn active" onclick="showTab('smart')">Smart Login</button>
             <button class="tab-btn" onclick="showTab('manual')">Manual Token</button>
+            <button class="tab-btn" onclick="showTab('control')">Control</button>
         </div>
 
         <div class="form-group">
@@ -200,6 +201,20 @@
                 <input type="text" id="token" placeholder="Paste your 24hr token here">
             </div>
             <button onclick="updateToken()">Update & Re-initialize</button>
+        </div>
+
+        <!-- Control Tab -->
+        <div id="control-tab" class="tab-content" style="display: none;">
+            <div style="text-align: center; padding: 20px 0;">
+                <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 24px; line-height: 1.5;">
+                    <b>Emergency Exit:</b> Immediately closes all active option positions and resets all ranking logic
+                    to zero.
+                </p>
+                <button onclick="manualExit()"
+                    style="background: linear-gradient(to right, #ef4444, #b91c1c); color: #fff; font-weight: 700;">
+                    🚨 EXIT ALL POSITIONS & RESET RANKS
+                </button>
+            </div>
         </div>
 
         <div id="status"></div>
@@ -256,11 +271,23 @@
         function showTab(type) {
             document.getElementById('manual-tab').style.display = type === 'manual' ? 'block' : 'none';
             document.getElementById('smart-tab').style.display = type === 'smart' ? 'block' : 'none';
+            document.getElementById('control-tab').style.display = type === 'control' ? 'block' : 'none';
 
             const btns = document.querySelectorAll('.tab-btn');
             btns[0].classList.toggle('active', type === 'smart');
             btns[1].classList.toggle('active', type === 'manual');
+            btns[2].classList.toggle('active', type === 'control');
             document.getElementById('status').style.display = 'none';
+        }
+
+        async function manualExit() {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return showStatus('Please enter your Webhook Secret first.', 'error');
+
+            if (!confirm("⚠️ CAUTION: Are you sure you want to close ALL positions and reset ranks?")) return;
+
+            showStatus('🚨 Triggering emergency exit...', 'success');
+            await apiCall('/manual-exit', { secret });
         }
 
         async function updateToken() {
