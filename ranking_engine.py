@@ -37,10 +37,44 @@ class RankingEngine:
                 self.r.ping()
                 logger.info(f"Connected to Redis at {redis_host}:{redis_port}")
                 self.use_redis = True
+
+                # Check for deployment reset
+                if os.getenv("RESET_REDIS_ON_START", "false").lower() == "true":
+                    self._flush_redis_state()
+
             except (redis.ConnectionError, NameError):
                 logger.warning("Redis connection failed. Using in-memory storage (NOT PERSISTENT).")
         else:
             logger.warning("Redis library not installed. Using in-memory storage (NOT PERSISTENT).")
+
+    def _flush_redis_state(self):
+        """Wipes all trading state from Redis or Memory."""
+        if not self.use_redis:
+            self.memory_store = {}
+            self.last_signals = {}
+            logger.info("In-memory state flushed.")
+            return
+
+        logger.info("Flushing Redis trading state...")
+        # Clear all timeframe toggles
+        keys = self.r.keys("last_signal:*")
+        if keys:
+            self.r.delete(*keys)
+        
+        # Clear all ranks
+        rank_keys = self.r.keys("rank:*")
+        if rank_keys:
+            self.r.delete(*rank_keys)
+        
+        # Clear active contracts
+        active_keys = self.r.keys("active_contract:*")
+        if active_keys:
+            self.r.delete(*active_keys)
+
+        # Reset global side and last reset date
+        self.r.delete("trading_side")
+        self.r.delete("last_reset_date")
+        logger.info("✅ Redis state flushed successfully.")
 
     def _get_rank(self, key):
         if self.use_redis:
