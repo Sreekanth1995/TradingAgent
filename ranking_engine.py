@@ -146,26 +146,9 @@ class RankingEngine:
                     "side": self._get_global_side()
                 }
         
-        # TP0 Red Zone Filtering (Move BEFORE toggle check)
         current_rank = self._get_rank(underlying)
         weight = self.timeframe_weights.get(timeframe, 1)
-        
-        if transaction_type != "ZONE":
-            last_zone_state = self._get_last_signal(underlying, "ZONE_STATE")
-            if last_zone_state == "TP0":
-                current_side = self._get_global_side()
-                if current_side == "NONE":
-                    logger.info(f"TP0 FILTER: Blocking NEW entry for {underlying} (Price in Red Zone)")
-                    return {
-                        "underlying": underlying,
-                        "action": "SKIPPED_TP0_FILTER",
-                        "time": now_ist.strftime('%H:%M:%S'),
-                        "new_rank": current_rank,
-                        "side": "NONE"
-                    }
-                else:
-                    weight = 1 # Cap weight in TP0 for existing positions
-                    logger.info(f"TP0 WEIGHT CAP: Reducing signal weight to 1 for active {current_side} position.")
+
 
         # Toggle Logic for B/S signals
         if transaction_type != "ZONE":
