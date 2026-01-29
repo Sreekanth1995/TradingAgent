@@ -152,7 +152,7 @@ class RankingEngine:
         
         if transaction_type != "ZONE":
             last_zone_state = self._get_last_signal(underlying, "ZONE_STATE")
-            if last_zone_state and str(last_zone_state).startswith("TP0"):
+            if last_zone_state == "TP0":
                 current_side = self._get_global_side()
                 if current_side == "NONE":
                     logger.info(f"TP0 FILTER: Blocking NEW entry for {underlying} (Price in Red Zone)")
@@ -199,20 +199,6 @@ class RankingEngine:
             level = timeframe # We use timeframe field to pass the level name
             logger.info(f"ZONE LEVEL ALERT: {underlying} touched {level}")
             
-            # Profit Booking for TP2/TP3
-            if "TP2" in level or "TP3" in level:
-                current_side = self._get_global_side()
-                if current_side != 'NONE':
-                    logger.info(f"PROFIT BOOKING: {level} reached. Closing {current_side} position.")
-                    self._close_active_trend(underlying, leg_data, now_ist)
-                    return {
-                        "underlying": underlying,
-                        "action": f"PROFIT_BOOKING_{level}",
-                        "time": now_ist.strftime('%H:%M:%S'),
-                        "new_rank": 0,
-                        "side": "NONE"
-                    }
-
             # Zone Decay Logic: Reduce rank magnitude by 1
             if current_rank > 0:
                 new_rank -= 1
@@ -221,6 +207,7 @@ class RankingEngine:
                 new_rank += 1
                 logger.info(f"ZONE DECAY (PUT): Rank {current_rank} -> {new_rank}")
             action_taken = "ZONE_DECAY"
+
 
 
         # 1. Execution Window and Order Placement
@@ -252,12 +239,14 @@ class RankingEngine:
             
             # B. If side is same but rank changed (Pyramiding/Decay)
             else:
-                if target_side == 'CALL':
-                    action_taken = "UPHOLD_CALL" if new_rank > current_rank else "DECAY_CALL"
-                elif target_side == 'PUT':
-                    action_taken = "UPHOLD_PUT" if new_rank < current_rank else "DECAY_PUT"
+                if action_taken != "ZONE_DECAY":
+                    if target_side == 'CALL':
+                        action_taken = "UPHOLD_CALL" if new_rank > current_rank else "DECAY_CALL"
+                    elif target_side == 'PUT':
+                        action_taken = "UPHOLD_PUT" if new_rank < current_rank else "DECAY_PUT"
                 
                 # Catch-up logic: if market is open and it's our first signal of the day
+
                 active_contract = self._get_active_contract(underlying)
                 if not active_contract and target_side != 'NONE':
                     logger.info(f"MARKET OPEN CATCH-UP: Realizing pre-market trend {target_side} with Rank {new_rank}")

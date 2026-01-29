@@ -32,17 +32,17 @@ def test_manual_zone_logic():
     now_ist = datetime.datetime.now(IST).replace(hour=10, minute=0, second=0)
 
     # 1. TP0 Filter Test: Block New Entry
-    print("\n[Step 1] TP0 Red Zone: Sending TP0_low Alert")
-    engine.process_signal(symbol, "ZONE", "TP0_low", leg_data, now_override=now_ist)
+    print("\n[Step 1] TP0 Red Zone: Sending TP0 Alert")
+    engine.process_signal(symbol, "ZONE", "TP0", leg_data, now_override=now_ist)
     
-    print("[Step 2] Sending Buy (5m) while in TP0_low - Should block")
+    print("[Step 2] Sending Buy (5m) while in TP0 - Should block")
     res2 = engine.process_signal(symbol, "B", 5, leg_data, now_override=now_ist)
     print(f"Action: {res2['action']}, Rank: {res2['new_rank']}")
     assert res2['action'] == "SKIPPED_TP0_FILTER"
     
     # 2. TP1 Alert: Move out of TP0
-    print("\n[Step 3] Sending TP1_high Alert (Exit Red Zone)")
-    engine.process_signal(symbol, "ZONE", "TP1_high", leg_data, now_override=now_ist)
+    print("\n[Step 3] Sending TP1 Alert (Exit Red Zone)")
+    engine.process_signal(symbol, "ZONE", "TP1", leg_data, now_override=now_ist)
     
     # 3. Open Position normally
     print("[Step 4] Opening position with high rank")
@@ -53,24 +53,29 @@ def test_manual_zone_logic():
     assert engine._get_rank(symbol) == 3
     
     # 4. TP0 Weight Cap Test: Existing Position
-    print("\n[Step 5] Entering TP0_high Red Zone")
-    engine.process_signal(symbol, "ZONE", "TP0_high", leg_data, now_override=now_ist) 
+    print("\n[Step 5] Entering TP0 Red Zone")
+    engine.process_signal(symbol, "ZONE", "TP0", leg_data, now_override=now_ist) 
     # Zone decay: 3 -> 2
     print(f"Rank after TP0 entry (Decay): {engine._get_rank(symbol)}")
     assert engine._get_rank(symbol) == 2
     
-    print("[Step 6] Sending Bullish Signal while in TP0_high - Weight should be 1")
+    print("[Step 6] Sending Bullish Signal while in TP0 - Weight should be 1")
+    # Normally signal toggle would ignore repeat 'B' if timeframe is same.
+    # We use a different timeframe '2' to ensure it's a new signal bias.
     res8 = engine.process_signal(symbol, "B", 2, leg_data, now_override=now_ist)
     print(f"Action: {res8['action']}, Rank: {res8['new_rank']}")
     # Rank 2 + 1 (capped weight) = 3
     assert res8['new_rank'] == 3
     
-    # 5. TP2 Profit Booking Test
-    print("\n[Step 7] Sending TP2_low Alert - Should Profit Book")
-    res9 = engine.process_signal(symbol, "ZONE", "TP2_low", leg_data, now_override=now_ist)
-    print(f"Action: {res9['action']}, Side: {res9['side']}")
-    assert "PROFIT_BOOKING" in res9['action']
-    assert res9['side'] == "NONE"
+    # 5. TP2 Zone Decay Test (No Profit Booking)
+    print("\n[Step 7] Sending TP2 Alert - Should DECAY Rank (no profit booking)")
+    res9 = engine.process_signal(symbol, "ZONE", "TP2_HIGH", leg_data, now_override=now_ist)
+    print(f"Action: {res9['action']}, Rank: {res9['new_rank']}, Side: {res9['side']}")
+    assert res9['action'] == "ZONE_DECAY"
+    # Rank was 3, should be 2 now
+    assert res9['new_rank'] == 2
+    assert res9['side'] == "CALL"
+
     
     print("\n✅ MANUAL ZONE LOGIC TEST PASSED")
 
