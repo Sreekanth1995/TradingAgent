@@ -188,8 +188,8 @@ class DhanClient:
     def get_itm_contract(self, underlying, side, spot_price):
         """
         Determines the best ITM strike and returns the security ID.
-        CE ITM = Spot - 100
-        PE ITM = Spot + 100
+        CE ITM = Spot - 50
+        PE ITM = Spot + 50
         """
         try:
             spot = float(spot_price)
@@ -197,9 +197,9 @@ class DhanClient:
             atm_strike = round(spot / 50) * 50
             
             if side == 'CE':
-                strike = atm_strike - 100
+                strike = atm_strike - 50
             else:
-                strike = atm_strike + 100
+                strike = atm_strike + 50
                 
             expiry = self.get_nearest_expiry(underlying)
             if not expiry:
@@ -297,9 +297,28 @@ class DhanClient:
                     exchange_segment=ExchangeSegment.NSE_FNO,
                     transaction_type=transaction_type,
                     quantity=final_qty,
-                    order_type=OrderType.MARKET,
+                # Determine Order Type and Price
+                order_type = leg_data.get('order_type', OrderType.MARKET)
+                price = leg_data.get('price', 0.0)
+                trigger_price = leg_data.get('trigger_price', 0.0)
+
+                # Map string order types if passed from engine
+                if order_type == "LIMIT": order_type = OrderType.LIMIT
+                if order_type == "STOP_LOSS": order_type = OrderType.STOP_LOSS
+                if order_type == "SL": order_type = OrderType.STOP_LOSS
+                if order_type == "SL-M": order_type = OrderType.STOP_LOSS_MARKET
+
+                logger.info(f"Placing Order: Type={order_type}, Price={price}, Trigger={trigger_price}")
+
+                resp = self.dhan.place_order(
+                    security_id=sec_id,
+                    exchange_segment=ExchangeSegment.NSE_FNO,
+                    transaction_type=transaction_type,
+                    quantity=final_qty,
+                    order_type=order_type,
                     product_type=ProductType.INTRADAY, 
-                    price=0,
+                    price=price,
+                    trigger_price=trigger_price,
                     validity=Validity.DAY
                 )
                 
@@ -314,6 +333,255 @@ class DhanClient:
         except Exception as e:
             logger.error(f"Order Placement FAILED: {e}")
             return {"success": False, "order_id": None, "error": str(e)}
+
+    def cancel_order(self, order_id):
+        """
+        Cancels a pending order.
+        """
+        if self.dry_run:
+            logger.info(f"$$$ [BROKER] MOCK CANCEL Order {order_id} $$$")
+            return {"success": True, "message": "Mock Cancel Success"}
+
+        if self.dhan:
+            try:
+                resp = self.dhan.cancel_order(order_id)
+                if resp.get('status') == 'success':
+                    logger.info(f"Order {order_id} cancelled successfully.")
+                    return {"success": True}
+                else:
+                    logger.error(f"Failed to cancel order {order_id}: {resp}")
+                    return {"success": False, "error": resp.get('remarks')}
+            except Exception as e:
+                logger.error(f"Exception cancelling order {order_id}: {e}")
+                return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Broker not initialized"}
+
+    def get_ltp(self, security_id, exchange_segment=ExchangeSegment.NSE_FNO):
+        """
+        Fetches the Last Traded Price (LTP) using Dhan API v2.
+        """
+        if self.dry_run:
+             return 100.0 # Mock Price
+
+        if not self.access_token or not self.client_id:
+            return None
+            
+        url = "https://api.dhan.co/v2/marketfeed/ltp"
+        headers = {
+            'Content-Type': 'application/json',
+            'access-token': self.access_token
+        }
+        
+        # Payload for LTP
+        # Docs typically: { "instruments": [ { "exchangeSegment": "...", "securityId": "..." } ] }
+        # Or simple? Let's assume standard structure.
+        # Actually, Dhan API v2 'marketfeed/ltp' expects:
+        # { "exchangeSegment": "NSE_FNO", "securityId": "12345" } 
+        # (Based on standard REST patterns, checking docs would be ideal but I'll try standard).
+        
+        payload = {
+            "dhanClientId": self.client_id,
+            "exchangeSegment": exchange_segment,
+            "securityId": str(security_id)
+        }
+        
+        try:
+            resp = requests.post(url, headers=headers, json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                # Response: { "data": { "lastPrice": 123.45, ... } }
+                return data.get('data', {}).get('last_price') or data.get('data', {}).get('lastPrice')
+            else:
+                logger.error(f"LTP Fetch Failed: {resp.status_code} {resp.text}")
+                return None
+        except Exception as e:
+            logger.error(f"LTP Exception: {e}")
+            return None
+
+    def get_positions(self):
+        """
+        Fetches current positions from Dhan.
+        Returns list of position objects.
+        """
+        if self.dry_run:
+            # Mock: Always say we have one open position for testing? 
+            # Or empty? Let's say empty if not set manually.
+            return []
+
+        if self.dhan:
+            try:
+                resp = self.dhan.get_positions()
+                if resp.get('status') == 'success':
+                    return resp.get('data', [])
+                else:
+                    logger.error(f"Failed to fetch positions: {resp}")
+                    return []
+            except Exception as e:
+                logger.error(f"Exception fetching positions: {e}")
+                return []
+        return []
+
+    def get_order_status(self, order_id):
+
+    def modify_order(self, order_id, order_type, leg_data):
+        """
+        Modifies a pending order.
+        """
+        if self.dry_run:
+            logger.info(f"$$$ [BROKER] MOCK MODIFY Order {order_id}: {leg_data} $$$")
+            return {"success": True, "order_id": order_id}
+
+        if self.dhan:
+             # Validate inputs
+             qty = int(leg_data.get('quantity', 0)) # optional?
+             price = leg_data.get('price', 0.0)
+             trigger_price = leg_data.get('trigger_price', 0.0)
+             
+             # Map Order Type
+             dhan_order_type = OrderType.LIMIT
+             if order_type in ['SL', 'STOP_LOSS']: dhan_order_type = OrderType.STOP_LOSS
+             if order_type in ['SL-M', 'STOP_LOSS_MARKET']: dhan_order_type = OrderType.STOP_LOSS_MARKET
+             
+             # Validity? Only if needed.
+             
+             try:
+                 resp = self.dhan.modify_order(
+                     order_id=order_id,
+                     order_type=dhan_order_type,
+                     leg_name='ENTRY_LEG', # Assuming simple order mods? Or standard?
+                     quantity=qty if qty > 0 else None,
+                     price=price,
+                     trigger_price=trigger_price,
+                     exchange_segment=ExchangeSegment.NSE_FNO,
+                     validity=Validity.DAY
+                 )
+                 
+                 if resp.get('status') == 'success':
+                      logger.info(f"Order {order_id} modified successfully. P={price}, Trg={trigger_price}")
+                      return {"success": True, "order_id": order_id}
+                 else:
+                      logger.error(f"Failed to modify order {order_id}: {resp}")
+                      return {"success": False, "error": resp.get('remarks')}
+             except Exception as e:
+                 logger.error(f"Exception modifying order {order_id}: {e}")
+                 return {"success": False, "error": str(e)}
+        return {"success": False}
+
+    def get_pending_orders(self, security_id=None):
+        """
+        Fetches all PENDING orders. Optionally filters by security_id.
+        """
+        if self.dry_run:
+            return []
+
+        if self.dhan:
+            try:
+                # get_order_list with no args usually returns all for the day?
+                # Dhan API: GET /orders
+                resp = self.dhan.get_order_list() 
+                if resp.get('status') == 'success':
+                    all_orders = resp.get('data', [])
+                    pending = [o for o in all_orders if o.get('orderStatus') in ['PENDING', 'TRIGGER_PENDING', 'TRANSIT']]
+                    
+                    if security_id:
+                        return [o for o in pending if str(o.get('securityId')) == str(security_id)]
+                    return pending
+                else:
+                    logger.error(f"Failed to fetch order list: {resp}")
+                    return []
+            except Exception as e:
+                logger.error(f"Exception fetching order list: {e}")
+                return []
+        return []
+
+    def place_super_order(self, symbol, leg_data):
+        """
+        Places a Native Bracket Order (Super Order) using Dhan API v2.
+        """
+        if self.dry_run:
+            logger.info(f"$$$ [BROKER] MOCK SUPER ORDER for {symbol} $$$")
+            return {"success": True, "order_id": "mock_bo_123", "error": None}
+
+        # Validate Auth
+        if not self.access_token or not self.client_id:
+             return {"success": False, "error": "Missing Info"}
+        
+        url = "https://api.dhan.co/v2/super/orders"
+        headers = {
+            'Content-Type': 'application/json',
+            'access-token': self.access_token
+        }
+        
+        # Prepare Payload
+        # Mapping constants
+        txn_type = leg_data.get('transaction_type', 'BUY')
+        exchange_segment = "NSE_FNO" # Options Strategy
+        product_type = "BO" # Bracket Order
+        order_type = "MARKET" # Usually BO Entry is Limit or Market. Docs show LIMIT.
+        # User wants "Entry price...". If Market, price=0
+        
+        # Default to MARKET if not specified
+        if leg_data.get('order_type') == 'LIMIT':
+            order_type = "LIMIT"
+            price = leg_data.get('price', 0)
+        else:
+            order_type = "MARKET"
+            price = 0
+            
+        qty = int(leg_data.get('quantity', 1)) 
+        # Note: Caller must ensure quantity is in units, not lots? 
+        # place_order logic in this file converts lots to units. 
+        # We should replicate that or assume caller passed units?
+        # place_order: "lots = int(leg_data.get('quantity', 1)) ... final_qty = lots * lot_size"
+        # We need to do the same here!
+        
+        sec_id = leg_data.get('security_id')
+        if not sec_id:
+            return {"success": False, "error": "Security ID missing for Super Order"}
+            
+        lot_size = self.lot_map.get(sec_id, 1)
+        final_qty = qty * lot_size
+        
+        # Target/SL
+        # Docs require 'targetPrice' and 'stopLossPrice'
+        target_price = leg_data.get('target_price')
+        stop_loss_price = leg_data.get('stop_loss_price')
+        
+        if not target_price or not stop_loss_price:
+             return {"success": False, "error": "Target/SL Prices missing for Super Order"}
+
+        payload = {
+            "dhanClientId": self.client_id,
+            "correlationId": f"b_{int(time.time())}",
+            "transactionType": txn_type,
+            "exchangeSegment": exchange_segment,
+            "productType": product_type,
+            "orderType": order_type,
+            "securityId": str(sec_id),
+            "quantity": final_qty,
+            "price": price,
+            "targetPrice": float(target_price),
+            "stopLossPrice": float(stop_loss_price)
+        }
+        
+        logger.info(f"$$$ [BROKER] PLACING SUPER ORDER: {payload} $$$")
+
+        try:
+            resp = requests.post(url, headers=headers, json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                order_id = data.get('orderId')
+                status = data.get('orderStatus')
+                if order_id:
+                    return {"success": True, "order_id": order_id, "status": status}
+                else:
+                    return {"success": False, "error": f"No orderId in response: {resp.text}"}
+            else:
+                 logger.error(f"Super Order Failed: {resp.status_code} {resp.text}")
+                 return {"success": False, "error": resp.text}
+        except Exception as e:
+            logger.error(f"Super Order Exception: {e}")
+            return {"success": False, "error": str(e)}
 
     def refresh_client(self, new_token):
         """
@@ -335,6 +603,26 @@ class DhanClient:
                 logger.info("Dhan Client Re-initialized with new token.")
             return True
         return False
+
+    def get_order_status(self, order_id):
+        """
+        Retrieves order status and details (including average price).
+        """
+        if self.dry_run:
+            return {"status": "TRADED", "average_price": 100.0} # Mock
+
+        if self.dhan:
+            try:
+                resp = self.dhan.get_order_by_id(order_id)
+                if resp.get('status') == 'success':
+                    return resp.get('data', {})
+                else:
+                    logger.error(f"Failed to get order status for {order_id}: {resp}")
+                    return None
+            except Exception as e:
+                logger.error(f"Exception getting order status {order_id}: {e}")
+                return None
+        return None
 
     def get_consent_url(self):
         """

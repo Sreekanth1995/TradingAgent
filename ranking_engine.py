@@ -1,5 +1,7 @@
 import os
 import logging
+import json
+import time
 from datetime import datetime
 import pytz
 
@@ -14,404 +16,380 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 class RankingEngine:
+    """
+    Direct Signal Trading Engine.
+    Handles BUY/SELL signals to manage simulated bracket orders (Entry + SL + Target).
+    """
     def __init__(self, broker):
         self.broker = broker
-        # Initialize Redis
         self.use_redis = False
         self.memory_store = {}
-        self.last_signals = {}  # Store last signal per underlying
         
-        # User Defined Timeframe Weights
-        self.timeframe_weights = {
-            1: 1,
-            2: 1,
-            3: 1,
-            5: 1
-        }
+        # Configuration
+        self.points_target = 100
+        self.points_sl = 20
 
         if REDIS_AVAILABLE:
             redis_url = os.getenv("REDIS_URL")
             try:
                 if redis_url:
                     self.r = redis.from_url(redis_url, decode_responses=True)
-                    logger.info("RankingEngine: Connecting to Redis using REDIS_URL")
                 else:
                     redis_host = os.getenv("REDIS_HOST", "localhost")
                     redis_port = int(os.getenv("REDIS_PORT", 6379))
                     self.r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
-                    logger.info(f"RankingEngine: Connecting to Redis at {redis_host}:{redis_port}")
                 
                 self.r.ping()
                 logger.info("✅ RankingEngine: Connected to Redis successfully")
                 self.use_redis = True
-
-
             except Exception as e:
-                logger.warning(f"RankingEngine: Redis connection failed ({e}). Using in-memory storage (NOT PERSISTENT).")
+                logger.warning(f"RankingEngine: Redis connection failed ({e}). Using in-memory storage.")
         else:
-            logger.warning("RankingEngine: Redis library not installed. Using in-memory storage (NOT PERSISTENT).")
+            logger.warning("RankingEngine: Redis library not installed. Using in-memory storage.")
 
-    def _get_rank(self, key):
+    # --- State Management ---
+    def _get_state(self, underlying):
+        """Returns dict: { 'side': 'CALL'/'PUT'/'NONE', 'entry_id': ..., 'sl_id': ..., 'tgt_id': ..., 'symbol': ... }"""
+        key = f"state:{underlying}"
         if self.use_redis:
-            val = self.r.get(f"rank:{key}")
-            return int(val) if val else 0
+            val = self.r.get(key)
+            return json.loads(val) if val else {'side': 'NONE'}
         else:
-            return self.memory_store.get(key, 0)
+            return self.memory_store.get(key, {'side': 'NONE'})
 
-    def _set_rank(self, key, value):
-        logger.info(f"Setting Rank for {key} to {value}")
+    def _set_state(self, underlying, state):
+        key = f"state:{underlying}"
         if self.use_redis:
-            self.r.set(f"rank:{key}", value)
+            self.r.set(key, json.dumps(state))
         else:
-            self.memory_store[key] = value
+            self.memory_store[key] = state
 
-    def _open_new_trend(self, underlying, side, rank, leg_data, flip=False):
-        """Helper to resolve ITM and place buy order."""
-        option_type = 'CE' if side == 'CALL' else 'PE'
-        self._set_global_side(side)
-        self._set_rank(underlying, rank)
-        
-        spot = leg_data.get('current_price', 0)
-        itm = self.broker.get_itm_contract(underlying, option_type, spot)
-        
-        prefix = "FLIP OPEN" if flip else "START"
-        if itm:
-            itm['current_price'] = spot
-            logger.info(f"{prefix} {side}: {itm['symbol']} at {spot}")
-            resp = self.broker.place_buy_order(itm['symbol'], itm)
-            if resp['success']:
-                self._set_active_contract(underlying, {
-                    "symbol": itm['symbol'],
-                    "security_id": itm['security_id']
-                })
-                return f"OPEN_{side}"
-            else:
-                logger.error(f"ENTRY FAILED: {resp['error']}")
-                self._set_global_side('NONE')
-                self._set_rank(underlying, 0)
-                return "FAILED_ENTRY"
-        else:
-            logger.error("Failed to resolve ITM contract.")
-            self._set_global_side('NONE')
-            self._set_rank(underlying, 0)
-            return "FAILED_ITM"
+    def _clear_state(self, underlying):
+        self._set_state(underlying, {'side': 'NONE'})
 
-    def process_signal(self, underlying, transaction_type, timeframe, leg_data, now_override=None):
+    # --- Core Logic ---
+    def process_signal(self, underlying, signal_type, timeframe, leg_data):
         """
-        Refactored Index-Based Sequential Trading with Intelligent Side Inference.
-        transaction_type: 'B' (Bullish/Long Bias), 'S' (Bearish/Short Bias)
+        Process BUY/SELL signals.
+        signal_type: 'B' (Buy/Long), 'S' (Sell/Short)
         """
-        # 0. Market Hours and Daily Square-off
-        now_ist = now_override if now_override else datetime.now(IST)
-        if now_ist.tzinfo is None:
-             now_ist = IST.localize(now_ist)
-
-        # 0.0 Daily Signal Reset (Ensures toggle logic starts fresh every morning)
-        self._check_daily_reset(now_ist)
-
-        is_market_open = (now_ist.hour > 9 or (now_ist.hour == 9 and now_ist.minute >= 30))
-        is_market_closing = (now_ist.hour > 15 or (now_ist.hour == 15 and now_ist.minute >= 25))
-             
-        # Daily Square-off After 15:25 IST
-        if is_market_closing:
-            current_side = self._get_global_side()
-            if current_side != 'NONE':
-                logger.info(f"DAILY SQUARE-OFF: Time {now_ist.strftime('%H:%M:%S')} IST is past 15:25. Closing position.")
-                self._close_active_trend(underlying, leg_data, now_ist)
-                return {
-                    "underlying": underlying,
-                    "action": "DAILY_SQUARE_OFF",
-                    "time": now_ist.strftime('%H:%M:%S'),
-                    "new_rank": 0,
-                    "side": "NONE"
-                }
-            return {
-                "underlying": underlying,
-                "action": "MARKET_CLOSED",
-                "time": now_ist.strftime('%H:%M:%S'),
-                "new_rank": 0,
-                "side": "NONE"
-            }
-
-        # 0.2 Signal De-duplication (Toggle Logic)
-        if transaction_type == "ZONE":
-            last_zone = self._get_last_signal(underlying, "ZONE_STATE")
-            if last_zone == timeframe:
-                logger.info(f"ZONE TOGGLE: Ignoring repeat touch of {timeframe} for {underlying}")
-                return {
-                    "underlying": underlying,
-                    "action": "SKIPPED_ZONE_TOGGLE",
-                    "time": now_ist.strftime('%H:%M:%S'),
-                    "new_rank": self._get_rank(underlying),
-                    "side": self._get_global_side()
-                }
+        now_ist = datetime.now(IST)
         
-        current_rank = self._get_rank(underlying)
-        weight = self.timeframe_weights.get(timeframe, 1)
+        # 0. Check for Daily Reset (if needed, or just let signals drive)
+        # Assuming explicit signals, we don't auto-reset unless manual.
 
+        state = self._get_state(underlying)
+        current_side = state.get('side', 'NONE')
+        
+        logger.info(f"Processing Signal: {signal_type} for {underlying}. Current Side: {current_side}")
+        
+        action_log = []
 
-        # Toggle Logic for B/S signals
-        if transaction_type != "ZONE":
-            last_type = self._get_last_signal(underlying, timeframe)
-            if last_type == transaction_type:
-                logger.info(f"TOGGLE FILTER: Ignoring {transaction_type} for {underlying} on {timeframe}m (Same as last state)")
-                return {
-                    "underlying": underlying,
-                    "action": "SKIPPED_TOGGLE",
-                    "time": now_ist.strftime('%H:%M:%S'),
-                    "new_rank": current_rank,
-                    "side": self._get_global_side()
-                }
+        # Logic Matrix
+        # Signal: BUY ('B')
+        if signal_type == 'B':
+            # 1. Close PUT if Open
+            if current_side == 'PUT':
+                logger.info(f"Reversal detected: Closing PUT for {underlying}")
+                self._close_position(underlying, state)
+                state = {'side': 'NONE'} # Reset local state after close
+                action_log.append("CLOSED_PUT")
 
-        # Update persistent state
-        if transaction_type == "ZONE":
-             self._set_last_signal(underlying, "ZONE_STATE", timeframe)
-        else:
-             self._set_last_signal(underlying, timeframe, transaction_type)
-
-        new_rank = current_rank
-        action_taken = "NONE"
-
-        if transaction_type == "B":
-            new_rank += weight
-            logger.info(f"BULLISH SIGNAL ({timeframe}m): Weight {weight}. Rank {current_rank} -> {new_rank}")
-        elif transaction_type == "S":
-            new_rank -= weight
-            logger.info(f"BEARISH SIGNAL ({timeframe}m): Weight {weight}. Rank {current_rank} -> {new_rank}")
-        elif transaction_type == "ZONE":
-            level = timeframe # We use timeframe field to pass the level name
-            logger.info(f"ZONE LEVEL ALERT: {underlying} touched {level}")
-            
-            # Zone Decay Logic: Reduce rank magnitude by 1
-            if current_rank > 0:
-                new_rank -= 1
-                logger.info(f"ZONE DECAY (CALL): Rank {current_rank} -> {new_rank}")
-            elif current_rank < 0:
-                new_rank += 1
-                logger.info(f"ZONE DECAY (PUT): Rank {current_rank} -> {new_rank}")
-            action_taken = "ZONE_DECAY"
-
-
-
-        # 1. Execution Window and Order Placement
-        # We only place orders AFTER 09:30 AM IST.
-        if is_market_open:
-            current_side = self._get_global_side()
-            
-            # Determine target side from signed rank
-            if new_rank > 0:
-                target_side = 'CALL'
-            elif new_rank < 0:
-                target_side = 'PUT'
-            else:
-                target_side = 'NONE'
-
-            # A. If side changes (Flip or Exit)
-            if target_side != current_side:
-                # Close existing if any
-                if current_side != 'NONE':
-                    logger.info(f"TREND CHANGE: Closing {current_side} position.")
-                    self._close_active_trend(underlying, leg_data, now_ist)
-                
-                # Open new if needed
-                if target_side != 'NONE':
-                    logger.info(f"TREND START: Opening {target_side} position with rank {new_rank}")
-                    action_taken = self._open_new_trend(underlying, target_side, new_rank, leg_data, flip=(current_side != 'NONE'))
+            # 2. Open CALL if not already open
+            if current_side != 'CALL':
+                logger.info(f"Opening CALL for {underlying}")
+                new_state = self._open_position(underlying, 'CALL', leg_data)
+                if new_state:
+                    self._set_state(underlying, new_state)
+                    action_log.append("OPENED_CALL")
                 else:
-                    action_taken = "CLOSE_TREND"
-            
-            # B. If side is same but rank changed (Pyramiding/Decay)
-            else:
-                if action_taken != "ZONE_DECAY":
-                    if target_side == 'CALL':
-                        action_taken = "UPHOLD_CALL" if new_rank > current_rank else "DECAY_CALL"
-                    elif target_side == 'PUT':
-                        action_taken = "UPHOLD_PUT" if new_rank < current_rank else "DECAY_PUT"
-                
-                # Catch-up logic: if market is open and it's our first signal of the day
+                    action_log.append("FAILED_OPEN_CALL")
 
-                active_contract = self._get_active_contract(underlying)
-                if not active_contract and target_side != 'NONE':
-                    logger.info(f"MARKET OPEN CATCH-UP: Realizing pre-market trend {target_side} with Rank {new_rank}")
-                    action_taken = self._open_new_trend(underlying, target_side, new_rank, leg_data)
+        # Signal: SELL ('S')
+        elif signal_type == 'S':
+            # 1. Close CALL if Open
+            if current_side == 'CALL':
+                logger.info(f"Reversal detected: Closing CALL for {underlying}")
+                self._close_position(underlying, state)
+                state = {'side': 'NONE'}
+                action_log.append("CLOSED_CALL")
 
-        # Update persistent state
-        self._set_rank(underlying, new_rank)
-        # Note: _open_new_trend and _close_active_trend already handle _set_global_side('NONE') etc.
-        # But for pre-market (is_market_open=False), we still need to track the intended side.
-        if not is_market_open:
-            if new_rank > 0:
-                self._set_global_side('CALL')
-                action_taken = "PREMARKET_RANK_CALL"
-            elif new_rank < 0:
-                self._set_global_side('PUT')
-                action_taken = "PREMARKET_RANK_PUT"
-            else:
-                self._set_global_side('NONE')
-                action_taken = "PREMARKET_NEUTRAL"
-
+            # 2. Open PUT if not already open
+            if current_side != 'PUT':
+                logger.info(f"Opening PUT for {underlying}")
+                new_state = self._open_position(underlying, 'PUT', leg_data)
+                if new_state:
+                    self._set_state(underlying, new_state)
+                    action_log.append("OPENED_PUT")
+                else:
+                    action_log.append("FAILED_OPEN_PUT")
+        
+        # Summarize Action for Server Compatibility
+        summary_action = "NO_ACTION"
+        if action_log:
+            summary_action = ", ".join(action_log)
+        
         return {
             "underlying": underlying,
-            "old_rank": current_rank,
-            "new_rank": new_rank,
-            "action": action_taken,
-            "side": self._get_global_side(),
+            "signal": signal_type,
+            "actions": action_log,
+            "action": summary_action, # For server.py error checking
             "time": now_ist.strftime('%H:%M:%S')
         }
 
+    def _open_position(self, underlying, side, leg_data):
+        """
+        Opens a position and places simulated bracket orders.
+        Returns new state dict or None on failure.
+        """
+        # 1. Select ITM Contract
+        spot = leg_data.get('current_price', 0)
+        opt_type = 'CE' if side == 'CALL' else 'PE'
+        
+        itm = self.broker.get_itm_contract(underlying, opt_type, spot)
+        if not itm:
+            logger.error(f"Failed to resolve ITM for {underlying} {side}")
+            return None
+        
+        symbol = itm['symbol']
+        sec_id = itm['security_id']
+        
+        # --- Native Super Order Attempt ---
+        # 1. Fetch LTP for Reference
+        ltp = self.broker.get_ltp(sec_id)
+        if not ltp:
+            ltp = leg_data.get('current_price') # Fallback to spot/input if valid?
+            # Note: leg_data price might be spot, risky. 
+            # If ltp is None and leg_data['price'] is Spot (~24000) vs Option (~200), huge diff.
+            # Safety Check: If ltp > 10000 and we expect Option? 
+            # We assume user inputs roughly correct or we rely on brokered ltp.
+            pass
+
+        if ltp and ltp > 0:
+            sl_price = round(ltp - self.points_sl, 1)
+            tgt_price = round(ltp + self.points_target, 1)
+            if sl_price <= 0: sl_price = 0.05
+            
+            # Smart Entry: Limit Order at LTP - 5
+            entry_limit_price = round(ltp - 5, 1)
+            if entry_limit_price <= 0.05: entry_limit_price = 0.05 # Safety
+
+            so_leg = itm.copy()
+            so_leg['quantity'] = leg_data.get('quantity', 1)
+            so_leg['target_price'] = tgt_price
+            so_leg['stop_loss_price'] = sl_price
+            
+            # Use Limit Order for Entry
+            so_leg['order_type'] = 'LIMIT'
+            so_leg['price'] = entry_limit_price
+            
+            logger.info(f"Attempting Native Super Order for {symbol}. EntryLimit={entry_limit_price} (LTP-5), SL={sl_price}, TGT={tgt_price}")
+            resp = self.broker.place_super_order(symbol, so_leg)
+            
+            if resp.get('success'):
+                logger.info(f"Native Super Order Placed: {resp.get('order_id')}")
+                return {
+                    'side': side,
+                    'entry_id': resp.get('order_id'),
+                    'symbol': symbol,
+                    'security_id': sec_id,
+                    'sl_id': "NATIVE_BO", 
+                    'tgt_id': "NATIVE_BO",
+                    'is_super_order': True,
+                    'quantity': so_leg['quantity']
+                }
+            else:
+                logger.warning(f"Native Super Order Failed: {resp.get('error')}. Falling back to Simulation.")
+
+        # --- Fallback: Simulated Bracket (Market Entry + Separate Exit Orders) ---
+        logger.info(f"Placing Market Entry (Simulated Bracket) for {symbol}")
+        order_leg = itm.copy()
+        
+        # ... (rest of old code below) ... 
+        order_leg['quantity'] = leg_data.get('quantity', 1)
+        
+        resp = self.broker.place_buy_order(symbol, order_leg)
+        if not resp.get('success'):
+            logger.error(f"Entry Failed: {resp.get('error')}")
+            return None
+        
+        entry_id = resp['order_id']
+        
+        # 3. Wait for Fill (Polling) to get Avg Price
+        avg_price = 0.0
+        max_retries = 5  # 2.5 seconds max wait
+        for i in range(max_retries):
+            status = self.broker.get_order_status(entry_id)
+            if status:
+                st = status.get('orderStatus') # Dhan Status keys e.g. 'TRADED', 'PENDING'
+                # Note: Dhan API keys might vary (camelCase vs snake_case). Using .get loosely.
+                # Assuming 'status' field in 'data' or similar. 
+                # Our mock wrapper returns the raw data dict from 'get_order_by_id'.
+                # Usually: 'orderStatus': 'TRADED'
+                if st == 'TRADED' or st == 'FILLED':
+                    avg_price = float(status.get('averagePrice', 0.0) or status.get('price', 0.0))
+                    if avg_price > 0:
+                        break
+            time.sleep(0.5)
+            
+        if avg_price <= 0:
+            logger.warning(f"Could not fetch fill price for {entry_id} in time. Using Spot/Mock? Skipping SL/Target placement to avoid bad orders.")
+            # Critical: If we can't get price, we can't place safe limits.
+            # We record the position but mark orders as missing.
+            return {
+                'side': side,
+                'entry_id': entry_id,
+                'symbol': symbol,
+                'security_id': sec_id,
+                'sl_id': None,
+                'tgt_id': None
+            }
+        
+        logger.info(f"Entry Filled at {avg_price}. Placing Bracket Orders...")
+        
+        # 4. Calculate Levels
+        sl_price = round(avg_price - self.points_sl, 1)
+        tgt_price = round(avg_price + self.points_target, 1)
+        
+        if sl_price <= 0: sl_price = 0.05
+        
+        # 5. Place Target (Limit Sell)
+        tgt_leg = order_leg.copy()
+        tgt_leg['price'] = tgt_price
+        tgt_leg['order_type'] = "LIMIT"
+        
+        logger.info(f"Placing Target Limit Sell at {tgt_price}")
+        resp_tgt = self.broker.place_sell_order(symbol, tgt_leg)
+        tgt_id = resp_tgt.get('order_id')
+        if not resp_tgt.get('success'):
+            logger.error(f"Target Placement Failed: {resp_tgt.get('error')}")
+
+        # 6. Place Stop Loss (SL-M)
+        sl_leg = order_leg.copy()
+        sl_leg['trigger_price'] = sl_price
+        sl_leg['order_type'] = "STOP_LOSS_MARKET" 
+        # Note: Dhan uses STOP_LOSS_MARKET for SL-M. 
+        
+        logger.info(f"Placing Stop Loss Trigger at {sl_price}")
+        resp_sl = self.broker.place_sell_order(symbol, sl_leg)
+        sl_id = resp_sl.get('order_id')
+        if not resp_sl.get('success'):
+            logger.error(f"SL Placement Failed: {resp_sl.get('error')}")
+        
+        return {
+            'side': side,
+            'entry_id': entry_id,
+            'symbol': symbol,
+            'security_id': sec_id,
+            'sl_id': sl_id, 
+            'tgt_id': tgt_id,
+            'sl_price': sl_price,
+            'tgt_price': tgt_price,
+            'quantity': order_leg['quantity']
+        }
+
+    def _close_position(self, underlying, state):
+        """
+        Closes current position and cancels pending SL/Target orders.
+        """
+        symbol = state.get('symbol')
+        sec_id = state.get('security_id')
+        entry_id = state.get('entry_id')
+        sl_id = state.get('sl_id')
+        tgt_id = state.get('tgt_id')
+        is_super_order = state.get('is_super_order', False)
+        side = state.get('side')
+        
+        if not symbol or not sec_id:
+            return
+
+        # 1. Cancel Pending Orders
+        # Smart Exit Strategy:
+        # Instead of Canceling + Market Exit, we Modify pending Target/SL orders to capture spread.
+        
+        ltp = self.broker.get_ltp(sec_id)
+        if not ltp or ltp <= 0:
+            logger.warning(f"Smart Exit Failed: Could not fetch LTP for {symbol}. Proceeding with Standard Exit.")
+            # Fallback to Old Logic: Cancel All + Market Close
+            pending_orders = self.broker.get_pending_orders(sec_id)
+            for order in pending_orders:
+                 self.broker.cancel_order(order.get('orderId'))
+            
+            # Place Market Exit
+            exit_leg = { "symbol": symbol, "security_id": sec_id, "quantity": state.get('quantity', 1) }
+            self.broker.place_sell_order(symbol, exit_leg)
+            self._clear_state(underlying)
+            return
+
+        # Fetch Pending Legs
+        pending_orders = self.broker.get_pending_orders(sec_id)
+        if not pending_orders:
+             logger.warning(f"Smart Exit: No pending orders found for {symbol}. Checking Position.")
+             # If no pending orders, maybe we are already flat? Check Pos using old logic.
+             # Or just Place Market Exit to be safe?
+             # Let's use standard verification below.
+        else:
+            logger.info(f"Smart Exit: Modifying {len(pending_orders)} pending orders for {symbol} at LTP {ltp}")
+            
+            for order in pending_orders:
+                oid = order.get('orderId')
+                otype = order.get('orderType') # LIMIT / STOP_LOSS
+                txn = order.get('transactionType') 
+                curr_price = float(order.get('price', 0))
+                curr_trigger = float(order.get('triggerPrice', 0))
+                
+                # Determine Position Side we are closing
+                # If we were Long (Call), we are Selling.
+                # If we were Short (Put), we are Buying. (Assuming we Short Options? No, we Buy Options).
+                # Strategy is Buy Call / Buy Put. So we always SELL to close.
+                
+                # Consolidated Logic:
+                # 1. If it's a BUY order (Unfilled Start of Native BO), we MUST CANCEL it.
+                #    Otherwise we leave a stale entry order.
+                if txn == 'BUY':
+                    logger.info(f"Smart Exit: Found Unfilled BUY Entry {oid}. Cancelling.")
+                    self.broker.cancel_order(oid)
+                
+                # 2. If it's a SELL order (Target/SL legs of a filled order), we MODIFY it (Smart Exit).
+                elif txn == 'SELL':
+                    if otype == 'LIMIT': # TARGET (Sell Limit)
+                        new_price = round(ltp + 5, 1)
+                        logger.info(f"Smart Exit: Modifying Target {oid} to {new_price} (LTP+5)")
+                        self.broker.modify_order(oid, 'LIMIT', {'price': new_price})
+                    
+                    elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET']: # SL
+                        # Trail UP if needed
+                        barrier = round(ltp - 10, 1)
+                        if getattr(self, 'trailing_sl_enabled', True): 
+                             if curr_trigger < barrier:
+                                 logger.info(f"Smart Exit: Trailing SL {oid} to {barrier} (LTP-10)")
+                                 self.broker.modify_order(oid, 'SL', {'trigger_price': barrier})
+
+        # Do NOT place Market Exit Order.
+        # We rely on the Modified Limit Order to fill.
+        # But we DO clear the state because we are "done" with this position from Engine perspective?
+        # NO. If we clear state, we lose track of it.
+        # But Engine needs to open NEW position immediately.
+        # Strategy: "Open position will be closed... by Signal".
+        # We modify old orders. Open new one.
+        # Old position becomes "Legacy" managed by Broker orders.
+        # We can clear state because we don't need to track it anymore active-ly.
+        
+        logger.info(f"Smart Exit Initiated. Pending Orders Modified. Clearing State for {underlying}.")
+        self._clear_state(underlying)
+
     def manual_exit_all(self):
-        """Emergency exit: Close all active positions and reset all ranks to 0."""
-        logger.warning("MANUAL EXIT TRIGGERED: Closing all positions and resetting ranks.")
-        
-        # 1. Find all active contracts
-        underlyings = []
+        """
+        Emergency: Close all keys starting with state:*
+        """
+        logger.warning("MANUAL EXIT ALL TRIGGERED")
+        keys = []
         if self.use_redis:
-            keys = self.r.keys("active_contract:*")
-            underlyings = [k.split(":")[1] for k in keys]
+            keys = self.r.keys("state:*")
         else:
-            underlyings = [k.split(":")[1] for k in self.memory_store.keys() if k.startswith("active_contract:")]
-
-        # 2. Close each active contract
-        for u in underlyings:
-            # We use a dummy price of 0 as we don't have real-time data here. 
-            # The broker will usually handle the square-off at market price.
-            self._close_active_trend(u, {"current_price": 0})
-            self._set_rank(u, 0)
-        
-        # 3. Reset all ranks and global side (even for underlyings without active contracts)
-        if self.use_redis:
-            rank_keys = self.r.keys("rank:*")
-            if rank_keys:
-                self.r.delete(*rank_keys)
-            self.r.delete("trading_side")
-            # Also clear signal history to avoid toggle issues after reset
-            sig_keys = self.r.keys("last_signal:*")
-            if sig_keys:
-                self.r.delete(*sig_keys)
-        else:
-            # For memory store, we selectively clear keys that aren't system-internal
-            # But since memory_store is mostly ranks and trading_side, we can be aggressive.
-            # We keep last_reset_date if it exists.
-            reset_date = self._get_last_reset_date()
-            self.memory_store = {}
-            if reset_date:
-                self._set_last_reset_date(reset_date)
-            self.last_signals = {}
+            keys = [k for k in self.memory_store.keys() if k.startswith("state:")]
             
-        logger.info("MANUAL EXIT COMPLETE: All ranks reset and positions closed.")
-
-
-    def _get_global_side(self):
-        if self.use_redis:
-            val = self.r.get("trading_side")
-            return val if val else 'NONE'
-        else:
-            return self.memory_store.get("trading_side", 'NONE')
-
-
-    def _set_global_side(self, side):
-        logger.info(f"Global Trading Side set to: {side}")
-        if self.use_redis:
-            self.r.set("trading_side", side)
-        else:
-            self.memory_store["trading_side"] = side
-
-    def _close_active_trend(self, underlying, leg_data, exit_time=None):
-        """Helper to close the active contract and reset state."""
-        contract_data = self._get_active_contract(underlying)
-        if contract_data:
-            symbol = contract_data.get('symbol')
-            # Pass the contract data (including security_id) to the broker
-            logger.info(f"Exhausting trend. Closing {symbol}")
-            # Inject current price for PnL
-            current_price = leg_data.get('current_price', 0)
-            contract_data['current_price'] = current_price
-            
-            self.broker.place_sell_order(symbol, contract_data)
-        
-        self._set_global_side('NONE')
-        self._set_active_contract(underlying, None)
-
-    def _check_daily_reset(self, now_ist):
-        """Checks if a new day has started and clears timeframe toggles if so."""
-        current_date = now_ist.date().isoformat()
-        last_reset = self._get_last_reset_date()
-        
-        if last_reset != current_date:
-            logger.info(f"NEW DAY DETECTED ({current_date}). Clearing signal history/toggles and resetting ranks.")
-            
-            if self.use_redis:
-                # Clear all timeframe toggles
-                keys = self.r.keys("last_signal:*")
-                if keys:
-                    self.r.delete(*keys)
-                
-                # Clear all ranks
-                rank_keys = self.r.keys("rank:*")
-                if rank_keys:
-                    self.r.delete(*rank_keys)
-                
-                # Reset global side
-                self.r.delete("trading_side")
-                
-                # Clear zone state specifically
-                self.r.delete("last_signal:ZONE_STATE")
-            else:
-                self.last_signals = {}
-                self.memory_store = {} # This clears ranks and trading side in memory
-            
-            self._set_last_reset_date(current_date)
-
-    def _get_last_reset_date(self):
-        if self.use_redis:
-            return self.r.get("last_reset_date")
-        else:
-            return self.memory_store.get("last_reset_date")
-
-    def _set_last_reset_date(self, date_str):
-        if self.use_redis:
-            self.r.set("last_reset_date", date_str)
-        else:
-            self.memory_store["last_reset_date"] = date_str
-
-    def _get_active_contract(self, underlying):
-        import json
-        if self.use_redis:
-            val = self.r.get(f"active_contract:{underlying}")
-            return json.loads(val) if val else None
-        else:
-            val = self.memory_store.get(f"active_contract:{underlying}")
-            return json.loads(val) if val else None
-
-    def _set_active_contract(self, underlying, contract_dict):
-        import json
-        if self.use_redis:
-            if contract_dict: 
-                self.r.set(f"active_contract:{underlying}", json.dumps(contract_dict))
-            else: 
-                self.r.delete(f"active_contract:{underlying}")
-        else:
-            if contract_dict: 
-                self.memory_store[f"active_contract:{underlying}"] = json.dumps(contract_dict)
-            else: 
-                self.memory_store.pop(f"active_contract:{underlying}", None)
-
-    def _get_last_signal(self, underlying, timeframe):
-        key = f"{underlying}:{timeframe}"
-        if self.use_redis:
-            return self.r.get(f"last_signal:{key}")
-        else:
-            return self.last_signals.get(key)
-
-    def _set_last_signal(self, underlying, timeframe, signal_type):
-        key = f"{underlying}:{timeframe}"
-        if self.use_redis:
-            if signal_type:
-                self.r.set(f"last_signal:{key}", signal_type)
-            else:
-                self.r.delete(f"last_signal:{key}")
-        else:
-            if signal_type:
-                self.last_signals[key] = signal_type
-            else:
-                self.last_signals.pop(key, None)
+        for k in keys:
+            underlying = k.split(":")[1]
+            state = self._get_state(underlying)
+            self._close_position(underlying, state)

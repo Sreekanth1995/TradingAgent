@@ -103,7 +103,7 @@ def webhook():
                     leg['option_type'] = "CE" if groups[4] == "C" else "PE"
                     leg['strike_price'] = groups[5]
             
-            underlying = leg.get('symbol') or leg.get('underlying')
+            underlying = leg.get('symbol') or leg.get('underlying') or leg.get('ticker')
             if not underlying:
                  logger.error(f"Missing Underlying for leg: {leg}")
                  results.append({"error": "Missing Underlying", "leg": leg})
