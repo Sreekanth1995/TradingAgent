@@ -135,22 +135,29 @@ class TestDirectSignalStrategy(unittest.TestCase):
         # Trigger SELL
         res = self.engine.process_signal(underlying, "S", "TP0", leg_data)
         
-        # Verify Smart Exit Logic
-        # 1. Should MODIFY Target to LTP + 5 = 155.0
-        # 2. Should MODIFY SL to LTP - 10 = 140.0 (Since 80 < 140)
+        # Verify Smart Exit Logic (Super Order specific)
+        # 1. Should MODIFY Target via modify_super_order
+        # 2. Should MODIFY SL via modify_super_order
         
-        modify_calls = self.broker.modify_order.call_args_list
+        modify_calls = self.broker.modify_super_order.call_args_list
         self.assertEqual(len(modify_calls), 2)
         
-        # Check Target Mod
-        tgt_call = next((c for c in modify_calls if c[0][0] == 'TGT_LEG'), None)
+        # Check Target Mod (Parent ID 'BO_ID_1', leg 'TARGET_LEG')
+        tgt_call = next((c for c in modify_calls if c[0][1] == 'TARGET_LEG'), None)
         self.assertIsNotNone(tgt_call)
-        self.assertEqual(tgt_call[0][2]['price'], 155.0)
+        self.assertEqual(tgt_call[0][0], 'BO_ID_1')
+        self.assertEqual(tgt_call[0][2]['target_price'], 155.0)
         
-        # Check SL Mod
-        sl_call = next((c for c in modify_calls if c[0][0] == 'SL_LEG'), None)
+        # Check SL Mod (Parent ID 'BO_ID_1', leg 'STOP_LOSS_LEG')
+        sl_call = next((c for c in modify_calls if c[0][1] == 'STOP_LOSS_LEG'), None)
         self.assertIsNotNone(sl_call)
-        self.assertEqual(sl_call[0][2]['trigger_price'], 140.0)
+        self.assertEqual(sl_call[0][0], 'BO_ID_1')
+        self.assertEqual(sl_call[0][2]['stop_loss_price'], 140.0)
+        
+        # Verify NO standard modify/cancel calls for Super Order
+        self.broker.modify_order.assert_not_called()
+        self.broker.cancel_order.assert_not_called()
+        self.broker.cancel_super_order.assert_not_called()
         
         # Verify NO Cancellation
         self.broker.cancel_order.assert_not_called()
@@ -187,12 +194,13 @@ class TestDirectSignalStrategy(unittest.TestCase):
         # Trigger SELL (Reversal)
         res = self.engine.process_signal(underlying, "S", "TP0", leg_data)
         
-        # Verify
-        # 1. Should CANCEL the BUY order (Entry)
-        self.broker.cancel_order.assert_called_with('ENTRY_BUY_1')
+        # Verify Logic
+        # 1. Should CANCEL the BUY order (Entry) via cancel_super_order
+        self.broker.cancel_super_order.assert_called_with('ENTRY_BUY_1', 'ENTRY_LEG')
         
-        # 2. Should NOT Modify anything (No SELL orders)
+        # 2. Should NOT Modify anything via standard methods
         self.broker.modify_order.assert_not_called()
+        self.broker.modify_super_order.assert_not_called()
         
         # 3. Should NOT Place Market Exit (Since not open)
         self.broker.place_sell_order.assert_not_called()

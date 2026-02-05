@@ -325,45 +325,46 @@ class RankingEngine:
         pending_orders = self.broker.get_pending_orders(sec_id)
         if not pending_orders:
              logger.warning(f"Smart Exit: No pending orders found for {symbol}. Checking Position.")
-             # If no pending orders, maybe we are already flat? Check Pos using old logic.
-             # Or just Place Market Exit to be safe?
-             # Let's use standard verification below.
         else:
             logger.info(f"Smart Exit: Modifying {len(pending_orders)} pending orders for {symbol} at LTP {ltp}")
             
+            # Use Parent ID for Super Orders if available
+            parent_id = state.get('entry_id')
+
             for order in pending_orders:
                 oid = order.get('orderId')
                 otype = order.get('orderType') # LIMIT / STOP_LOSS
                 txn = order.get('transactionType') 
-                curr_price = float(order.get('price', 0))
-                curr_trigger = float(order.get('triggerPrice', 0))
                 
-                # Determine Position Side we are closing
-                # If we were Long (Call), we are Selling.
-                # If we were Short (Put), we are Buying. (Assuming we Short Options? No, we Buy Options).
-                # Strategy is Buy Call / Buy Put. So we always SELL to close.
-                
-                # Consolidated Logic:
-                # 1. If it's a BUY order (Unfilled Start of Native BO), we MUST CANCEL it.
-                #    Otherwise we leave a stale entry order.
+                # 1. If it's a BUY order (Unfilled Start), we MUST CANCEL it.
                 if txn == 'BUY':
                     logger.info(f"Smart Exit: Found Unfilled BUY Entry {oid}. Cancelling.")
-                    self.broker.cancel_order(oid)
+                    if is_super_order and parent_id:
+                        self.broker.cancel_super_order(parent_id, 'ENTRY_LEG')
+                    else:
+                        self.broker.cancel_order(oid)
                 
-                # 2. If it's a SELL order (Target/SL legs of a filled order), we MODIFY it (Smart Exit).
+                # 2. If it's a SELL order (Target/SL legs), we MODIFY it (Smart Exit).
                 elif txn == 'SELL':
                     if otype == 'LIMIT': # TARGET (Sell Limit)
                         new_price = round(ltp + 5, 1)
                         logger.info(f"Smart Exit: Modifying Target {oid} to {new_price} (LTP+5)")
-                        self.broker.modify_order(oid, 'LIMIT', {'price': new_price})
+                        if is_super_order and parent_id:
+                            self.broker.modify_super_order(parent_id, 'TARGET_LEG', {'target_price': new_price})
+                        else:
+                            self.broker.modify_order(oid, 'LIMIT', {'price': new_price})
                     
                     elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET']: # SL
                         # Trail UP if needed
                         barrier = round(ltp - 10, 1)
-                        if getattr(self, 'trailing_sl_enabled', True): 
+                        if getattr(self, 'trailing_sl_enabled', True):
+                             curr_trigger = float(order.get('triggerPrice', 0))
                              if curr_trigger < barrier:
                                  logger.info(f"Smart Exit: Trailing SL {oid} to {barrier} (LTP-10)")
-                                 self.broker.modify_order(oid, 'SL', {'trigger_price': barrier})
+                                 if is_super_order and parent_id:
+                                     self.broker.modify_super_order(parent_id, 'STOP_LOSS_LEG', {'stop_loss_price': barrier})
+                                 else:
+                                     self.broker.modify_order(oid, 'SL', {'trigger_price': barrier})
 
         # Do NOT place Market Exit Order.
         # We rely on the Modified Limit Order to fill.

@@ -612,6 +612,95 @@ class DhanClient:
             logger.error(f"Super Order Exception: {e}")
             return {"success": False, "error": str(e)}
 
+    def modify_super_order(self, order_id, leg_name, fields):
+        """
+        Modifies a specific leg of a Super Order.
+        leg_name: 'ENTRY_LEG', 'TARGET_LEG', 'STOP_LOSS_LEG'
+        fields: dict containing fields to modify (price, quantity, targetPrice, stopLossPrice, etc.)
+        """
+        if self.dry_run:
+            logger.info(f"$$$ [BROKER] MOCK MODIFY SUPER ORDER {order_id} ({leg_name}) $$$")
+            return {"success": True}
+
+        if not self.access_token or not self.client_id:
+            return {"success": False, "error": "Missing Info"}
+
+        url = f"https://api.dhan.co/v2/super/orders/{order_id}"
+        headers = {
+            'Content-Type': 'application/json',
+            'access-token': self.access_token
+        }
+
+        # Prepare Payload
+        payload = {
+            "dhanClientId": self.client_id,
+            "orderId": str(order_id),
+            "legName": leg_name
+        }
+
+        # Add optional modifiable fields
+        # Note: targetPrice, stopLossPrice, and trailingJump use camelCase in the spec
+        mapping = {
+            'price': 'price',
+            'quantity': 'quantity',
+            'target_price': 'targetPrice',
+            'stop_loss_price': 'stopLossPrice',
+            'trailing_jump': 'trailingJump',
+            'order_type': 'orderType'
+        }
+
+        for k, v in mapping.items():
+            if k in fields:
+                payload[v] = fields[k]
+        
+        # Ensure values are floats where appropriate
+        for float_field in ['price', 'targetPrice', 'stopLossPrice', 'trailingJump']:
+            if float_field in payload:
+                payload[float_field] = float(payload[float_field])
+
+        logger.info(f"$$$ [BROKER] MODIFYING SUPER ORDER: {payload} $$$")
+
+        try:
+            resp = requests.put(url, headers=headers, json=payload)
+            if resp.status_code == 200:
+                return {"success": True, "data": resp.json()}
+            else:
+                logger.error(f"Modify Super Order Failed: {resp.status_code} {resp.text}")
+                return {"success": False, "error": resp.text}
+        except Exception as e:
+            logger.error(f"Modify Super Order Exception: {e}")
+            return {"success": False, "error": str(e)}
+
+    def cancel_super_order(self, order_id, leg_name='ENTRY_LEG'):
+        """
+        Cancels a leg of a Super Order.
+        leg_name: 'ENTRY_LEG', 'TARGET_LEG', 'STOP_LOSS_LEG'
+        """
+        if self.dry_run:
+            logger.info(f"$$$ [BROKER] MOCK CANCEL SUPER ORDER {order_id} ({leg_name}) $$$")
+            return {"success": True}
+
+        if not self.access_token:
+            return {"success": False, "error": "Missing Token"}
+
+        url = f"https://api.dhan.co/v2/super/orders/{order_id}/{leg_name}"
+        headers = {
+            'Content-Type': 'application/json',
+            'access-token': self.access_token
+        }
+
+        try:
+            resp = requests.delete(url, headers=headers)
+            # Docs say 202 Accepted, but 200 is also common
+            if resp.status_code in [200, 202]:
+                return {"success": True, "data": resp.json() if resp.text else {}}
+            else:
+                logger.error(f"Cancel Super Order Failed: {resp.status_code} {resp.text}")
+                return {"success": False, "error": resp.text}
+        except Exception as e:
+            logger.error(f"Cancel Super Order Exception: {e}")
+            return {"success": False, "error": str(e)}
+
     def refresh_client(self, new_token):
         """
         Updates the access token and re-initializes the Dhan client.
