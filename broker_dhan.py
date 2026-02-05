@@ -364,29 +364,24 @@ class DhanClient:
         url = "https://api.dhan.co/v2/marketfeed/ltp"
         headers = {
             'Content-Type': 'application/json',
-            'access-token': self.access_token
+            'access-token': self.access_token,
+            'client-id': self.client_id
         }
         
-        # Payload for LTP
-        # Docs typically: { "instruments": [ { "exchangeSegment": "...", "securityId": "..." } ] }
-        # Or simple? Let's assume standard structure.
-        # Actually, Dhan API v2 'marketfeed/ltp' expects:
-        # { "exchangeSegment": "NSE_FNO", "securityId": "12345" } 
-        # (Based on standard REST patterns, checking docs would be ideal but I'll try standard).
-        
-        # LTP Fetch for v2 usually doesn't need dhanClientId in payload
-        # It's in the headers as access-token
+        # Dhan API v2 'marketfeed/ltp' expects:
+        # { "NSE_FNO": [sec_id1, sec_id2], "NSE_EQ": [sec_id3] }
         payload = {
-            "exchangeSegment": exchange_segment,
-            "securityId": str(security_id)
+            exchange_segment: [str(security_id)]
         }
         
         try:
             resp = requests.post(url, headers=headers, json=payload)
             if resp.status_code == 200:
                 data = resp.json()
-                # Response: { "data": { "lastPrice": 123.45, ... } }
-                return data.get('data', {}).get('last_price') or data.get('data', {}).get('lastPrice')
+                # Response Structure: { "data": { "NSE_FNO": { "123": { "last_price": 100 } } }, "status": "success" }
+                seg_data = data.get('data', {}).get(exchange_segment, {})
+                inst_data = seg_data.get(str(security_id), {})
+                return inst_data.get('last_price')
             else:
                 logger.error(f"LTP Fetch Failed: {resp.status_code} {resp.text}")
                 return None
