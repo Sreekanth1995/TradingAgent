@@ -60,7 +60,7 @@ class TestDirectSignalStrategy(unittest.TestCase):
         self.assertEqual(payload['price'], 95.0)
         
         # Target/SL Check (Based on LTP 100)
-        self.assertEqual(payload['target_price'], 200.0) # 100 + 100
+        self.assertEqual(payload['target_price'], 130.0) # 100 + 30
         self.assertEqual(payload['stop_loss_price'], 80.0) # 100 - 20
 
     def test_buy_signal_fallback(self):

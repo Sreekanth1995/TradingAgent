@@ -26,7 +26,7 @@ class RankingEngine:
         self.memory_store = {}
         
         # Configuration
-        self.points_target = 100
+        self.points_target = 30
         self.points_sl = 20
 
         if REDIS_AVAILABLE:
