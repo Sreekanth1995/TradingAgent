@@ -25,10 +25,13 @@ class RankingEngine:
         self.use_redis = False
         self.memory_store = {}
         
-        # Configuration
-        self.points_target = 30
-        self.points_sl = 20
-        self.points_trailing_jump = 10 # Default trailing jump
+        # Instrument Configurations (Target, SL, Trailing Jump)
+        self.configs = {
+            "NIFTY": {"target": 50, "sl": 30, "trailing": 15},
+            "BANKNIFTY": {"target": 100, "sl": 50, "trailing": 25},
+            "FINNIFTY": {"target": 60, "sl": 40, "trailing": 20},
+            "DEFAULT": {"target": 30, "sl": 20, "trailing": 10}
+        }
 
         if REDIS_AVAILABLE:
             redis_url = os.getenv("REDIS_URL")
@@ -67,6 +70,10 @@ class RankingEngine:
 
     def _clear_state(self, underlying):
         self._set_state(underlying, {'side': 'NONE'})
+
+    def _get_params(self, underlying):
+        """Returns the configuration for the given underlying."""
+        return self.configs.get(underlying.upper(), self.configs["DEFAULT"])
 
     # --- Core Logic ---
     def process_signal(self, underlying, signal_type, timeframe, leg_data):
@@ -165,8 +172,9 @@ class RankingEngine:
             ltp = None
 
         if ltp and ltp > 0:
-            sl_price = round(ltp - self.points_sl, 1)
-            tgt_price = round(ltp + self.points_target, 1)
+            params = self._get_params(underlying)
+            sl_price = round(ltp - params['sl'], 1)
+            tgt_price = round(ltp + params['target'], 1)
             if sl_price <= 0: sl_price = 0.05
             
             # Smart Entry: Limit Order at LTP - 5
@@ -177,7 +185,7 @@ class RankingEngine:
             so_leg['quantity'] = leg_data.get('quantity', 1)
             so_leg['target_price'] = tgt_price
             so_leg['stop_loss_price'] = sl_price
-            so_leg['trailing_jump'] = self.points_trailing_jump
+            so_leg['trailing_jump'] = params['trailing']
             
             # Use Limit Order for Entry
             so_leg['order_type'] = 'LIMIT'
@@ -248,8 +256,9 @@ class RankingEngine:
         logger.info(f"Entry Filled at {avg_price}. Placing Bracket Orders...")
         
         # 4. Calculate Levels
-        sl_price = round(avg_price - self.points_sl, 1)
-        tgt_price = round(avg_price + self.points_target, 1)
+        params = self._get_params(underlying)
+        sl_price = round(avg_price - params['sl'], 1)
+        tgt_price = round(avg_price + params['target'], 1)
         
         if sl_price <= 0: sl_price = 0.05
         
@@ -356,11 +365,13 @@ class RankingEngine:
                     
                     elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET']: # SL
                         # Trail UP if needed
-                        barrier = round(ltp - 10, 1)
+                        params = self._get_params(underlying)
+                        trail_offset = params['trailing']
+                        barrier = round(ltp - trail_offset, 1)
                         if getattr(self, 'trailing_sl_enabled', True):
                              curr_trigger = float(order.get('triggerPrice', 0))
                              if curr_trigger < barrier:
-                                 logger.info(f"Smart Exit: Trailing SL {oid} to {barrier} (LTP-10)")
+                                 logger.info(f"Smart Exit: Trailing SL {oid} to {barrier} (offset {trail_offset})")
                                  if is_super_order and parent_id:
                                      self.broker.modify_super_order(parent_id, 'STOP_LOSS_LEG', {'stop_loss_price': barrier})
                                  else:
