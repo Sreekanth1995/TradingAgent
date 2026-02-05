@@ -417,6 +417,24 @@ class DhanClient:
         return []
 
     def get_order_status(self, order_id):
+        """
+        Fetches the status of a specific order.
+        """
+        if self.dry_run:
+            return {"orderStatus": "TRADED", "averagePrice": 100.0}
+        
+        if self.dhan:
+            try:
+                resp = self.dhan.get_order_by_id(order_id)
+                if resp.get('status') == 'success':
+                    return resp.get('data', {})
+                else:
+                    logger.error(f"Failed to fetch order status for {order_id}: {resp}")
+                    return None
+            except Exception as e:
+                logger.error(f"Exception fetching order status: {e}")
+                return None
+        return None
 
     def modify_order(self, order_id, order_type, leg_data):
         """
