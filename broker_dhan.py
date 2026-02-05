@@ -291,12 +291,6 @@ class DhanClient:
             logger.info(f"$$$ [BROKER] PLACING {transaction_type} ORDER: {lots} Lots ({final_qty} units) x {symbol} (ID: {sec_id}, LotSize: {lot_size}) $$$")
 
             if self.dhan and not self.dry_run:
-                # Real API Call (Normal Order)
-                resp = self.dhan.place_order(
-                    security_id=sec_id,
-                    exchange_segment=ExchangeSegment.NSE_FNO,
-                    transaction_type=transaction_type,
-                    quantity=final_qty,
                 # Determine Order Type and Price
                 order_type = leg_data.get('order_type', OrderType.MARKET)
                 price = leg_data.get('price', 0.0)
@@ -310,6 +304,7 @@ class DhanClient:
 
                 logger.info(f"Placing Order: Type={order_type}, Price={price}, Trigger={trigger_price}")
 
+                # Real API Call
                 resp = self.dhan.place_order(
                     security_id=sec_id,
                     exchange_segment=ExchangeSegment.NSE_FNO,
