@@ -1,0 +1,14 @@
+#!/bin/bash
+# Git Pre-Commit Hook
+# Automatically runs validation before each commit
+# To install: Copy this to .git/hooks/pre-commit and chmod +x
+
+./pre-commit-check.sh
+
+# If validation fails, prevent commit
+if [ $? -ne 0 ]; then
+    echo "❌ Pre-commit validation failed. Commit aborted."
+    exit 1
+fi
+
+exit 0
