@@ -46,7 +46,7 @@ class TestLtpSpec(unittest.TestCase):
         # Wait, I set env above, but let's check DhanClient init.
         
         # Verify Payload
-        self.assertEqual(payload, {"NSE_FNO": ["12345"]})
+        self.assertEqual(payload, {"NSE_FNO": [12345]})
 
     @patch('requests.post')
     def test_get_ltp_failure(self, mock_post):

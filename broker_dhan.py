@@ -370,8 +370,9 @@ class DhanClient:
         
         # Dhan API v2 'marketfeed/ltp' expects:
         # { "NSE_FNO": [sec_id1, sec_id2], "NSE_EQ": [sec_id3] }
+        # securityId MUST be sent as an integer in the list.
         payload = {
-            exchange_segment: [str(security_id)]
+            exchange_segment: [int(security_id)]
         }
         
         try:
