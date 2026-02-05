@@ -559,10 +559,10 @@ class DhanClient:
         lot_size = self.lot_map.get(sec_id, 1)
         final_qty = qty * lot_size
         
-        # Target/SL
-        # Docs require 'targetPrice' and 'stopLossPrice'
+        # Target/SL/Trailing
         target_price = leg_data.get('target_price')
         stop_loss_price = leg_data.get('stop_loss_price')
+        trailing_jump = leg_data.get('trailing_jump') # User provided trailingJump
         
         if not target_price or not stop_loss_price:
              return {"success": False, "error": "Target/SL Prices missing for Super Order"}
@@ -589,6 +589,9 @@ class DhanClient:
             "targetPrice": float(target_price),
             "stopLossPrice": float(stop_loss_price)
         }
+        
+        if trailing_jump:
+            payload["trailingJump"] = float(trailing_jump)
         
         logger.info(f"$$$ [BROKER] PLACING SUPER ORDER: {payload} $$$")
 

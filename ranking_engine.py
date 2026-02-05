@@ -28,6 +28,7 @@ class RankingEngine:
         # Configuration
         self.points_target = 30
         self.points_sl = 20
+        self.points_trailing_jump = 10 # Default trailing jump
 
         if REDIS_AVAILABLE:
             redis_url = os.getenv("REDIS_URL")
@@ -176,6 +177,7 @@ class RankingEngine:
             so_leg['quantity'] = leg_data.get('quantity', 1)
             so_leg['target_price'] = tgt_price
             so_leg['stop_loss_price'] = sl_price
+            so_leg['trailing_jump'] = self.points_trailing_jump
             
             # Use Limit Order for Entry
             so_leg['order_type'] = 'LIMIT'
