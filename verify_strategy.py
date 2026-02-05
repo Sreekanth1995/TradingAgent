@@ -75,11 +75,9 @@ class TestDirectSignalStrategy(unittest.TestCase):
         # 2. Trigger BUY
         res = self.engine.process_signal(underlying, "B", "TP0", leg_data)
         
-        # Verify fallback to place_buy_order
+        # Verify skipping of place_super_order when LTP fails
         self.broker.place_buy_order.assert_called()
-        self.assertEqual(self.broker.place_super_order.call_count, 1) # Tries BO, fails, falls back
-        # Actually my logic tries fallback if place_super_order ALSO fails. 
-        # But if LTP is none, it skips BO block. Correct.
+        self.assertEqual(self.broker.place_super_order.call_count, 0) # Should NOT try BO if LTP fails
 
     def test_reverse_signal_native_cleanup(self):
         print("\n--- Testing REVERSAL (Native BO Cleanup) ---")

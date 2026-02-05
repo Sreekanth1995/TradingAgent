@@ -374,8 +374,9 @@ class DhanClient:
         # { "exchangeSegment": "NSE_FNO", "securityId": "12345" } 
         # (Based on standard REST patterns, checking docs would be ideal but I'll try standard).
         
+        # LTP Fetch for v2 usually doesn't need dhanClientId in payload
+        # It's in the headers as access-token
         payload = {
-            "dhanClientId": self.client_id,
             "exchangeSegment": exchange_segment,
             "securityId": str(security_id)
         }
@@ -489,19 +490,22 @@ class DhanClient:
 
         if self.dhan:
             try:
-                # get_order_list with no args usually returns all for the day?
-                # Dhan API: GET /orders
                 resp = self.dhan.get_order_list() 
-                if resp.get('status') == 'success':
+                
+                # Robust response checking (SDK might return list or dict)
+                if isinstance(resp, list):
+                    all_orders = resp
+                elif isinstance(resp, dict) and resp.get('status') == 'success':
                     all_orders = resp.get('data', [])
-                    pending = [o for o in all_orders if o.get('orderStatus') in ['PENDING', 'TRIGGER_PENDING', 'TRANSIT']]
-                    
-                    if security_id:
-                        return [o for o in pending if str(o.get('securityId')) == str(security_id)]
-                    return pending
                 else:
-                    logger.error(f"Failed to fetch order list: {resp}")
+                    logger.error(f"Failed to fetch order list or invalid format: {resp}")
                     return []
+
+                pending = [o for o in all_orders if o.get('orderStatus') in ['PENDING', 'TRIGGER_PENDING', 'TRANSIT']]
+                
+                if security_id:
+                    return [o for o in pending if str(o.get('securityId')) == str(security_id)]
+                return pending
             except Exception as e:
                 logger.error(f"Exception fetching order list: {e}")
                 return []
@@ -563,6 +567,15 @@ class DhanClient:
         if not target_price or not stop_loss_price:
              return {"success": False, "error": "Target/SL Prices missing for Super Order"}
 
+        # Validate prices: If they are Index prices (e.g. > 10000) for an Option order, reject.
+        # This prevents DH-905 errors due to incorrect fallback.
+        try:
+             tp = float(target_price)
+             if tp > 10000 and len(str(sec_id)) >= 5: # Likely option ID
+                 logger.error(f"ABNORMAL PRICE detected for Super Order: TGT={tp}. Likely Index spot passed to Option. REJECTING.")
+                 return {"success": False, "error": "Invalid Price: Index spot passed as Option price"}
+        except: pass
+
         payload = {
             "dhanClientId": self.client_id,
             "correlationId": f"b_{int(time.time())}",
@@ -571,8 +584,8 @@ class DhanClient:
             "productType": product_type,
             "orderType": order_type,
             "securityId": str(sec_id),
-            "quantity": final_qty,
-            "price": price,
+            "quantity": int(final_qty),
+            "price": float(price) if order_type == "LIMIT" else 0.0,
             "targetPrice": float(target_price),
             "stopLossPrice": float(stop_loss_price)
         }

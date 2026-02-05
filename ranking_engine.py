@@ -157,13 +157,11 @@ class RankingEngine:
         # --- Native Super Order Attempt ---
         # 1. Fetch LTP for Reference
         ltp = self.broker.get_ltp(sec_id)
-        if not ltp:
-            ltp = leg_data.get('current_price') # Fallback to spot/input if valid?
-            # Note: leg_data price might be spot, risky. 
-            # If ltp is None and leg_data['price'] is Spot (~24000) vs Option (~200), huge diff.
-            # Safety Check: If ltp > 10000 and we expect Option? 
-            # We assume user inputs roughly correct or we rely on brokered ltp.
-            pass
+        if not ltp or ltp <= 0:
+            logger.warning(f"LTP fetch failed for {symbol}. Cannot place Super Order. Falling back to Simulation.")
+            # DO NOT use current_price as fallback - it's the Index spot price, not Option LTP!
+            # Skip to fallback simulation instead.
+            ltp = None
 
         if ltp and ltp > 0:
             sl_price = round(ltp - self.points_sl, 1)
