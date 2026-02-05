@@ -17,8 +17,9 @@ When a **BUY (Call)** or **SELL (Put)** signal is received:
     -   **Entry Price**: **`LTP - 5 points`**.
     -   *Goal*: To enter as a "Maker" at a better price.
 3.  **Bracket Legs** (Fixed Points):
-    -   **Target**: Entry + 100 points.
+    -   **Target**: Entry + 30 points.
     -   **Stop Loss**: Entry - 20 points.
+    -   **Trailing Jump**: 10 points.
 
 ## 3. Smart Exit Strategy (Reversal Handling)
 When a **Reverse Signal** arrives (e.g., Switching from Long Call to Long Put):
@@ -44,8 +45,9 @@ The bot **DOES NOT** place a Market Exit Order. It attempts to "work" the exit:
 -   **LTP Safety**: If LTP cannot be fetched, Smart Logic is upgraded to Standard Execution (Market Orders) to ensure trade completion.
 
 ## 6. Configuration
--   **Target Points**: 100
+-   **Target Points**: 30
 -   **SL Points**: 20
+-   **Trailing Jump**: 10
 -   **Smart Entry Edge**: -5 (from LTP)
 -   **Smart Exit Edge**: +5 (from LTP)
 -   **Smart SL Trail**: -10 (from LTP)
