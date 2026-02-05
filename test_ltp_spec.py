@@ -89,9 +89,10 @@ class TestLtpSpec(unittest.TestCase):
         
         # Verify Mandatory Fields
         self.assertEqual(payload['trailingJump'], 1.0) # Default
-        self.assertEqual(payload['validity'], 'DAY')
+        self.assertEqual(payload['productType'], 'INTRADAY')
         self.assertEqual(payload['transactionType'], 'BUY')
         self.assertEqual(payload['securityId'], '11536') # String
+        self.assertNotIn('validity', payload)
 
 if __name__ == '__main__':
     unittest.main()

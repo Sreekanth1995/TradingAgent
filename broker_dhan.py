@@ -534,7 +534,7 @@ class DhanClient:
         # Mapping constants
         txn_type = leg_data.get('transaction_type', 'BUY')
         exchange_segment = "NSE_FNO" # Options Strategy
-        product_type = "BO" # Bracket Order
+        product_type = "INTRADAY" # Super Orders must be INTRADAY, MARGIN or CNC. BO is not a valid productType here.
         order_type = "MARKET" # Usually BO Entry is Limit or Market. Docs show LIMIT.
         # User wants "Entry price...". If Market, price=0
         
@@ -595,8 +595,7 @@ class DhanClient:
             "price": float(price) if order_type == "LIMIT" else 0.0,
             "targetPrice": float(target_price),
             "stopLossPrice": float(stop_loss_price),
-            "trailingJump": float(trailing_jump),
-            "validity": "DAY"
+            "trailingJump": float(trailing_jump)
         }
         
         logger.info(f"$$$ [BROKER] PLACING SUPER ORDER: {payload} $$$")
