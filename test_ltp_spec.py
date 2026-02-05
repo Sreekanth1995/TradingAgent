@@ -57,6 +57,41 @@ class TestLtpSpec(unittest.TestCase):
 
         ltp = self.client.get_ltp("12345")
         self.assertIsNone(ltp)
+    @patch('requests.post')
+    def test_place_super_order_spec(self, mock_post):
+        # 1. Setup Mock Response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"orderId": "BO_123", "orderStatus": "PENDING"}
+        mock_post.return_value = mock_response
+
+        # 2. Call place_super_order with unrounded prices
+        leg_data = {
+            "security_id": "11536",
+            "quantity": 10,
+            "order_type": "LIMIT",
+            "price": 100.07,         # Unrounded
+            "target_price": 130.12,  # Unrounded
+            "stop_loss_price": 80.03 # Unrounded
+        }
+        res = self.client.place_super_order("NIFTY_CE", leg_data)
+
+        # 3. Verify
+        self.assertTrue(res['success'])
+        
+        args, kwargs = mock_post.call_args
+        payload = kwargs['json']
+
+        # Verify Rounding (to 0.05 tick size)
+        self.assertEqual(payload['price'], 100.05)
+        self.assertEqual(payload['targetPrice'], 130.1)
+        self.assertEqual(payload['stopLossPrice'], 80.05)
+        
+        # Verify Mandatory Fields
+        self.assertEqual(payload['trailingJump'], 1.0) # Default
+        self.assertEqual(payload['validity'], 'DAY')
+        self.assertEqual(payload['transactionType'], 'BUY')
+        self.assertEqual(payload['securityId'], '11536') # String
 
 if __name__ == '__main__':
     unittest.main()

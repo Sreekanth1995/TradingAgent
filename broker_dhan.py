@@ -351,6 +351,11 @@ class DhanClient:
                 return {"success": False, "error": str(e)}
         return {"success": False, "error": "Broker not initialized"}
 
+    def _round_to_tick(self, price, tick=0.05):
+        """Rounds price to the nearest tick size."""
+        if not price: return 0.0
+        return round(round(float(price) / tick) * tick, 2)
+
     def get_ltp(self, security_id, exchange_segment=ExchangeSegment.NSE_FNO):
         """
         Fetches the Last Traded Price (LTP) using Dhan API v2.
@@ -572,22 +577,27 @@ class DhanClient:
                  return {"success": False, "error": "Invalid Price: Index spot passed as Option price"}
         except: pass
 
+        # Round all prices to 0.05 tick size
+        price = self._round_to_tick(price)
+        target_price = self._round_to_tick(target_price)
+        stop_loss_price = self._round_to_tick(stop_loss_price)
+        trailing_jump = self._round_to_tick(trailing_jump) if trailing_jump else 1.0 # Mandatory 1.0 default if None
+        
         payload = {
             "dhanClientId": self.client_id,
-            "correlationId": f"b_{int(time.time())}",
+            "correlationId": str(f"b_{int(time.time())}"),
             "transactionType": txn_type,
             "exchangeSegment": exchange_segment,
             "productType": product_type,
             "orderType": order_type,
-            "securityId": str(sec_id),
+            "securityId": str(sec_id), # Spec shows string in example, but get_ltp required int. I'll test with str first as per doc.
             "quantity": int(final_qty),
             "price": float(price) if order_type == "LIMIT" else 0.0,
             "targetPrice": float(target_price),
-            "stopLossPrice": float(stop_loss_price)
+            "stopLossPrice": float(stop_loss_price),
+            "trailingJump": float(trailing_jump),
+            "validity": "DAY"
         }
-        
-        if trailing_jump:
-            payload["trailingJump"] = float(trailing_jump)
         
         logger.info(f"$$$ [BROKER] PLACING SUPER ORDER: {payload} $$$")
 
