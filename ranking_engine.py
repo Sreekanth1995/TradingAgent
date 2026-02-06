@@ -32,6 +32,7 @@ class RankingEngine:
             "FINNIFTY": {"target": 60, "sl": 40, "trailing": 20},
             "DEFAULT": {"target": 30, "sl": 20, "trailing": 10}
         }
+        self.processing_locks = set()
 
         if REDIS_AVAILABLE:
             redis_url = os.getenv("REDIS_URL")
@@ -57,9 +58,9 @@ class RankingEngine:
         key = f"state:{underlying}"
         if self.use_redis:
             val = self.r.get(key)
-            return json.loads(val) if val else {'side': 'NONE'}
+            return json.loads(val) if val else {'side': 'NONE', 'last_signal': 'NONE'}
         else:
-            return self.memory_store.get(key, {'side': 'NONE'})
+            return self.memory_store.get(key, {'side': 'NONE', 'last_signal': 'NONE'})
 
     def _set_state(self, underlying, state):
         key = f"state:{underlying}"
@@ -88,9 +89,37 @@ class RankingEngine:
 
         state = self._get_state(underlying)
         current_side = state.get('side', 'NONE')
+        last_signal = state.get('last_signal', 'NONE')
         
-        logger.info(f"Processing Signal: {signal_type} for {underlying}. Current Side: {current_side}")
+        logger.info(f"Processing Signal: {signal_type} for {underlying}. Side: {current_side}, LastSig: {last_signal}")
         
+        # Deduplication Check
+        if signal_type == last_signal:
+            logger.info(f"Deduplication: Ignoring consecutive {signal_type} signal for {underlying}")
+            return {
+                "underlying": underlying,
+                "signal": signal_type,
+                "action": "SKIPPED_DUPLICATE",
+                "time": now_ist.strftime('%H:%M:%S')
+            }
+
+        if underlying in self.processing_locks:
+            logger.warning(f"Execution Lock: Signal for {underlying} is already being processed. Skipping.")
+            return {"underlying": underlying, "action": "SKIPPED_LOCKED", "time": now_ist.strftime('%H:%M:%S')}
+        
+        self.processing_locks.add(underlying)
+        try:
+            result = self._execute_signal(underlying, signal_type, timeframe, leg_data, state, current_side, now_ist)
+            # Update last_signal ONLY after successful execution (mostly)
+            # We fetch state again in case it was modified in _execute_signal
+            new_state = self._get_state(underlying)
+            new_state['last_signal'] = signal_type
+            self._set_state(underlying, new_state)
+            return result
+        finally:
+            self.processing_locks.remove(underlying)
+
+    def _execute_signal(self, underlying, signal_type, timeframe, leg_data, state, current_side, now_ist):
         action_log = []
 
         # Logic Matrix
@@ -164,9 +193,16 @@ class RankingEngine:
         
         # --- Native Super Order Attempt ---
         # 1. Fetch LTP for Reference
-        ltp = self.broker.get_ltp(sec_id)
+        ltp = None
+        for attempt in range(3):
+            ltp = self.broker.get_ltp(sec_id)
+            if ltp and ltp > 0:
+                break
+            logger.warning(f"LTP fetch attempt {attempt+1} failed for {symbol}. Retrying...")
+            time.sleep(1)
+
         if not ltp or ltp <= 0:
-            logger.warning(f"LTP fetch failed for {symbol}. Cannot place Super Order. Falling back to Simulation.")
+            logger.warning(f"LTP fetch failed for {symbol} after retries. Cannot place Super Order. Falling back to Simulation.")
             # DO NOT use current_price as fallback - it's the Index spot price, not Option LTP!
             # Skip to fallback simulation instead.
             ltp = None
@@ -227,17 +263,18 @@ class RankingEngine:
         avg_price = 0.0
         max_retries = 5  # 2.5 seconds max wait
         for i in range(max_retries):
-            status = self.broker.get_order_status(entry_id)
-            if status:
-                st = status.get('orderStatus') # Dhan Status keys e.g. 'TRADED', 'PENDING'
-                # Note: Dhan API keys might vary (camelCase vs snake_case). Using .get loosely.
-                # Assuming 'status' field in 'data' or similar. 
-                # Our mock wrapper returns the raw data dict from 'get_order_by_id'.
-                # Usually: 'orderStatus': 'TRADED'
-                if st == 'TRADED' or st == 'FILLED':
-                    avg_price = float(status.get('averagePrice', 0.0) or status.get('price', 0.0))
-                    if avg_price > 0:
-                        break
+            try:
+                status = self.broker.get_order_status(entry_id)
+                if status and isinstance(status, dict):
+                    st = status.get('orderStatus') 
+                    if st in ['TRADED', 'FILLED']:
+                        avg_price = float(status.get('averagePrice', 0.0) or status.get('price', 0.0))
+                        if avg_price > 0:
+                            break
+                elif status:
+                    logger.warning(f"Unexpected status format for {entry_id}: {status}")
+            except Exception as e:
+                logger.error(f"Error polling order status for {entry_id}: {e}")
             time.sleep(0.5)
             
         if avg_price <= 0:
