@@ -420,7 +420,7 @@ class DhanClient:
 
     def get_order_status(self, order_id):
         """
-        Fetches the status of a specific order.
+        Retrieves order status and details. Handles both SDK dict and raw list responses.
         """
         if self.dry_run:
             return {"orderStatus": "TRADED", "averagePrice": 100.0}
@@ -428,13 +428,20 @@ class DhanClient:
         if self.dhan:
             try:
                 resp = self.dhan.get_order_by_id(order_id)
-                if resp.get('status') == 'success':
+                # Handle List response (often returned on 429 or SDK edge cases)
+                if isinstance(resp, list):
+                    logger.warning(f"Dhan API returned LIST for order {order_id}: {resp}")
+                    if len(resp) > 0 and isinstance(resp[0], dict):
+                        return resp[0]
+                    return None
+
+                if isinstance(resp, dict) and resp.get('status') == 'success':
                     return resp.get('data', {})
                 else:
                     logger.error(f"Failed to fetch order status for {order_id}: {resp}")
                     return None
             except Exception as e:
-                logger.error(f"Exception fetching order status: {e}")
+                logger.error(f"Exception fetching order status {order_id}: {e}")
                 return None
         return None
 
@@ -604,8 +611,9 @@ class DhanClient:
             resp = requests.post(url, headers=headers, json=payload)
             if resp.status_code == 200:
                 data = resp.json()
-                order_id = data.get('orderId')
-                status = data.get('orderStatus')
+                # Super Order API v2 response might have orderId at top level or in 'data'
+                order_id = data.get('orderId') or data.get('data', {}).get('orderId')
+                status = data.get('orderStatus') or data.get('data', {}).get('orderStatus')
                 if order_id:
                     return {"success": True, "order_id": order_id, "status": status}
                 else:
@@ -726,26 +734,6 @@ class DhanClient:
                 logger.info("Dhan Client Re-initialized with new token.")
             return True
         return False
-
-    def get_order_status(self, order_id):
-        """
-        Retrieves order status and details (including average price).
-        """
-        if self.dry_run:
-            return {"status": "TRADED", "average_price": 100.0} # Mock
-
-        if self.dhan:
-            try:
-                resp = self.dhan.get_order_by_id(order_id)
-                if resp.get('status') == 'success':
-                    return resp.get('data', {})
-                else:
-                    logger.error(f"Failed to get order status for {order_id}: {resp}")
-                    return None
-            except Exception as e:
-                logger.error(f"Exception getting order status {order_id}: {e}")
-                return None
-        return None
 
     def get_consent_url(self):
         """
