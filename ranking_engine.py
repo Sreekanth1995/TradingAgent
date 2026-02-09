@@ -13,6 +13,11 @@ try:
 except ImportError:
     REDIS_AVAILABLE = False
 
+# Market Hours Configuration (IST)
+MARKET_OPEN_HOUR = 9
+MARKET_OPEN_MINUTE = 15
+MARKET_VOLATILITY_DELAY_MINS = 10
+
 logger = logging.getLogger(__name__)
 
 class RankingEngine:
@@ -27,7 +32,7 @@ class RankingEngine:
         
         # Instrument Configurations (Target, SL, Trailing Jump)
         self.configs = {
-            "NIFTY": {"target": 50, "sl": 30, "trailing": 15},
+            "NIFTY": {"target": 50, "sl": 20, "trailing": 15},
             "BANKNIFTY": {"target": 100, "sl": 50, "trailing": 25},
             "FINNIFTY": {"target": 60, "sl": 40, "trailing": 20},
             "DEFAULT": {"target": 30, "sl": 20, "trailing": 10}
@@ -100,6 +105,20 @@ class RankingEngine:
                 "underlying": underlying,
                 "signal": signal_type,
                 "action": "SKIPPED_DUPLICATE",
+                "time": now_ist.strftime('%H:%M:%S')
+            }
+
+        # 0.1 Check for Market Volatility Delay (First 10 mins of market)
+        # Market opens at 09:15, delay until 09:25
+        market_start = now_ist.replace(hour=MARKET_OPEN_HOUR, minute=MARKET_OPEN_MINUTE, second=0, microsecond=0)
+        delay_end = market_start.replace(minute=MARKET_OPEN_MINUTE + MARKET_VOLATILITY_DELAY_MINS)
+        
+        if market_start <= now_ist < delay_end:
+            logger.info(f"Market Volatility Delay: Ignoring {signal_type} signal for {underlying} during first {MARKET_VOLATILITY_DELAY_MINS} mins of market.")
+            return {
+                "underlying": underlying,
+                "signal": signal_type,
+                "action": "SKIPPED_MARKET_OPEN_DELAY",
                 "time": now_ist.strftime('%H:%M:%S')
             }
 
@@ -371,6 +390,27 @@ class RankingEngine:
         pending_orders = self.broker.get_pending_orders(sec_id)
         if not pending_orders:
              logger.warning(f"Smart Exit: No pending orders found for {symbol}. Checking Position.")
+             # Fallback: Check if there is an actual open position that needs closing
+             positions = self.broker.get_positions()
+             has_position = False
+             for pos in positions:
+                 # Dhan positions use securityId (str)
+                 if str(pos.get('securityId')) == str(sec_id):
+                     net_qty = int(pos.get('netQty', 0))
+                     if net_qty != 0:
+                         logger.info(f"Smart Exit: Found open position for {symbol} (Qty: {net_qty}). Placing Market Exit.")
+                         exit_leg = { 
+                             "symbol": symbol, 
+                             "security_id": sec_id, 
+                             "quantity": abs(net_qty),
+                             "order_type": "MARKET"
+                         }
+                         self.broker.place_sell_order(symbol, exit_leg)
+                         has_position = True
+                         break
+             
+             if not has_position:
+                 logger.info(f"Smart Exit: No active position found for {symbol} after checking. State cleared.")
         else:
             logger.info(f"Smart Exit: Modifying {len(pending_orders)} pending orders for {symbol} at LTP {ltp}")
             
@@ -379,8 +419,9 @@ class RankingEngine:
 
             for order in pending_orders:
                 oid = order.get('orderId')
-                otype = order.get('orderType') # LIMIT / STOP_LOSS
-                txn = order.get('transactionType') 
+                # Dhan API might use orderType or order_type
+                otype = order.get('orderType') or order.get('order_type')
+                txn = order.get('transactionType') or order.get('transaction_type')
                 
                 # 1. If it's a BUY order (Unfilled Start), we MUST CANCEL it.
                 if txn == 'BUY':
@@ -406,7 +447,8 @@ class RankingEngine:
                         trail_offset = params['trailing']
                         barrier = round(ltp - trail_offset, 1)
                         if getattr(self, 'trailing_sl_enabled', True):
-                             curr_trigger = float(order.get('triggerPrice', 0))
+                             # Dhan API might use triggerPrice or trigger_price
+                             curr_trigger = float(order.get('triggerPrice') or order.get('trigger_price') or 0)
                              if curr_trigger < barrier:
                                  logger.info(f"Smart Exit: Trailing SL {oid} to {barrier} (offset {trail_offset})")
                                  if is_super_order and parent_id:

@@ -154,7 +154,7 @@ class DhanClient:
                         expiry_raw = row.get('SEM_EXPIRY_DATE', '').split(" ")[0]
                         
                         key = (sym, strike, opt_type, expiry_raw)
-                        sec_id = row.get('SEM_SMST_SECURITY_ID')
+                        sec_id = row.get('SEM_SMST_SECURITY_ID', '').strip()
                         self.scrip_map[key] = sec_id
                         
                         # Store lot size
@@ -509,10 +509,21 @@ class DhanClient:
                     logger.error(f"Failed to fetch order list or invalid format: {resp}")
                     return []
 
-                pending = [o for o in all_orders if o.get('orderStatus') in ['PENDING', 'TRIGGER_PENDING', 'TRANSIT']]
+                pending = [o for o in all_orders if o.get('orderStatus') in ['PENDING', 'TRIGGER_PENDING', 'TRANSIT', 'PARTIALLY_FILLED', 'MODIFY_PENDING']]
                 
                 if security_id:
-                    return [o for o in pending if str(o.get('securityId')) == str(security_id)]
+                    sid_str = str(security_id).strip()
+                    filtered = []
+                    for o in pending:
+                        # Dhan API sometimes uses securityId (camelCase) or security_id (snake_case)
+                        o_sid = str(o.get('securityId') or o.get('security_id') or '').strip()
+                        if o_sid == sid_str:
+                            filtered.append(o)
+                    
+                    if not filtered and pending:
+                        logger.debug(f"get_pending_orders: No pending match for {sid_str} among {len(pending)} total pending orders.")
+                    
+                    return filtered
                 return pending
             except Exception as e:
                 logger.error(f"Exception fetching order list: {e}")
