@@ -204,6 +204,20 @@
                     style="background: linear-gradient(to right, #ef4444, #b91c1c); color: #fff; font-weight: 700;">
                     🚨 EXIT ALL POSITIONS & RESET RANKS
                 </button>
+
+                <div class="toggle-container"
+                    style="margin-top: 32px; border-top: 1px solid var(--glass-border); padding-top: 24px;">
+                    <label>Manual Position Side</label>
+                    <div class="side-selector">
+                        <div id="side-indicator" class="side-indicator"></div>
+                        <button class="side-btn" id="btn-CALL" onclick="confirmToggle('CALL')">CALL</button>
+                        <button class="side-btn" id="btn-PUT" onclick="confirmToggle('PUT')">PUT</button>
+                    </div>
+                    <p style="color: var(--text-dim); font-size: 11px; margin-top: 12px;">
+                        Toggling will automatically send a Sell signal for the current side and a Buy signal for the
+                        target side.
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -245,6 +259,60 @@
             transform: none;
             box-shadow: none;
         }
+
+        /* Side Selector Styles */
+        .side-selector {
+            display: flex;
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 4px;
+            margin-top: 10px;
+            border: 1px solid var(--glass-border);
+            height: 48px;
+        }
+
+        .side-btn {
+            flex: 1;
+            z-index: 2;
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: color 0.3s ease;
+            margin: 0;
+            padding: 0;
+        }
+
+        .side-btn.active {
+            color: white;
+        }
+
+        .side-indicator {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: calc(50% - 4px);
+            height: 40px;
+            background: var(--glass);
+            border-radius: 8px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1;
+        }
+
+        .side-indicator.CALL {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.1);
+        }
+
+        .side-indicator.PUT {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.1);
+        }
     </style>
 
     <script>
@@ -266,6 +334,83 @@
             btns[0].classList.toggle('active', type === 'smart');
             btns[1].classList.toggle('active', type === 'control');
             document.getElementById('status').style.display = 'none';
+
+            if (type === 'control') {
+                fetchCurrentState();
+            }
+        }
+
+        let currentActiveSide = 'NONE';
+
+        async function fetchCurrentState() {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return;
+
+            try {
+                const response = await fetch('/get-state', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret, underlying: 'NIFTY' })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    updateToggleUI(result.state.side);
+                }
+            } catch (e) {
+                console.error('Failed to fetch state', e);
+            }
+        }
+
+        function updateToggleUI(side) {
+            currentActiveSide = side;
+            const indicator = document.getElementById('side-indicator');
+            const btnCall = document.getElementById('btn-CALL');
+            const btnPut = document.getElementById('btn-PUT');
+
+            btnCall.classList.toggle('active', side === 'CALL');
+            btnPut.classList.toggle('active', side === 'PUT');
+
+            indicator.className = 'side-indicator ' + (side || 'NONE');
+            if (side === 'CALL') {
+                indicator.style.transform = 'translateX(0)';
+            } else if (side === 'PUT') {
+                indicator.style.transform = 'translateX(100%)';
+            } else {
+                indicator.style.transform = 'scale(0)';
+            }
+        }
+
+        function confirmToggle(targetSide) {
+            if (targetSide === currentActiveSide) return;
+
+            const msg = `Switch from ${currentActiveSide} to ${targetSide}? This will trigger manual signal processing.`;
+            if (confirm(msg)) {
+                executeToggle(targetSide);
+            }
+        }
+
+        async function executeToggle(targetSide) {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return showStatus('Please enter your Webhook Secret first.', 'error');
+
+            showStatus(`🚀 Switching to ${targetSide}...`, 'success');
+
+            try {
+                const response = await fetch('/toggle-side', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret, underlying: 'NIFTY', target_side: targetSide })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    showStatus(`✅ Successfully switched to ${targetSide}`, 'success');
+                    fetchCurrentState();
+                } else {
+                    showStatus('❌ ' + (result.message || 'Toggle failed'), 'error');
+                }
+            } catch (e) {
+                showStatus('❌ Network error', 'error');
+            }
         }
 
         async function manualExit() {

@@ -156,6 +156,94 @@ def manual_exit():
         logger.error(f"Manual Exit Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/get-state', methods=['POST'])
+def get_state():
+    """
+    Get current state (side and last_signal) for a given underlying.
+    """
+    if not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+        
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    underlying = data.get('underlying', 'NIFTY')
+    try:
+        state = engine._get_state(underlying)
+        return jsonify({"status": "success", "state": state}), 200
+    except Exception as e:
+        logger.error(f"Get State Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/toggle-side', methods=['POST'])
+def toggle_side():
+    """
+    Manually toggle between CALL and PUT sides.
+    """
+    if not broker or not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+        
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    underlying = data.get('underlying', 'NIFTY')
+    target_side = data.get('target_side') # 'CALL' or 'PUT'
+    
+    if target_side not in ['CALL', 'PUT']:
+        return jsonify({"status": "error", "message": "Invalid target_side"}), 400
+        
+    try:
+        # Convert side to signal_type for engine.process_signal
+        # CALL -> 'B' (Buy/Long), PUT -> 'S' (Sell/Short)
+        signal_type = 'B' if target_side == 'CALL' else 'S'
+        
+        # We need ticker price for opening position
+        # For manual toggle, we use standard 5m timeframe logic but triggered manually.
+        # We need to fetch LTP for current_price.
+        
+        # Resolve a dummy or real ticker for the underlying to get its price
+        # Or just use the last known price if the engine tracks it (it doesn't yet).
+        # RankingEngine._open_position needs leg_data with current_price.
+        
+        # Let's try to get LTP for the underlying if possible, or just pass a placeholder 
+        # normally provided by TradingView.
+        # Since we are manually triggering, we might need to fetch index LTP.
+        # But wait, broker.get_itm_contract takes spot_price.
+        
+        # For simplicity in manual mode, let's assume NIFTY and try to get its price.
+        # Or better, let the frontend send it? No, backend should handle it.
+        
+        # Let's just use a default or fetch if available.
+        spot_price = 0.0
+        # If we have a security ID for the index, we could fetch it.
+        # But index IDs vary. 
+        # Let's check broker_dhan for index LTP support.
+        
+        # Actually, RankingEngine.process_signal expects leg_data.
+        # Minimal leg_data: {'quantity': 1}
+        # _open_position will try to get_itm_contract(underlying, opt_type, spot)
+        # We need 'current_price' in leg_data or it defaults to 0.
+        
+        # Let's fetch index LTP if we can.
+        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"} # Standard Dhan Index IDs
+        idx_id = index_ids.get(underlying.upper())
+        if idx_id:
+            spot_price = broker.get_ltp(idx_id, exchange_segment="NSE_INDEX") or 0.0
+            
+        leg_data = {
+            "underlying": underlying,
+            "quantity": data.get('quantity', 1),
+            "current_price": spot_price
+        }
+        
+        action = engine.process_signal(underlying, signal_type, 5, leg_data)
+        return jsonify({"status": "success", "action": action}), 200
+    except Exception as e:
+        logger.error(f"Toggle Side Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/volume-alert', methods=['POST'])
 def volume_alert():
     """
