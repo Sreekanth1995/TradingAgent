@@ -33,10 +33,18 @@ class RankingEngine:
         # Instrument Configurations (Target, SL, Trailing Jump)
         self.configs = {
             "NIFTY": {"target": 50, "sl": 20, "trailing": 15},
-            "BANKNIFTY": {"target": 100, "sl": 50, "trailing": 25},
-            "FINNIFTY": {"target": 60, "sl": 40, "trailing": 20},
-            "DEFAULT": {"target": 30, "sl": 20, "trailing": 10}
+            "BANKNIFTY": {"target": 50, "sl": 20, "trailing": 15},
+            "FINNIFTY": {"target": 50, "sl": 20, "trailing": 15},
+            "DEFAULT": {"target": 50, "sl": 20, "trailing": 15}
         }
+        
+        # Scalping Mode Configuration (Target 20%, SL 20%, Trailing 5%)
+        self.scalping_configs = {
+            "target": 20,
+            "sl": 20,
+            "trailing": 5
+        }
+        
         self.processing_locks = set()
 
         if REDIS_AVAILABLE:
@@ -77,26 +85,84 @@ class RankingEngine:
     def _clear_state(self, underlying):
         self._set_state(underlying, {'side': 'NONE'})
 
-    def _get_params(self, underlying):
+    def _get_params(self, underlying, is_scalping=False):
         """Returns the configuration for the given underlying."""
+        if is_scalping:
+            return self.scalping_configs
         return self.configs.get(underlying.upper(), self.configs["DEFAULT"])
+
+    def activate_scalping_mode(self, duration_mins=5):
+        """
+        Activates scalping mode for a specific duration.
+        """
+        expiry = int(time.time()) + (duration_mins * 60)
+        if self.use_redis:
+            self.r.set("scalping_until", expiry)
+        else:
+            self.memory_store["scalping_until"] = expiry
+        logger.info(f"🚀 Scalping Mode ACTIVATED for {duration_mins} minutes (until {datetime.fromtimestamp(expiry).strftime('%H:%M:%S')})")
+        return True
+
+    def _is_scalping_active(self):
+        """Checks if scalping mode is currently active."""
+        if self.use_redis:
+            val = self.r.get("scalping_until")
+        else:
+            val = self.memory_store.get("scalping_until")
+        
+        if val and int(val) > time.time():
+            return True
+        return False
 
     # --- Core Logic ---
     def process_signal(self, underlying, signal_type, timeframe, leg_data):
         """
         Process BUY/SELL signals.
         signal_type: 'B' (Buy/Long), 'S' (Sell/Short)
+        timeframe: 1 or 5
         """
         now_ist = datetime.now(IST)
         
-        # 0. Check for Daily Reset (if needed, or just let signals drive)
-        # Assuming explicit signals, we don't auto-reset unless manual.
+        # --- Timeframe Segregation & Mode Logic ---
+        timeframe = int(timeframe)
+        is_scalping = False
+        
+        if timeframe == 1:
+            # Check Scalping Conditions
+            
+            # 1. Time Window Check
+            h, m = now_ist.hour, now_ist.minute
+            in_window1 = (h == 9 and m >= 20) or (h == 10 and m <= 35)
+            in_window2 = (h == 14 and m >= 45) or (h == 15 and m <= 30)
+            
+            if not (in_window1 or in_window2):
+                logger.info(f"Scalping Mode: Ignoring 1m signal for {underlying} outside time windows.")
+                return {"underlying": underlying, "action": "SKIPPED_WINDOW", "time": now_ist.strftime('%H:%M:%S')}
+            
+            # 2. Expiry Day Check
+            if not self.broker.is_expiry_day(underlying):
+                logger.info(f"Scalping Mode: Ignoring 1m signal for {underlying} on non-expiry day.")
+                return {"underlying": underlying, "action": "SKIPPED_NON_EXPIRY", "time": now_ist.strftime('%H:%M:%S')}
+            
+            # 3. Scalping Activation Check (Volume Trigger)
+            if not self._is_scalping_active():
+                logger.info(f"Scalping Mode: Ignoring 1m signal for {underlying} (Scalping mode not active).")
+                return {"underlying": underlying, "action": "SKIPPED_NOT_ACTIVE", "time": now_ist.strftime('%H:%M:%S')}
+            
+            is_scalping = True
+            logger.info(f"⚡ SCALPING MODE ACTIVE for {underlying} (1m signal)")
+
+        elif timeframe == 5:
+            if self._is_scalping_active():
+                logger.info(f"Scalping Mode: Ignoring 5m signal for {underlying} (Scalping mode IS active).")
+                return {"underlying": underlying, "action": "SKIPPED_SCALPING_ACTIVE", "time": now_ist.strftime('%H:%M:%S')}
+            logger.info(f"Standard Mode processing for {underlying} (5m signal)")
+        else:
+            logger.warning(f"Unknown timeframe {timeframe} for {underlying}. Defaulting to Standard Mode logic.")
 
         state = self._get_state(underlying)
         current_side = state.get('side', 'NONE')
         last_signal = state.get('last_signal', 'NONE')
-        
-        logger.info(f"Processing Signal: {signal_type} for {underlying}. Side: {current_side}, LastSig: {last_signal}")
         
         # Deduplication Check
         if signal_type == last_signal:
@@ -108,19 +174,16 @@ class RankingEngine:
                 "time": now_ist.strftime('%H:%M:%S')
             }
 
-        # 0.1 Check for Market Volatility Delay (First 10 mins of market)
-        # Market opens at 09:15, delay until 09:25
-        market_start = now_ist.replace(hour=MARKET_OPEN_HOUR, minute=MARKET_OPEN_MINUTE, second=0, microsecond=0)
-        delay_end = market_start.replace(minute=MARKET_OPEN_MINUTE + MARKET_VOLATILITY_DELAY_MINS)
-        
-        if market_start <= now_ist < delay_end:
-            logger.info(f"Market Volatility Delay: Ignoring {signal_type} signal for {underlying} during first {MARKET_VOLATILITY_DELAY_MINS} mins of market.")
-            return {
-                "underlying": underlying,
-                "signal": signal_type,
-                "action": "SKIPPED_MARKET_OPEN_DELAY",
-                "time": now_ist.strftime('%H:%M:%S')
-            }
+        # 0.1 Check for Market Volatility Delay (Normal Mode only?)
+        # User specified "Scalping mode should be between 9:20AM...", 
+        # Volatility delay ends at 09:25.
+        # Let's keep it for Normal Mode (5m).
+        if not is_scalping:
+            market_start = now_ist.replace(hour=MARKET_OPEN_HOUR, minute=MARKET_OPEN_MINUTE, second=0, microsecond=0)
+            delay_end = market_start.replace(minute=MARKET_OPEN_MINUTE + MARKET_VOLATILITY_DELAY_MINS)
+            if market_start <= now_ist < delay_end:
+                logger.info(f"Market Volatility Delay: Ignoring {signal_type} signal for {underlying} during first {MARKET_VOLATILITY_DELAY_MINS} mins.")
+                return {"underlying": underlying, "action": "SKIPPED_MARKET_OPEN_DELAY", "time": now_ist.strftime('%H:%M:%S')}
 
         if underlying in self.processing_locks:
             logger.warning(f"Execution Lock: Signal for {underlying} is already being processed. Skipping.")
@@ -128,9 +191,8 @@ class RankingEngine:
         
         self.processing_locks.add(underlying)
         try:
-            result = self._execute_signal(underlying, signal_type, timeframe, leg_data, state, current_side, now_ist)
-            # Update last_signal ONLY after successful execution (mostly)
-            # We fetch state again in case it was modified in _execute_signal
+            result = self._execute_signal(underlying, signal_type, timeframe, leg_data, state, current_side, now_ist, is_scalping)
+            # Update last_signal
             new_state = self._get_state(underlying)
             new_state['last_signal'] = signal_type
             self._set_state(underlying, new_state)
@@ -138,7 +200,7 @@ class RankingEngine:
         finally:
             self.processing_locks.remove(underlying)
 
-    def _execute_signal(self, underlying, signal_type, timeframe, leg_data, state, current_side, now_ist):
+    def _execute_signal(self, underlying, signal_type, timeframe, leg_data, state, current_side, now_ist, is_scalping=False):
         action_log = []
 
         # Logic Matrix
@@ -148,13 +210,13 @@ class RankingEngine:
             if current_side == 'PUT':
                 logger.info(f"Reversal detected: Closing PUT for {underlying}")
                 self._close_position(underlying, state)
-                state = {'side': 'NONE'} # Reset local state after close
+                state = {'side': 'NONE'} 
                 action_log.append("CLOSED_PUT")
 
             # 2. Open CALL if not already open
             if current_side != 'CALL':
-                logger.info(f"Opening CALL for {underlying}")
-                new_state = self._open_position(underlying, 'CALL', leg_data)
+                logger.info(f"Opening CALL for {underlying} ({'Scalping' if is_scalping else 'Normal'})")
+                new_state = self._open_position(underlying, 'CALL', leg_data, is_scalping)
                 if new_state:
                     self._set_state(underlying, new_state)
                     action_log.append("OPENED_CALL")
@@ -172,8 +234,8 @@ class RankingEngine:
 
             # 2. Open PUT if not already open
             if current_side != 'PUT':
-                logger.info(f"Opening PUT for {underlying}")
-                new_state = self._open_position(underlying, 'PUT', leg_data)
+                logger.info(f"Opening PUT for {underlying} ({'Scalping' if is_scalping else 'Normal'})")
+                new_state = self._open_position(underlying, 'PUT', leg_data, is_scalping)
                 if new_state:
                     self._set_state(underlying, new_state)
                     action_log.append("OPENED_PUT")
@@ -193,7 +255,7 @@ class RankingEngine:
             "time": now_ist.strftime('%H:%M:%S')
         }
 
-    def _open_position(self, underlying, side, leg_data):
+    def _open_position(self, underlying, side, leg_data, is_scalping=False):
         """
         Opens a position and places simulated bracket orders.
         Returns new state dict or None on failure.
@@ -222,15 +284,17 @@ class RankingEngine:
 
         if not ltp or ltp <= 0:
             logger.warning(f"LTP fetch failed for {symbol} after retries. Cannot place Super Order. Falling back to Simulation.")
-            # DO NOT use current_price as fallback - it's the Index spot price, not Option LTP!
-            # Skip to fallback simulation instead.
             ltp = None
 
         if ltp and ltp > 0:
-            params = self._get_params(underlying)
-            sl_price = round(ltp - params['sl'], 1)
-            tgt_price = round(ltp + params['target'], 1)
+            params = self._get_params(underlying, is_scalping)
+            # Calculate levels using percentages
+            sl_price = round(ltp * (1 - params['sl']/100), 1)
+            tgt_price = round(ltp * (1 + params['target']/100), 1)
+            trailing_val = round(ltp * (params['trailing']/100), 1)
+            
             if sl_price <= 0: sl_price = 0.05
+            if trailing_val <= 0: trailing_val = 1.0 # Minimum 1 tick jump
             
             # Smart Entry: Limit Order at LTP - 5
             entry_limit_price = round(ltp - 5, 1)
@@ -240,7 +304,8 @@ class RankingEngine:
             so_leg['quantity'] = leg_data.get('quantity', 1)
             so_leg['target_price'] = tgt_price
             so_leg['stop_loss_price'] = sl_price
-            so_leg['trailing_jump'] = params['trailing']
+            so_leg['trailing_jump'] = trailing_val
+            is_scalping_flag = is_scalping # To store in state
             
             # Use Limit Order for Entry
             so_leg['order_type'] = 'LIMIT'
@@ -259,6 +324,7 @@ class RankingEngine:
                     'sl_id': "NATIVE_BO", 
                     'tgt_id': "NATIVE_BO",
                     'is_super_order': True,
+                    'is_scalping': is_scalping,
                     'quantity': so_leg['quantity']
                 }
             else:
@@ -311,10 +377,10 @@ class RankingEngine:
         
         logger.info(f"Entry Filled at {avg_price}. Placing Bracket Orders...")
         
-        # 4. Calculate Levels
-        params = self._get_params(underlying)
-        sl_price = round(avg_price - params['sl'], 1)
-        tgt_price = round(avg_price + params['target'], 1)
+        # 4. Calculate Levels using percentages
+        params = self._get_params(underlying, is_scalping)
+        sl_price = round(avg_price * (1 - params['sl']/100), 1)
+        tgt_price = round(avg_price * (1 + params['target']/100), 1)
         
         if sl_price <= 0: sl_price = 0.05
         
@@ -350,6 +416,7 @@ class RankingEngine:
             'tgt_id': tgt_id,
             'sl_price': sl_price,
             'tgt_price': tgt_price,
+            'is_scalping': is_scalping,
             'quantity': order_leg['quantity']
         }
 
@@ -443,8 +510,10 @@ class RankingEngine:
                     
                     elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET']: # SL
                         # Trail UP if needed
-                        params = self._get_params(underlying)
-                        trail_offset = params['trailing']
+                        is_scalping = state.get('is_scalping', False)
+                        params = self._get_params(underlying, is_scalping)
+                        trail_percent = params['trailing']
+                        trail_offset = round(ltp * (trail_percent/100), 1)
                         barrier = round(ltp - trail_offset, 1)
                         if getattr(self, 'trailing_sl_enabled', True):
                              # Dhan API might use triggerPrice or trigger_price

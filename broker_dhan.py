@@ -164,9 +164,28 @@ class DhanClient:
                             self.lot_map[sec_id] = 1
                             
                         count += 1
+            
+            # --- Identify Expiry Days for Indices ---
+            self.expiry_indices = set()
+            today_str = datetime.now().strftime('%Y-%m-%d')
+            for (sym, strike, opt_type, exp) in self.scrip_map.keys():
+                if exp == today_str and sym in ['NIFTY', 'BANKNIFTY', 'FINNIFTY']:
+                    self.expiry_indices.add(sym)
+            
+            if self.expiry_indices:
+                logger.info(f"Today is Expiry Day for: {list(self.expiry_indices)}")
+            else:
+                logger.debug(f"Today ({today_str}) is not an expiry day for major indices.")
+
             logger.info(f"Loaded {count} instruments into Scrip Map.")
         except Exception as e:
             logger.error(f"Error parsing CSV: {e}")
+
+    def is_expiry_day(self, underlying):
+        """
+        Checks if today is an expiry day for the given underlying index.
+        """
+        return underlying.upper() in getattr(self, 'expiry_indices', set())
 
     def get_nearest_expiry(self, symbol):
         """

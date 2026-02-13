@@ -156,6 +156,26 @@ def manual_exit():
         logger.error(f"Manual Exit Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/volume-alert', methods=['POST'])
+def volume_alert():
+    """
+    Endpoint triggered when NIFTY crosses daily volume.
+    Activates Scalping Mode for 5 minutes.
+    """
+    if not broker or not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+        
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    try:
+        engine.activate_scalping_mode(5)
+        return jsonify({"status": "success", "message": "Scalping Mode activated for 5 minutes."}), 200
+    except Exception as e:
+        logger.error(f"Volume Alert Processing Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 def update_token():
     """
