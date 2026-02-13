@@ -31,9 +31,10 @@ class TestScalpingMode(unittest.TestCase):
         self.mock_broker.place_super_order.return_value = {"success": True, "order_id": "SO_SCALP"}
 
         # 1. Standard Mode (5m signal) - Should always work during market hours
-        # Set time to 10:00 AM IST
+        # Set time to 10:00 AM IST. Today is NOT expiry day for this test case part.
         mock_datetime.now.return_value = datetime(2026, 2, 13, 10, 0, tzinfo=IST)
         mock_datetime.fromtimestamp = datetime.fromtimestamp 
+        self.mock_broker.is_expiry_day.return_value = False
         
         res = self.engine.process_signal(symbol, 'B', 5, leg_data)
         self.assertIn("OPENED_CALL", res.get('actions', []))

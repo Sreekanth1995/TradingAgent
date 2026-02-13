@@ -103,8 +103,14 @@ class RankingEngine:
         logger.info(f"🚀 Scalping Mode ACTIVATED for {duration_mins} minutes (until {datetime.fromtimestamp(expiry).strftime('%H:%M:%S')})")
         return True
 
-    def _is_scalping_active(self):
-        """Checks if scalping mode is currently active."""
+    def _is_scalping_active(self, underlying=None):
+        """
+        Checks if scalping mode is currently active or eligible.
+        Priority:
+        1. Volume Trigger (Bypasses Window/Expiry)
+        2. Standard Rules (Inside Window AND on Expiry Day)
+        """
+        # 1. Volume Trigger Check (Always Priority)
         if self.use_redis:
             val = self.r.get("scalping_until")
         else:
@@ -112,6 +118,17 @@ class RankingEngine:
         
         if val and int(val) > time.time():
             return True
+        
+        # 2. Standard Window/Expiry Rules
+        if underlying:
+            now_ist = datetime.now(IST)
+            h, m = now_ist.hour, now_ist.minute
+            in_window1 = (h == 9 and m >= 20) or (h == 10 and m <= 35)
+            in_window2 = (h == 14 and m >= 45) or (h == 15 and m <= 30)
+            
+            if (in_window1 or in_window2) and self.broker.is_expiry_day(underlying):
+                return True
+                
         return False
 
     # --- Core Logic ---
@@ -129,33 +146,15 @@ class RankingEngine:
         
         if timeframe == 1:
             # --- Scalping Mode Logic ---
-            
-            # Priority 1: Volume Trigger Activation (Bypasses Window & Expiry)
-            if self._is_scalping_active():
+            if self._is_scalping_active(underlying):
                 is_scalping = True
-                logger.info(f"⚡ SCALPING MODE ACTIVE for {underlying} (Volume Trigger Priority)")
+                logger.info(f"⚡ SCALPING MODE ACTIVE for {underlying} (1m signal)")
             else:
-                # Priority 2: Standard Scalping Rules (Window & Expiry)
-                
-                # Check Time Window
-                h, m = now_ist.hour, now_ist.minute
-                in_window1 = (h == 9 and m >= 20) or (h == 10 and m <= 35)
-                in_window2 = (h == 14 and m >= 45) or (h == 15 and m <= 30)
-                
-                if not (in_window1 or in_window2):
-                     logger.info(f"Scalping Mode: Ignoring 1m signal for {underlying} (Outside windows & No active trigger).")
-                     return {"underlying": underlying, "action": "SKIPPED_SCALPING_INACTIVE", "time": now_ist.strftime('%H:%M:%S')}
-                
-                # Check Expiry Day
-                if not self.broker.is_expiry_day(underlying):
-                    logger.info(f"Scalping Mode: Ignoring 1m signal for {underlying} (Non-expiry & No active trigger).")
-                    return {"underlying": underlying, "action": "SKIPPED_SCALPING_INACTIVE", "time": now_ist.strftime('%H:%M:%S')}
-                
-                is_scalping = True
-                logger.info(f"⚡ SCALPING MODE ACTIVE for {underlying} (Standard Window/Expiry rule)")
+                logger.info(f"Scalping Mode: Ignoring 1m signal for {underlying} (Conditions not met).")
+                return {"underlying": underlying, "action": "SKIPPED_SCALPING_INACTIVE", "time": now_ist.strftime('%H:%M:%S')}
 
         elif timeframe == 5:
-            if self._is_scalping_active():
+            if self._is_scalping_active(underlying):
                 logger.info(f"Scalping Mode: Ignoring 5m signal for {underlying} (Scalping mode IS active).")
                 return {"underlying": underlying, "action": "SKIPPED_SCALPING_ACTIVE", "time": now_ist.strftime('%H:%M:%S')}
             logger.info(f"Standard Mode processing for {underlying} (5m signal)")
