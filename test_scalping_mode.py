@@ -40,28 +40,26 @@ class TestScalpingMode(unittest.TestCase):
         self.engine._clear_state(symbol)
         
         # 2. Scalping Mode (1m signal) - Window Check
-        # Set time to 11:00 AM IST
+        # Set time to 11:00 AM IST (Outside windows)
         mock_datetime.now.return_value = datetime(2026, 2, 13, 11, 0, tzinfo=IST)
         res = self.engine.process_signal(symbol, 'B', 1, leg_data)
-        self.assertEqual(res.get('action'), 'SKIPPED_WINDOW')
+        self.assertEqual(res.get('action'), 'SKIPPED_SCALPING_INACTIVE')
         self.engine._clear_state(symbol)
         
         # 3. Scalping Mode (1m signal) - Non-Expiry Day Check
-        # Set time to 10:00 AM
+        # Set time to 10:00 AM (Inside window)
         mock_datetime.now.return_value = datetime(2026, 2, 13, 10, 0, tzinfo=IST)
         self.mock_broker.is_expiry_day.return_value = False
         res = self.engine.process_signal(symbol, 'B', 1, leg_data)
-        self.assertEqual(res.get('action'), 'SKIPPED_NON_EXPIRY')
+        self.assertEqual(res.get('action'), 'SKIPPED_SCALPING_INACTIVE')
         self.engine._clear_state(symbol)
         
-        # 4. Scalping Mode (1m signal) - Activation Check (Volume Trigger)
-        self.mock_broker.is_expiry_day.return_value = True
-        res = self.engine.process_signal(symbol, 'B', 1, leg_data)
-        self.assertEqual(res.get('action'), 'SKIPPED_NOT_ACTIVE')
-        self.engine._clear_state(symbol)
+        # 4. Scalping Mode (1m signal) - Activation Check (Bypass)
+        # Even if it's NOT an expiry day and NOT in window, the Volume Trigger should allow it.
+        mock_datetime.now.return_value = datetime(2026, 2, 13, 11, 0, tzinfo=IST)
+        self.mock_broker.is_expiry_day.return_value = False
+        self.engine.activate_scalping_mode(duration_mins=5)
         
-        # 5. Scalping Mode (1m signal) - Success Scenario
-        self.engine.activate_scalping_mode( duration_mins=5)
         res = self.engine.process_signal(symbol, 'B', 1, leg_data)
         self.assertIn("OPENED_CALL", res.get('actions', []))
         self.engine._clear_state(symbol)
