@@ -682,7 +682,7 @@ class DhanClient:
         }
 
         # Add optional modifiable fields
-        # Note: targetPrice, stopLossPrice, and trailingJump use camelCase in the spec
+        # Note: targetPrice, stopLossPrice, and trailingJump use camelCase in the Dhan API v2 spec
         mapping = {
             'price': 'price',
             'quantity': 'quantity',
@@ -694,9 +694,13 @@ class DhanClient:
 
         for k, v in mapping.items():
             if k in fields:
-                payload[v] = fields[k]
+                # Ensure all price modifications are rounded to 0.05 tick size
+                if k in ['target_price', 'stop_loss_price', 'price', 'trailing_jump']:
+                    payload[v] = self._round_to_tick(fields[k])
+                else:
+                    payload[v] = fields[k]
         
-        # Ensure values are floats where appropriate
+        # Ensure values are floats where appropriate for JSON payload
         for float_field in ['price', 'targetPrice', 'stopLossPrice', 'trailingJump']:
             if float_field in payload:
                 payload[float_field] = float(payload[float_field])

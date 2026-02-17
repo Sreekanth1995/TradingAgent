@@ -501,30 +501,41 @@ class RankingEngine:
                 
                 # 2. If it's a SELL order (Target/SL legs), we MODIFY it (Smart Exit).
                 elif txn == 'SELL':
-                    if otype == 'LIMIT': # TARGET (Sell Limit)
-                        new_price = round(ltp + 5, 1)
-                        logger.info(f"Smart Exit: Modifying Target {oid} to {new_price} (LTP+5)")
-                        if is_super_order and parent_id:
-                            self.broker.modify_super_order(parent_id, 'TARGET_LEG', {'target_price': new_price})
-                        else:
-                            self.broker.modify_order(oid, 'LIMIT', {'price': new_price})
+                    if is_super_order and parent_id:
+                        # SUPER ORDER SMART EXIT logic:
+                        # Leg modification according to Dhan API v2 requires explicit targeting of legs.
+                        if otype == 'LIMIT': # TARGET (Sell Limit)
+                            new_target = round(ltp + 5, 1)
+                            logger.info(f"Smart Exit SuperOrder: Modifying TARGET_LEG for {parent_id} to {new_target} (LTP+5)")
+                            self.broker.modify_super_order(parent_id, 'TARGET_LEG', {'target_price': new_target})
+                        
+                        elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET']: # SL
+                            new_sl = round(ltp - 5, 1)
+                            if new_sl <= 0.05: new_sl = 0.05
+                            logger.info(f"Smart Exit SuperOrder: Modifying STOP_LOSS_LEG for {parent_id} to {new_sl} (LTP-5)")
+                            # Note: We bypass normal trailing logic here as per User Request for Smart Exit Target/SL values.
+                            self.broker.modify_super_order(parent_id, 'STOP_LOSS_LEG', {'stop_loss_price': new_sl})
                     
-                    elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET']: # SL
-                        # Trail UP if needed
-                        is_scalping = state.get('is_scalping', False)
-                        params = self._get_params(underlying, is_scalping)
-                        trail_percent = params['trailing']
-                        trail_offset = round(ltp * (trail_percent/100), 1)
-                        barrier = round(ltp - trail_offset, 1)
-                        if getattr(self, 'trailing_sl_enabled', True):
-                             # Dhan API might use triggerPrice or trigger_price
-                             curr_trigger = float(order.get('triggerPrice') or order.get('trigger_price') or 0)
-                             if curr_trigger < barrier:
-                                 logger.info(f"Smart Exit: Trailing SL {oid} to {barrier} (offset {trail_offset})")
-                                 if is_super_order and parent_id:
-                                     self.broker.modify_super_order(parent_id, 'STOP_LOSS_LEG', {'stop_loss_price': barrier})
-                                 else:
-                                     self.broker.modify_order(oid, 'SL', {'trigger_price': barrier})
+                    else:
+                        # STANDARD BRACKET SMART EXIT
+                        if otype == 'LIMIT': # TARGET (Sell Limit)
+                            new_price = round(ltp + 5, 1)
+                            logger.info(f"Smart Exit: Modifying Target {oid} to {new_price} (LTP+5)")
+                            self.broker.modify_order(oid, 'LIMIT', {'price': new_price})
+                        
+                        elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET']: # SL
+                            # Trail UP if needed
+                            is_scalping = state.get('is_scalping', False)
+                            params = self._get_params(underlying, is_scalping)
+                            trail_percent = params['trailing']
+                            trail_offset = round(ltp * (trail_percent/100), 1)
+                            barrier = round(ltp - trail_offset, 1)
+                            if getattr(self, 'trailing_sl_enabled', True):
+                                # Dhan API might use triggerPrice or trigger_price
+                                curr_trigger = float(order.get('triggerPrice') or order.get('trigger_price') or 0)
+                                if curr_trigger < barrier:
+                                    logger.info(f"Smart Exit: Trailing SL {oid} to {barrier} (offset {trail_offset})")
+                                    self.broker.modify_order(oid, 'SL', {'trigger_price': barrier})
 
         # Do NOT place Market Exit Order.
         # We rely on the Modified Limit Order to fill.
