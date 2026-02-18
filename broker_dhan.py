@@ -199,10 +199,23 @@ class DhanClient:
         if not expiries:
             return None
             
+        # Get only today's or future expiries using IST
+        from datetime import datetime
+        import pytz
+        IST = pytz.timezone('Asia/Kolkata')
+        today_str = datetime.now(IST).strftime('%Y-%m-%d')
+        
+        future_expiries = [e for e in expiries if e >= today_str]
+        
+        if not future_expiries:
+            logger.warning(f"No future expiries found for {symbol} among {len(expiries)} total. Using earliest available.")
+            return sorted(list(expiries))[0]
+
         # Sort YYYY-MM-DD
-        sorted_exp = sorted(list(expiries))
+        sorted_exp = sorted(future_expiries)
         # Return the first one (nearest)
         return sorted_exp[0]
+
 
     def get_itm_contract(self, underlying, side, spot_price):
         """

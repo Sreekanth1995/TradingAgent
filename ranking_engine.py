@@ -193,10 +193,25 @@ class RankingEngine:
         self.processing_locks.add(underlying)
         try:
             result = self._execute_signal(underlying, signal_type, timeframe, leg_data, state, current_side, now_ist, is_scalping)
-            # Update last_signal
-            new_state = self._get_state(underlying)
-            new_state['last_signal'] = signal_type
-            self._set_state(underlying, new_state)
+            
+            # Update last_signal ONLY if execution was successful or it was already open
+            # Conditions for committing signal:
+            # - Reversal succeeded (CLOSED_X, OPENED_Y)
+            # - New position opened (OPENED_X)
+            # - Position already matches signal (NO_ACTION) - though Duplication handles this earlier
+            
+            actions = result.get('actions', [])
+            success_indicators = ['OPENED_CALL', 'OPENED_PUT', 'CLOSED_CALL', 'CLOSED_PUT']
+            
+            # If we attempted an open and failed, do NOT update last_signal
+            if any(a in actions for a in success_indicators) or not actions:
+                new_state = self._get_state(underlying)
+                new_state['last_signal'] = signal_type
+                self._set_state(underlying, new_state)
+                logger.debug(f"State Updated: last_signal={signal_type} for {underlying}")
+            else:
+                logger.warning(f"Execution failed for {underlying}. last_signal NOT updated. Will allow retry.")
+                
             return result
         finally:
             self.processing_locks.remove(underlying)
