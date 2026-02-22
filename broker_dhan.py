@@ -599,7 +599,7 @@ class DhanClient:
                              leg_info = {
                                  'orderId': main_oid, # modification uses Parent OID for Super Orders
                                  'legName': leg.get('legName'),
-                                 'orderType': leg.get('orderType') or ('LIMIT' if leg.get('legName') == 'TARGET_LEG' else 'STOP_LOSS_MARKET'),
+                                 'orderType': leg.get('orderType') or ('LIMIT' if leg.get('legName') == 'TARGET_LEG' else 'STOP_LOSS_LEG'),
                                  'transactionType': leg.get('transactionType'),
                                  'price': leg.get('price'),
                                  'triggerPrice': leg.get('triggerPrice'),
