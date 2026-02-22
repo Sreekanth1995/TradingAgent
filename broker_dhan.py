@@ -604,7 +604,7 @@ class DhanClient:
                                  'price': leg.get('price'),
                                  'triggerPrice': leg.get('triggerPrice'),
                                  'trailingJump': leg.get('trailingJump'),
-                                 'quantity': leg.get('quantity') or so.get('quantity'),
+                                 'quantity': leg.get('quantity') or leg.get('totalQuatity') or so.get('quantity'),
                                  'is_super_order': True
                              }
 
