@@ -526,17 +526,17 @@ class RankingEngine:
                     if is_super_order and parent_id:
                         # SUPER ORDER SMART EXIT logic:
                         # Leg modification according to Dhan API v2 requires explicit targeting of legs.
-                        if otype == 'LIMIT': # TARGET (Sell Limit)
+                        if otype == 'LIMIT' or leg_name == 'TARGET_LEG': # TARGET (Sell Limit)
                             new_target = round(ltp + 5, 1)
                             logger.info(f"Smart Exit SuperOrder: Modifying TARGET_LEG for {parent_id} to {new_target} (LTP+5)")
-                            self.broker.modify_super_order(parent_id, 'TARGET_LEG', {'target_price': new_target})
+                            self.broker.modify_super_target_leg(parent_id, new_target)
                         
-                        elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET']: # SL
+                        elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET'] or leg_name == 'STOP_LOSS_LEG': # SL
                             new_sl = round(ltp - 5, 1)
                             if new_sl <= 0.05: new_sl = 0.05
                             logger.info(f"Smart Exit SuperOrder: Modifying STOP_LOSS_LEG for {parent_id} to {new_sl} (LTP-5)")
-                            # Note: We bypass normal trailing logic here as per User Request for Smart Exit Target/SL values.
-                            self.broker.modify_super_order(parent_id, 'STOP_LOSS_LEG', {'stop_loss_price': new_sl})
+                            self.broker.modify_super_sl_leg(parent_id, new_sl)
+
                     
                     else:
                         # STANDARD BRACKET SMART EXIT

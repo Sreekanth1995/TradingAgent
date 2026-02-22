@@ -723,14 +723,12 @@ class DhanClient:
             logger.error(f"Super Order Exception: {e}")
             return {"success": False, "error": str(e)}
 
-    def modify_super_order(self, order_id, leg_name, fields):
+    def modify_super_target_leg(self, order_id, target_price):
         """
-        Modifies a specific leg of a Super Order.
-        leg_name: 'ENTRY_LEG', 'TARGET_LEG', 'STOP_LOSS_LEG'
-        fields: dict containing fields to modify (price, quantity, targetPrice, stopLossPrice, etc.)
+        Modifies the Target Leg of a Super Order.
         """
         if self.dry_run:
-            logger.info(f"$$$ [BROKER] MOCK MODIFY SUPER ORDER {order_id} ({leg_name}) $$$")
+            logger.info(f"$$$ [BROKER] MOCK MODIFY SUPER TARGET {order_id} -> {target_price} $$$")
             return {"success": True}
 
         if not self.access_token or not self.client_id:
@@ -742,49 +740,64 @@ class DhanClient:
             'access-token': self.access_token
         }
 
-        # Prepare Payload
         payload = {
             "dhanClientId": self.client_id,
             "orderId": str(order_id),
-            "legName": leg_name
+            "legName": "TARGET_LEG",
+            "targetPrice": float(self._round_to_tick(target_price))
         }
 
-        # Add optional modifiable fields
-        # Note: targetPrice, stopLossPrice, and trailingJump use camelCase in the Dhan API v2 spec
-        mapping = {
-            'price': 'price',
-            'quantity': 'quantity',
-            'target_price': 'targetPrice',
-            'stop_loss_price': 'stopLossPrice',
-            'trailing_jump': 'trailingJump',
-            'order_type': 'orderType'
-        }
-
-        for k, v in mapping.items():
-            if k in fields:
-                # Ensure all price modifications are rounded to 0.05 tick size
-                if k in ['target_price', 'stop_loss_price', 'price', 'trailing_jump']:
-                    payload[v] = self._round_to_tick(fields[k])
-                else:
-                    payload[v] = fields[k]
-        
-        # Ensure values are floats where appropriate for JSON payload
-        for float_field in ['price', 'targetPrice', 'stopLossPrice', 'trailingJump']:
-            if float_field in payload:
-                payload[float_field] = float(payload[float_field])
-
-        logger.info(f"$$$ [BROKER] MODIFYING SUPER ORDER: {payload} $$$")
+        logger.info(f"$$$ [BROKER] MODIFYING SUPER TARGET LEG: {payload} $$$")
 
         try:
             resp = requests.put(url, headers=headers, json=payload)
             if resp.status_code == 200:
                 return {"success": True, "data": resp.json()}
             else:
-                logger.error(f"Modify Super Order Failed: {resp.status_code} {resp.text}")
+                logger.error(f"Modify Super Target Failed: {resp.status_code} {resp.text}")
                 return {"success": False, "error": resp.text}
         except Exception as e:
-            logger.error(f"Modify Super Order Exception: {e}")
+            logger.error(f"Modify Super Target Exception: {e}")
             return {"success": False, "error": str(e)}
+
+    def modify_super_sl_leg(self, order_id, stop_loss_price, trailing_jump=1.0):
+        """
+        Modifies the Stop Loss Leg of a Super Order.
+        """
+        if self.dry_run:
+            logger.info(f"$$$ [BROKER] MOCK MODIFY SUPER SL {order_id} ->SL:{stop_loss_price}, TJ:{trailing_jump} $$$")
+            return {"success": True}
+
+        if not self.access_token or not self.client_id:
+            return {"success": False, "error": "Missing Info"}
+
+        url = f"https://api.dhan.co/v2/super/orders/{order_id}"
+        headers = {
+            'Content-Type': 'application/json',
+            'access-token': self.access_token
+        }
+
+        payload = {
+            "dhanClientId": self.client_id,
+            "orderId": str(order_id),
+            "legName": "STOP_LOSS_LEG",
+            "stopLossPrice": float(self._round_to_tick(stop_loss_price)),
+            "trailingJump": float(self._round_to_tick(trailing_jump))
+        }
+
+        logger.info(f"$$$ [BROKER] MODIFYING SUPER SL LEG: {payload} $$$")
+
+        try:
+            resp = requests.put(url, headers=headers, json=payload)
+            if resp.status_code == 200:
+                return {"success": True, "data": resp.json()}
+            else:
+                logger.error(f"Modify Super SL Failed: {resp.status_code} {resp.text}")
+                return {"success": False, "error": resp.text}
+        except Exception as e:
+            logger.error(f"Modify Super SL Exception: {e}")
+            return {"success": False, "error": str(e)}
+
 
     def cancel_super_order(self, order_id, leg_name='ENTRY_LEG'):
         """
