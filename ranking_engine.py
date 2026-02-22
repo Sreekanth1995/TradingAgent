@@ -548,8 +548,8 @@ class RankingEngine:
             if txn == 'BUY':
                 self._cancel_entry_leg(oid, parent_id, is_super_order)
             elif txn == 'SELL':
-                if is_super_order and parent_id:
-                    self._modify_super_leg(parent_id, leg_name, ltp, order)
+                if is_super_order and oid:
+                    self._modify_super_leg(oid, leg_name, ltp, order)
                 else:
                     self._modify_standard_leg(underlying, oid, otype, ltp, state)
 
@@ -561,16 +561,16 @@ class RankingEngine:
         else:
             self.broker.cancel_order(oid)
 
-    def _modify_super_leg(self, parent_id, leg_name, ltp, order_data):
+    def _modify_super_leg(self, oid, leg_name, ltp, order_data):
         """Modifies a leg of a Native Super Order."""
         if leg_name == 'TARGET_LEG':
             new_target = round(ltp + 5, 1)
-            self.broker.modify_super_target_leg(parent_id, new_target)
+            self.broker.modify_super_target_leg(oid, new_target)
         elif leg_name == 'STOP_LOSS_LEG':
             new_sl = round(ltp - 5, 1)
             if new_sl <= 0.05: new_sl = 0.05
             tj = order_data.get('trailingJump', 1.0)
-            self.broker.modify_super_sl_leg(parent_id, new_sl, tj)
+            self.broker.modify_super_sl_leg(oid, new_sl, tj)
 
     def _modify_standard_leg(self, underlying, oid, otype, ltp, state):
         """Modifies a standard bracket leg."""
