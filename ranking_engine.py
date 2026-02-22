@@ -38,7 +38,7 @@ class RankingEngine:
             "DEFAULT": {"target": 75, "sl": 20, "trailing": 15}
         }
         
-        # Scalping Mode Configuration (Target 20%, SL 20%, Trailing 5%)
+        # Scalping Mode Configuration (Target 75%, SL 20%, Trailing 5%)
         self.scalping_configs = {
             "target": 75,
             "sl": 20,
@@ -470,7 +470,14 @@ class RankingEngine:
             return
 
         # Fetch Pending Legs
-        pending_orders = self.broker.get_pending_orders(sec_id)
+        if is_super_order:
+            pending_orders = self.broker.get_super_orders(sec_id)
+            if not pending_orders:
+                 # Re-check standard book as fallback (unfilled entry might be there)
+                 pending_orders = self.broker.get_pending_orders(sec_id)
+        else:
+            pending_orders = self.broker.get_pending_orders(sec_id)
+
         if not pending_orders:
              logger.warning(f"Smart Exit: No pending orders found for {symbol}. Checking Position.")
              # Fallback: Check if there is an actual open position that needs closing

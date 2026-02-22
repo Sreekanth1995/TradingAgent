@@ -523,7 +523,7 @@ class DhanClient:
 
     def get_pending_orders(self, security_id=None):
         """
-        Fetches all PENDING orders. Optionally filters by security_id.
+        Fetches all PENDING standard orders.
         """
         if self.dry_run:
             return []
@@ -532,35 +532,90 @@ class DhanClient:
             try:
                 resp = self.dhan.get_order_list() 
                 
-                # Robust response checking (SDK might return list or dict)
                 if isinstance(resp, list):
                     all_orders = resp
                 elif isinstance(resp, dict) and resp.get('status') == 'success':
                     all_orders = resp.get('data', [])
                 else:
-                    logger.error(f"Failed to fetch order list or invalid format: {resp}")
                     return []
 
                 pending = [o for o in all_orders if o.get('orderStatus') in ['PENDING', 'TRIGGER_PENDING', 'TRANSIT', 'PARTIALLY_FILLED', 'MODIFY_PENDING']]
                 
                 if security_id:
                     sid_str = str(security_id).strip()
-                    filtered = []
-                    for o in pending:
-                        # Dhan API sometimes uses securityId (camelCase) or security_id (snake_case)
-                        o_sid = str(o.get('securityId') or o.get('security_id') or '').strip()
-                        if o_sid == sid_str:
-                            filtered.append(o)
-                    
-                    if not filtered and pending:
-                        logger.debug(f"get_pending_orders: No pending match for {sid_str} among {len(pending)} total pending orders.")
-                    
-                    return filtered
+                    return [o for o in pending if str(o.get('securityId') or o.get('security_id') or '').strip() == sid_str]
                 return pending
             except Exception as e:
                 logger.error(f"Exception fetching order list: {e}")
                 return []
         return []
+
+    def get_super_orders(self, security_id=None):
+        """
+        Fetches Super Orders from the dedicated endpoint.
+        Returns a list of legs extracted from active super orders.
+        """
+        if self.dry_run:
+            return []
+            
+        url = "https://api.dhan.co/v2/super/orders"
+        headers = {
+            'Content-Type': 'application/json',
+            'access-token': self.access_token
+        }
+        
+        try:
+            resp = requests.get(url, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                # data is expected to be a list of Super Orders
+                if not isinstance(data, list):
+                    # Sometimes wrapped in status/data dict
+                    if isinstance(data, dict):
+                        data = data.get('data', [])
+                    else:
+                        return []
+                
+                active_legs = []
+                for so in data:
+                    # Filter by security_id if provided
+                    so_sid = str(so.get('securityId') or '').strip()
+                    if security_id and so_sid != str(security_id).strip():
+                        continue
+                        
+                    status = so.get('orderStatus')
+                    # We only care about PENDING or PART_TRADED super orders
+                    if status not in ['PENDING', 'PART_TRADED', 'TRANSIT', 'TRADED']:
+                         # TRADED is fine because legs might still be pending
+                         pass
+                         
+                    # Extract Legs
+                    # The main order might be the ENTRY_LEG
+                    main_oid = so.get('orderId')
+                    
+                    for leg in so.get('legDetails', []):
+                         leg_status = leg.get('orderStatus')
+                         if leg_status in ['PENDING', 'TRIGGER_PENDING', 'TRANSIT']:
+                             leg_info = {
+                                 'orderId': main_oid, # modification uses Parent OID for Super Orders
+                                 'legName': leg.get('legName'),
+                                 'orderType': leg.get('orderType') or ('LIMIT' if leg.get('legName') == 'TARGET_LEG' else 'STOP_LOSS_MARKET'),
+                                 'transactionType': leg.get('transactionType'),
+                                 'price': leg.get('price'),
+                                 'triggerPrice': leg.get('triggerPrice'),
+                                 'quantity': leg.get('quantity') or so.get('quantity'),
+                                 'is_super_order': True
+                             }
+                             active_legs.append(leg_info)
+                
+                return active_legs
+            else:
+                logger.error(f"Failed to fetch Super Order list: {resp.status_code} {resp.text}")
+                return []
+        except Exception as e:
+            logger.error(f"Exception fetching Super Orders: {e}")
+            return []
+
 
     def place_super_order(self, symbol, leg_data):
         """
