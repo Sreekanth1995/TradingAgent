@@ -603,9 +603,11 @@ class DhanClient:
                                  'transactionType': leg.get('transactionType'),
                                  'price': leg.get('price'),
                                  'triggerPrice': leg.get('triggerPrice'),
+                                 'trailingJump': leg.get('trailingJump'),
                                  'quantity': leg.get('quantity') or so.get('quantity'),
                                  'is_super_order': True
                              }
+
                              active_legs.append(leg_info)
                 
                 return active_legs

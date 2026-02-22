@@ -509,6 +509,7 @@ class RankingEngine:
 
             for order in pending_orders:
                 oid = order.get('orderId')
+                leg_name = order.get('legName')
                 # Dhan API might use orderType or order_type
                 otype = order.get('orderType') or order.get('order_type')
                 txn = order.get('transactionType') or order.get('transaction_type')
@@ -524,21 +525,22 @@ class RankingEngine:
                 # 2. If it's a SELL order (Target/SL legs), we MODIFY it (Smart Exit).
                 elif txn == 'SELL':
                     if is_super_order and parent_id:
-                        # SUPER ORDER SMART EXIT logic:
-                        # Leg modification according to Dhan API v2 requires explicit targeting of legs.
-                        if otype == 'LIMIT' or leg_name == 'TARGET_LEG': # TARGET (Sell Limit)
+                        # SUPER ORDER SMART EXIT logic based on legName
+                        if leg_name == 'TARGET_LEG':
                             new_target = round(ltp + 5, 1)
                             logger.info(f"Smart Exit SuperOrder: Modifying TARGET_LEG for {parent_id} to {new_target} (LTP+5)")
                             self.broker.modify_super_target_leg(parent_id, new_target)
                         
-                        elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET'] or leg_name == 'STOP_LOSS_LEG': # SL
+                        elif leg_name == 'STOP_LOSS_LEG':
                             new_sl = round(ltp - 5, 1)
                             if new_sl <= 0.05: new_sl = 0.05
-                            logger.info(f"Smart Exit SuperOrder: Modifying STOP_LOSS_LEG for {parent_id} to {new_sl} (LTP-5)")
-                            self.broker.modify_super_sl_leg(parent_id, new_sl)
-
+                            # Use existing trailing jump from order if available
+                            tj = order.get('trailingJump', 1.0)
+                            logger.info(f"Smart Exit SuperOrder: Modifying STOP_LOSS_LEG for {parent_id} to {new_sl} (LTP-5, TJ:{tj})")
+                            self.broker.modify_super_sl_leg(parent_id, new_sl, tj)
                     
                     else:
+
                         # STANDARD BRACKET SMART EXIT
                         if otype == 'LIMIT': # TARGET (Sell Limit)
                             new_price = round(ltp + 5, 1)
