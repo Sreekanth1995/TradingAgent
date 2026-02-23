@@ -367,7 +367,8 @@ class RankingEngine:
         if sl_price <= 0: sl_price = 0.05
         if trailing_val <= 0: trailing_val = 1.0 # Minimum 1 tick jump
         
-        entry_limit_price = round(ltp - 5, 1)
+        offset = 1 if is_scalping else 5
+        entry_limit_price = round(ltp - offset, 1)
         if entry_limit_price <= 0.05: entry_limit_price = 0.05
 
         so_leg = itm_data.copy()
@@ -380,7 +381,7 @@ class RankingEngine:
             'price': entry_limit_price
         })
         
-        logger.info(f"Attempting Native Super Order for {symbol}. EntryLimit={entry_limit_price} (LTP-5), SL={sl_price}, TGT={tgt_price}")
+        logger.info(f"Attempting Native Super Order for {symbol}. EntryLimit={entry_limit_price} (LTP-{offset}), SL={sl_price}, TGT={tgt_price}")
         resp = self.broker.place_super_order(symbol, so_leg)
         
         if resp.get('success'):
@@ -549,7 +550,7 @@ class RankingEngine:
                 self._cancel_entry_leg(oid, parent_id, is_super_order)
             elif txn == 'SELL':
                 if is_super_order and oid:
-                    self._modify_super_leg(oid, leg_name, ltp, order)
+                    self._modify_super_leg(oid, leg_name, ltp, order, state.get('is_scalping', False))
                 else:
                     self._modify_standard_leg(underlying, oid, otype, ltp, state)
 
@@ -561,21 +562,24 @@ class RankingEngine:
         else:
             self.broker.cancel_order(oid)
 
-    def _modify_super_leg(self, oid, leg_name, ltp, order_data):
+    def _modify_super_leg(self, oid, leg_name, ltp, order_data, is_scalping=False):
         """Modifies a leg of a Native Super Order."""
+        offset = 1 if is_scalping else 5
         if leg_name == 'TARGET_LEG':
-            new_target = round(ltp + 5, 1)
+            new_target = round(ltp + offset, 1)
             self.broker.modify_super_target_leg(oid, new_target)
         elif leg_name == 'STOP_LOSS_LEG':
-            new_sl = round(ltp - 5, 1)
+            new_sl = round(ltp - offset, 1)
             if new_sl <= 0.05: new_sl = 0.05
             tj = order_data.get('trailingJump', 1.0)
             self.broker.modify_super_sl_leg(oid, new_sl, tj)
 
     def _modify_standard_leg(self, underlying, oid, otype, ltp, state):
         """Modifies a standard bracket leg."""
+        is_scalping = state.get('is_scalping', False)
         if otype == 'LIMIT':
-            new_price = round(ltp + 5, 1)
+            offset = 1 if is_scalping else 5
+            new_price = round(ltp + offset, 1)
             self.broker.modify_order(oid, 'LIMIT', {'price': new_price})
         elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET']:
             params = self._get_params(underlying, state.get('is_scalping', False))
