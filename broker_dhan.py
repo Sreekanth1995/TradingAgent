@@ -14,7 +14,7 @@ class ExchangeSegment:
     NSE_FNO = "NSE_FNO"
     NSE_EQ = "NSE_EQ"
     BSE_EQ = "BSE_EQ"
-    INDEX = "NSE_EQ" # Alias for index LTP fetching
+    INDEX = "IDX_I" # Alias for index LTP fetching
 
 class TransactionType:
     BUY = "BUY"

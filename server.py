@@ -237,8 +237,8 @@ def toggle_side():
         } 
         idx_id = index_ids.get(underlying.upper())
         if idx_id:
-            # Note: For Index LTP, Dhan API v2 expects exchange_segment="NSE_EQ" (not NSE_INDEX)
-            spot_price = broker.get_ltp(idx_id, exchange_segment="NSE_EQ") or 0.0
+            # Note: For Index LTP, Dhan API v2 expects exchange_segment="IDX_I"
+            spot_price = broker.get_ltp(idx_id, exchange_segment="IDX_I") or 0.0
             
         leg_data = {
             "underlying": underlying,

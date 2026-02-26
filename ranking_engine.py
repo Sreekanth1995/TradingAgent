@@ -270,9 +270,13 @@ class RankingEngine:
         # We need to resolve both CE and PE contracts for management
         index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"} 
         idx_id = index_ids.get(underlying.upper())
-        spot_price = 0.0
-        if idx_id:
-            spot_price = self.broker.get_ltp(idx_id, exchange_segment="NSE_EQ") or 0.0
+        
+        # Prioritize payload price if available from TradingView/Webhook
+        spot_price = float(leg_data.get('current_price', 0))
+        
+        if spot_price <= 0 and idx_id:
+            # Note: For Index LTP, Dhan API v2 expects exchange_segment="IDX_I"
+            spot_price = self.broker.get_ltp(idx_id, exchange_segment="IDX_I") or 0.0
         
         if spot_price <= 0:
             logger.error(f"Cannot execute strategy for {underlying}: Index LTP failed.")
