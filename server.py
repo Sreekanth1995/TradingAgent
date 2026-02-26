@@ -227,10 +227,18 @@ def toggle_side():
         # We need 'current_price' in leg_data or it defaults to 0.
         
         # Let's fetch index LTP if we can.
-        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"} # Standard Dhan Index IDs
+        # Aliases for common indices to support manual trading labels
+        index_ids = {
+            "NIFTY": "13", 
+            "NIFTY_50": "13",
+            "NIFTY 50": "13",
+            "BANKNIFTY": "25", 
+            "FINNIFTY": "27"
+        } 
         idx_id = index_ids.get(underlying.upper())
         if idx_id:
-            spot_price = broker.get_ltp(idx_id, exchange_segment="NSE_INDEX") or 0.0
+            # Note: For Index LTP, Dhan API v2 expects exchange_segment="NSE_EQ" (not NSE_INDEX)
+            spot_price = broker.get_ltp(idx_id, exchange_segment="NSE_EQ") or 0.0
             
         leg_data = {
             "underlying": underlying,

@@ -17,9 +17,9 @@ When a **BUY (Call)** or **SELL (Put)** signal is received:
     -   **Entry Price**: **`LTP - 5 points`**.
     -   *Goal*: To enter as a "Maker" at a better price.
 3.  **Bracket Legs** (Fixed Points):
-    -   **Target**: Entry + 30 points.
-    -   **Stop Loss**: Entry - 20 points.
-    -   **Trailing Jump**: 10 points.
+    -   **Target**: Entry + 55% of Entry Price.
+    -   **Stop Loss**: Entry - 20% of Entry Price.
+    -   **Trailing Jump**: 10% of Entry Price.
 
 ## 3. Smart Exit Strategy (Reversal Handling)
 When a **Reverse Signal** arrives (e.g., Switching from Long Call to Long Put):
