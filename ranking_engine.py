@@ -208,11 +208,11 @@ class RankingEngine:
         if not is_valid_tf:
             return err_tf
 
-        # 2. Deduplication Check
+        # 2. Deduplication Check (DISABLED as per new strategy)
         state = self._get_state(underlying)
-        if signal_type == state.get('last_signal', 'NONE'):
-            logger.info(f"Deduplication: Ignoring consecutive {signal_type} signal for {underlying}")
-            return {"underlying": underlying, "signal": signal_type, "action": "SKIPPED_DUPLICATE", "time": now_ist.strftime('%H:%M:%S')}
+        # if signal_type == state.get('last_signal', 'NONE'):
+        #     logger.info(f"Deduplication: Ignoring consecutive {signal_type} signal for {underlying}")
+        #     return {"underlying": underlying, "signal": signal_type, "action": "SKIPPED_DUPLICATE", "time": now_ist.strftime('%H:%M:%S')}
 
         # 3. Market Volatility Check
         is_valid_vol, err_vol = self._validate_market_volatility(underlying, is_scalping, now_ist)
@@ -240,7 +240,14 @@ class RankingEngine:
         Updates the engine state with the last processed signal if execution succeeded.
         """
         actions = result.get('actions', [])
-        success_indicators = ['OPENED_CALL', 'OPENED_PUT', 'CLOSED_CALL', 'CLOSED_PUT']
+        success_indicators = [
+            'OPENED_CALL', 'OPENED_PUT', 'CLOSED_CALL', 'CLOSED_PUT',
+            'PLACED_NEW_CE', 'PLACED_NEW_PE',
+            'CANCELLED_CE_ENTRY', 'CANCELLED_PE_ENTRY',
+            'MODIFIED_ALIGNED_CE_ALL', 'MODIFIED_ALIGNED_PE_ALL',
+            'MODIFIED_ALIGNED_CE_EXIT', 'MODIFIED_ALIGNED_PE_EXIT',
+            'MODIFIED_OPPOSITE_CE_EXIT', 'MODIFIED_OPPOSITE_PE_EXIT'
+        ]
         
         if any(a in actions for a in success_indicators) or not actions:
             new_state = self._get_state(underlying)
@@ -253,59 +260,156 @@ class RankingEngine:
 
 
     def _execute_signal(self, underlying, signal_type, timeframe, leg_data, state, current_side, now_ist, is_scalping=False):
+        """
+        Advanced Strategy Implementation:
+        Manages Super Orders based on signal alignment and leg status.
+        """
         action_log = []
-
-        # Logic Matrix
-        # Signal: BUY ('B')
-        if signal_type == 'B':
-            # 1. Close PUT if Open
-            if current_side == 'PUT':
-                logger.info(f"Reversal detected: Closing PUT for {underlying}")
-                self._close_position(underlying, state)
-                state = {'side': 'NONE'} 
-                action_log.append("CLOSED_PUT")
-
-            # 2. Open CALL if not already open
-            if current_side != 'CALL':
-                logger.info(f"Opening CALL for {underlying} ({'Scalping' if is_scalping else 'Normal'})")
-                new_state = self._open_position(underlying, 'CALL', leg_data, is_scalping)
-                if new_state:
-                    self._set_state(underlying, new_state)
-                    action_log.append("OPENED_CALL")
-                else:
-                    action_log.append("FAILED_OPEN_CALL")
-
-        # Signal: SELL ('S')
-        elif signal_type == 'S':
-            # 1. Close CALL if Open
-            if current_side == 'CALL':
-                logger.info(f"Reversal detected: Closing CALL for {underlying}")
-                self._close_position(underlying, state)
-                state = {'side': 'NONE'}
-                action_log.append("CLOSED_CALL")
-
-            # 2. Open PUT if not already open
-            if current_side != 'PUT':
-                logger.info(f"Opening PUT for {underlying} ({'Scalping' if is_scalping else 'Normal'})")
-                new_state = self._open_position(underlying, 'PUT', leg_data, is_scalping)
-                if new_state:
-                    self._set_state(underlying, new_state)
-                    action_log.append("OPENED_PUT")
-                else:
-                    action_log.append("FAILED_OPEN_PUT")
         
-        # Summarize Action for Server Compatibility
-        summary_action = "NO_ACTION"
-        if action_log:
-            summary_action = ", ".join(action_log)
+        # 1. Fetch Index LTP for ITM resolution
+        # We need to resolve both CE and PE contracts for management
+        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"} 
+        idx_id = index_ids.get(underlying.upper())
+        spot_price = 0.0
+        if idx_id:
+            spot_price = self.broker.get_ltp(idx_id, exchange_segment="NSE_EQ") or 0.0
         
+        if spot_price <= 0:
+            logger.error(f"Cannot execute strategy for {underlying}: Index LTP failed.")
+            return {"underlying": underlying, "action": "FAILED_INDEX_LTP", "time": now_ist.strftime('%H:%M:%S')}
+
+        # 2. Resolve ITM CE and PE targets
+        itm_ce = self.broker.get_itm_contract(underlying, 'CE', spot_price)
+        itm_pe = self.broker.get_itm_contract(underlying, 'PE', spot_price)
+        
+        if not itm_ce or not itm_pe:
+            logger.error(f"Failed to resolve ITM contracts for {underlying}")
+            return {"underlying": underlying, "action": "FAILED_ITM_RESOLUTION", "time": now_ist.strftime('%H:%M:%S')}
+
+        # 3. Fetch all active Super Orders
+        # We group them by Side (CE/PE) using their securityId or Symbol
+        all_legs = self.broker.get_super_orders()
+        
+        # Group legs by Parent Order ID
+        orders_by_id = {}
+        for leg in all_legs:
+            oid = leg['orderId']
+            if oid not in orders_by_id:
+                orders_by_id[oid] = {'legs': [], 'side': None, 'securityId': leg.get('securityId')}
+            orders_by_id[oid]['legs'].append(leg)
+            
+            # Identify side based on securityId or Symbol (heuristic)
+            if leg.get('securityId') == itm_ce['security_id']:
+                orders_by_id[oid]['side'] = 'CE'
+            elif leg.get('securityId') == itm_pe['security_id']:
+                orders_by_id[oid]['side'] = 'PE'
+            else:
+                # Fallback check if it's the right underlying but maybe different strike?
+                # For now, we only manage the current ITM or orders that match the securityId
+                pass
+
+        # 4. Strategy Processing
+        if signal_type == 'B': # BUY (CE Aligned, PE Opposite)
+            # 4.1 Handle Opposite Side (PE)
+            self._manage_opposite_orders(orders_by_id, 'PE', action_log)
+            # 4.2 Handle Aligned Side (CE)
+            self._manage_aligned_orders(underlying, itm_ce, orders_by_id, 'CE', action_log)
+            
+        elif signal_type == 'S': # SELL (PE Aligned, CE Opposite)
+            # 4.1 Handle Opposite Side (CE)
+            self._manage_opposite_orders(orders_by_id, 'CE', action_log)
+            # 4.2 Handle Aligned Side (PE)
+            self._manage_aligned_orders(underlying, itm_pe, orders_by_id, 'PE', action_log)
+
         return {
             "underlying": underlying,
             "signal": signal_type,
             "actions": action_log,
-            "action": summary_action, # For server.py error checking
+            "action": ", ".join(action_log) if action_log else "NO_ACTION",
             "time": now_ist.strftime('%H:%M:%S')
         }
+
+    def _manage_opposite_orders(self, orders_by_id, side_to_manage, action_log):
+        """
+        Opposite side logic:
+        - If Entry Leg exists: Cancel.
+        - If only Target/SL legs exist: Modify Target=LTP+1, SL=LTP-5.
+        """
+        for oid, order in orders_by_id.items():
+            if order['side'] != side_to_manage:
+                continue
+            
+            leg_names = [l['legName'] for l in order['legs']]
+            sec_id = order['securityId']
+            ltp = self.broker.get_ltp(sec_id) if sec_id else None
+            
+            if 'ENTRY_LEG' in leg_names:
+                logger.info(f"Strategy: Cancelling opposite {side_to_manage} super order {oid} (Entry active)")
+                self.broker.cancel_super_order(oid, 'ENTRY_LEG')
+                action_log.append(f"CANCELLED_{side_to_manage}_ENTRY")
+            elif 'TARGET_LEG' in leg_names and 'STOP_LOSS_LEG' in leg_names:
+                if ltp:
+                    new_tgt = ltp + 1
+                    new_sl = ltp - 5
+                    logger.info(f"Strategy: Modifying opposite {side_to_manage} {oid} -> TGT:{new_tgt}, SL:{new_sl}")
+                    self.broker.modify_super_target_leg(oid, new_tgt)
+                    self.broker.modify_super_sl_leg(oid, new_sl)
+                    action_log.append(f"MODIFIED_OPPOSITE_{side_to_manage}_EXIT")
+
+    def _manage_aligned_orders(self, underlying, itm_data, orders_by_id, side_to_manage, action_log):
+        """
+        Aligned side logic:
+        - If no order: Place new (Entry -3%, Target +75%, SL -20%).
+        - If Entry/Target/SL all active: Modify all (Entry -3%, Target +75%, SL -20%).
+        - If only Target/SL active: Modify (Target +75%, SL -20%).
+        """
+        target_oid = None
+        for oid, order in orders_by_id.items():
+            if order['side'] == side_to_manage:
+                target_oid = oid
+                break
+        
+        # Resolve LTP for the Option
+        sec_id = itm_data['security_id']
+        ltp = self._wait_for_ltp(itm_data['symbol'], sec_id)
+        if not ltp:
+            logger.warning(f"Could not fetch LTP for aligned {side_to_manage}. Skipping.")
+            return
+
+        # Define Advanced Strategy Offsets
+        entry_price = ltp * 0.97
+        tgt_price = ltp * 1.75
+        sl_price = ltp * 0.80
+
+        if not target_oid:
+            # Place New Order
+            logger.info(f"Strategy: Placing NEW aligned {side_to_manage} super order at {ltp}")
+            so_leg = itm_data.copy()
+            so_leg.update({
+                'quantity': 1, # Default 1 lot
+                'target_price': tgt_price,
+                'stop_loss_price': sl_price,
+                'trailing_jump': 1.0,
+                'order_type': 'LIMIT',
+                'price': entry_price
+            })
+            self.broker.place_super_order(itm_data['symbol'], so_leg)
+            action_log.append(f"PLACED_NEW_{side_to_manage}")
+        else:
+            order = orders_by_id[target_oid]
+            leg_names = [l['legName'] for l in order['legs']]
+            
+            if 'ENTRY_LEG' in leg_names:
+                logger.info(f"Strategy: Modifying aligned {side_to_manage} {target_oid} Entry/TGT/SL")
+                self.broker.modify_super_entry_leg(target_oid, entry_price)
+                self.broker.modify_super_target_leg(target_oid, tgt_price)
+                self.broker.modify_super_sl_leg(target_oid, sl_price)
+                action_log.append(f"MODIFIED_ALIGNED_{side_to_manage}_ALL")
+            else:
+                logger.info(f"Strategy: Modifying aligned {side_to_manage} {target_oid} TGT/SL")
+                self.broker.modify_super_target_leg(target_oid, tgt_price)
+                self.broker.modify_super_sl_leg(target_oid, sl_price)
+                action_log.append(f"MODIFIED_ALIGNED_{side_to_manage}_EXIT")
 
     def _open_position(self, underlying, side, leg_data, is_scalping=False):
         """

@@ -606,6 +606,7 @@ class DhanClient:
                                  'triggerPrice': leg.get('triggerPrice'),
                                  'trailingJump': leg.get('trailingJump'),
                                  'quantity': leg.get('quantity') or leg.get('totalQuatity') or so.get('quantity'),
+                                 'securityId': so_sid,
                                  'is_super_order': True
                              }
 
@@ -799,6 +800,50 @@ class DhanClient:
                 return {"success": False, "error": resp.text}
         except Exception as e:
             logger.error(f"Modify Super SL Exception: {e}")
+            return {"success": False, "error": str(e)}
+
+    def modify_super_entry_leg(self, order_id, price, quantity=None):
+        """
+        Modifies the Entry Leg of a Super Order.
+        """
+        if self.dry_run:
+            logger.info(f"$$$ [BROKER] MOCK MODIFY SUPER ENTRY {order_id} -> P:{price}, Q:{quantity} $$$")
+            return {"success": True}
+
+        if not self.access_token or not self.client_id:
+            return {"success": False, "error": "Missing Info"}
+
+        url = f"https://api.dhan.co/v2/super/orders/{order_id}"
+        headers = {
+            'Content-Type': 'application/json',
+            'access-token': self.access_token
+        }
+
+        # Round price to 0.05
+        rounded_price = float(self._round_to_tick(price))
+
+        payload = {
+            "dhanClientId": self.client_id,
+            "orderId": str(order_id),
+            "legName": "ENTRY_LEG",
+            "price": rounded_price,
+            "quantity": int(quantity) if quantity else None
+        }
+        # Remove None quantity
+        if payload["quantity"] is None:
+            del payload["quantity"]
+
+        logger.info(f"$$$ [BROKER] MODIFYING SUPER ENTRY LEG: {payload} $$$")
+
+        try:
+            resp = requests.put(url, headers=headers, json=payload)
+            if resp.status_code == 200:
+                return {"success": True, "data": resp.json()}
+            else:
+                logger.error(f"Modify Super Entry Failed: {resp.status_code} {resp.text}")
+                return {"success": False, "error": resp.text}
+        except Exception as e:
+            logger.error(f"Modify Super Entry Exception: {e}")
             return {"success": False, "error": str(e)}
 
 
