@@ -302,15 +302,19 @@ class RankingEngine:
                 orders_by_id[oid] = {'legs': [], 'side': None, 'securityId': leg.get('securityId')}
             orders_by_id[oid]['legs'].append(leg)
             
-            # Identify side based on securityId or Symbol (heuristic)
+            # Identify side based on securityId or tradingSymbol (heuristic)
             if leg.get('securityId') == itm_ce['security_id']:
                 orders_by_id[oid]['side'] = 'CE'
             elif leg.get('securityId') == itm_pe['security_id']:
                 orders_by_id[oid]['side'] = 'PE'
             else:
-                # Fallback check if it's the right underlying but maybe different strike?
-                # For now, we only manage the current ITM or orders that match the securityId
-                pass
+                # Fallback: Check tradingSymbol for Side identification
+                t_sym = str(leg.get('tradingSymbol') or '').upper()
+                if underlying.upper() in t_sym:
+                    if 'CE' in t_sym:
+                        orders_by_id[oid]['side'] = 'CE'
+                    elif 'PE' in t_sym:
+                        orders_by_id[oid]['side'] = 'PE'
 
         # 4. Strategy Processing
         if signal_type == 'B': # BUY (CE Aligned, PE Opposite)

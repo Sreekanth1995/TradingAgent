@@ -607,6 +607,7 @@ class DhanClient:
                                  'trailingJump': leg.get('trailingJump'),
                                  'quantity': leg.get('quantity') or leg.get('totalQuatity') or so.get('quantity'),
                                  'securityId': so_sid,
+                                 'tradingSymbol': so.get('tradingSymbol'),
                                  'is_super_order': True
                              }
 
