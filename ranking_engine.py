@@ -405,18 +405,37 @@ class RankingEngine:
             action_log.append(f"PLACED_NEW_{side_to_manage}")
         else:
             order = orders_by_id[target_oid]
-            leg_names = [l['legName'] for l in order['legs']]
+            leg_names = [l['legName'] for l in order['legs'] if 'legName' in l] # Guard against missing legName
             
+            # Extract existing SL price from legs
+            existing_sl = None
+            for leg in order['legs']:
+                if leg.get('legName') == 'STOP_LOSS_LEG':
+                    existing_sl = float(leg.get('triggerPrice') or leg.get('price') or 0)
+                    break
+
             if 'ENTRY_LEG' in leg_names:
                 logger.info(f"Strategy: Modifying aligned {side_to_manage} {target_oid} Entry/TGT/SL")
                 self.broker.modify_super_entry_leg(target_oid, entry_price)
                 self.broker.modify_super_target_leg(target_oid, tgt_price)
-                self.broker.modify_super_sl_leg(target_oid, sl_price)
+                
+                # Update SL only if new SL is higher than existing SL
+                if existing_sl is None or sl_price > existing_sl:
+                    self.broker.modify_super_sl_leg(target_oid, sl_price)
+                else:
+                    logger.info(f"Strategy: New SL {sl_price} is not higher than existing SL {existing_sl} for {target_oid}. Skipping SL update.")
+                
                 action_log.append(f"MODIFIED_ALIGNED_{side_to_manage}_ALL")
             else:
                 logger.info(f"Strategy: Modifying aligned {side_to_manage} {target_oid} TGT/SL")
                 self.broker.modify_super_target_leg(target_oid, tgt_price)
-                self.broker.modify_super_sl_leg(target_oid, sl_price)
+                
+                # Update SL only if new SL is higher than existing SL
+                if existing_sl is None or sl_price > existing_sl:
+                    self.broker.modify_super_sl_leg(target_oid, sl_price)
+                else:
+                    logger.info(f"Strategy: New SL {sl_price} is not higher than existing SL {existing_sl} for {target_oid}. Skipping SL update.")
+                
                 action_log.append(f"MODIFIED_ALIGNED_{side_to_manage}_EXIT")
 
     def _open_position(self, underlying, side, leg_data, is_scalping=False):
@@ -697,7 +716,15 @@ class RankingEngine:
             params = self._get_params(underlying, state.get('is_scalping', False))
             trail_offset = round(ltp * (params['trailing']/100), 1)
             barrier = round(ltp - trail_offset, 1)
-            self.broker.modify_order(oid, 'SL', {'trigger_price': barrier})
+            
+            # Fetch existing trigger price if available
+            existing_trigger = float(order_data.get('triggerPrice') or order_data.get('trigger_price') or 0)
+            
+            if barrier > existing_trigger:
+                logger.info(f"Smart Exit: Updating SL {oid} from {existing_trigger} to {barrier}")
+                self.broker.modify_order(oid, 'SL', {'trigger_price': barrier})
+            else:
+                logger.info(f"Smart Exit: New SL {barrier} is not higher than existing {existing_trigger} for {oid}. Skipping.")
 
     def manual_exit_all(self):
         """

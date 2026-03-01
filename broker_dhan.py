@@ -765,7 +765,7 @@ class DhanClient:
             logger.error(f"Modify Super Target Exception: {e}")
             return {"success": False, "error": str(e)}
 
-    def modify_super_sl_leg(self, order_id, stop_loss_price, trailing_jump=1.0):
+    def modify_super_sl_leg(self, order_id, stop_loss_price, trailing_jump=5.0):
         """
         Modifies the Stop Loss Leg of a Super Order.
         """
