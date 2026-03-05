@@ -110,9 +110,9 @@ alert_tp = is_long ? close >= tp_price : close <= tp_price
 alert_sl = is_long ? close <= sl_price : close >= sl_price
 
 // --- Webhook Payloads (Dynamic) ---
-buy_json = '{"secret": "' + webhook_secret + '", "timeframe": "{{interval}}", "order_legs": [{"underlying": "NIFTY", "transactionType": "B", "current_price": {{close}}}]}'
-sell_json = '{"secret": "' + webhook_secret + '", "timeframe": "{{interval}}", "order_legs": [{"underlying": "NIFTY", "transactionType": "S", "current_price": {{close}}}]}'
-exit_json = '{"secret": "' + webhook_secret + '", "timeframe": "{{interval}}", "order_legs": [{"underlying": "NIFTY", "transactionType": "' + (is_long ? "LONG_EXIT" : "SHORT_EXIT") + '"}]}'
+buy_json = '{"secret": "' + webhook_secret + '", "timeframe": "5", "order_legs": [{"underlying": "NIFTY", "transactionType": "B", "current_price": {{close}}}]}'
+sell_json = '{"secret": "' + webhook_secret + '", "timeframe": "5", "order_legs": [{"underlying": "NIFTY", "transactionType": "S", "current_price": {{close}}}]}'
+exit_json = '{"secret": "' + webhook_secret + '", "timeframe": "5", "order_legs": [{"underlying": "NIFTY", "transactionType": "' + (is_long ? "LONG_EXIT" : "SHORT_EXIT") + '"}]}'
 
 // --- Trigger Automation (One-Time Lifecycle) ---
 if not trade_completed
