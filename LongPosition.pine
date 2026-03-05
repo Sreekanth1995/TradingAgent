@@ -1,0 +1,129 @@
+//@version=5
+indicator("LongPosition Indicator", overlay=true, explicit_plot_zorder=true)
+
+// --- Instructions for the User ---
+// To use this indicator:
+// 1. Add it to your chart.
+// 2. Click on the chart to set the Entry Point (Time and Price).
+// 3. Click again to set the Stop Loss (SL) Price.
+// 4. Click a third time to set the Take Profit (TP) Price.
+// The boxes and labels will stay at the selected time.
+
+// --- Inputs ---
+// UNIQUE NAMES for each interactive input to prevent collisions
+entry_time  = input.time(0, "Entry Point", confirm=true, inline="Entry")
+entry_price = input.price(0, "", confirm=true, inline="Entry")
+sl_price    = input.price(0, "Stop Loss Price", confirm=true)
+tp_price    = input.price(0, "Take Profit Price", confirm=true)
+
+// Colors
+tp_color = input.color(color.new(#089981, 80), "TP Zone Color")
+sl_color = input.color(color.new(#f23645, 80), "SL Zone Color")
+border_tp = input.color(color.new(#089981, 0), "TP Border Color")
+border_sl = input.color(color.new(#f23645, 0), "SL Border Color")
+text_color = input.color(color.white, "Text Color")
+
+// Position Settings
+box_width_bars = input.int(20, "Projection Width (Bars)", minval=5)
+webhook_secret = input.string("121995", "Webhook Secret")
+
+// --- Logic Variables ---
+var box tp_box = na
+var box sl_box = na
+var label stats_label = na
+
+// --- State Machine ---
+var entry_triggered = false
+var trade_completed = false
+var last_entry_id = ""
+var last_exit_id = ""
+
+// Create unique IDs for Entry inputs and Exit inputs separately
+entry_id = str.tostring(entry_time) + str.tostring(entry_price)
+exit_id = str.tostring(sl_price) + str.tostring(tp_price)
+
+// Logic: Determine if we need to reset the state
+if entry_id != last_entry_id
+    // Case 1: User moved the Entry Point -> Completely New Trade
+    entry_triggered := false
+    trade_completed := false
+    last_entry_id := entry_id
+    last_exit_id := exit_id
+else if exit_id != last_exit_id
+    // Case 2: User only moved TP or SL
+    if trade_completed
+        // If trade was already finished, assume this is a re-try -> Reset
+        entry_triggered := false
+        trade_completed := false
+    // If trade is ACTIVE (entry_triggered=true), DO NOT reset entry_triggered!
+    // This allows you to adjust TP/SL while the trade is running without breaking the exit logic.
+    
+    last_exit_id := exit_id
+
+// Detect position type based on TP price relative to Entry price
+is_long = tp_price > entry_price
+
+// Only execute when all necessary inputs have been selected
+if barstate.islast and entry_time > 0 and entry_price > 0 and sl_price > 0 and tp_price > 0
+    // Cleanup previous drawings ONLY when we have a valid new configuration
+    box.delete(tp_box)
+    box.delete(sl_box)
+    label.delete(stats_label)
+
+    // Calculations
+    risk = math.abs(entry_price - sl_price)
+    reward = math.abs(tp_price - entry_price)
+    rr_ratio = reward / (risk == 0 ? 1 : risk)
+
+    // Calculate future time projection
+    int bar_dur = math.max(1, time - time[1])
+    int end_time = entry_time + (box_width_bars * bar_dur)
+
+    // Define colors based on position type
+    color_profit = tp_color
+    color_loss = sl_color
+    border_profit = border_tp
+    border_loss = border_sl
+
+    // Create TP Box (Profit Zone)
+    tp_box := box.new(left=entry_time, top=tp_price, right=end_time, bottom=entry_price, 
+                      bgcolor=color_profit, border_color=border_profit, border_width=1, xloc=xloc.bar_time)
+    
+    // Create SL Box (Loss Zone)
+    sl_box := box.new(left=entry_time, top=entry_price, right=end_time, bottom=sl_price, 
+                      bgcolor=color_loss, border_color=border_loss, border_width=1, xloc=xloc.bar_time)
+
+    // Statistics Label
+    pos_type = is_long ? "Long" : "Short"
+    label_text = trade_completed ? "TRADE COMPLETED" : 
+                 pos_type + " Position\n" + 
+                 "Risk/Reward: " + str.tostring(rr_ratio, "#.##") + "\n" + 
+                 "Amount: " + str.tostring(reward, "#.####") + " / " + str.tostring(risk, "#.####")
+    
+    stats_label := label.new(x=end_time, y=entry_price, text=label_text, 
+                             color=trade_completed ? color.new(color.gray, 20) : color.new(color.black, 20), 
+                             textcolor=text_color, style=label.style_label_left, size=size.normal, xloc=xloc.bar_time)
+
+// --- Alerts ---
+alert_entry = ta.cross(close, entry_price)
+alert_tp = is_long ? close >= tp_price : close <= tp_price
+alert_sl = is_long ? close <= sl_price : close >= sl_price
+
+// --- Webhook Payloads (Dynamic) ---
+buy_json = '{"secret": "' + webhook_secret + '", "timeframe": "{{interval}}", "order_legs": [{"underlying": "NIFTY", "transactionType": "B", "current_price": {{close}}}]}'
+sell_json = '{"secret": "' + webhook_secret + '", "timeframe": "{{interval}}", "order_legs": [{"underlying": "NIFTY", "transactionType": "S", "current_price": {{close}}}]}'
+exit_json = '{"secret": "' + webhook_secret + '", "timeframe": "{{interval}}", "order_legs": [{"underlying": "NIFTY", "transactionType": "' + (is_long ? "LONG_EXIT" : "SHORT_EXIT") + '"}]}'
+
+// --- Trigger Automation (One-Time Lifecycle) ---
+if not trade_completed
+    if not entry_triggered and alert_entry
+        alert(is_long ? buy_json : sell_json, alert.freq_once_per_bar)
+        entry_triggered := true
+    
+    if entry_triggered and (alert_tp or alert_sl)
+        alert(exit_json, alert.freq_once_per_bar)
+        trade_completed := true
+
+// --- Manual Alert Slots ---
+alertcondition(alert_entry, title="Entry Alert", message="Entry Hit")
+alertcondition(alert_tp or alert_sl, title="Exit Alert", message="Exit Hit")

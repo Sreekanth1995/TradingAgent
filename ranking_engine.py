@@ -329,6 +329,14 @@ class RankingEngine:
             # 4.2 Handle Aligned Side (PE)
             self._manage_aligned_orders(underlying, itm_pe, orders_by_id, 'PE', action_log)
 
+        elif signal_type == 'LONG_EXIT':
+            logger.info(f"Strategy: Explicit LONG_EXIT for {underlying}")
+            self._manage_opposite_orders(orders_by_id, 'CE', action_log)
+
+        elif signal_type == 'SHORT_EXIT':
+            logger.info(f"Strategy: Explicit SHORT_EXIT for {underlying}")
+            self._manage_opposite_orders(orders_by_id, 'PE', action_log)
+
         return {
             "underlying": underlying,
             "signal": signal_type,
