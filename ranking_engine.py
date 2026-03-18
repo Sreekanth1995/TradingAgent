@@ -38,10 +38,10 @@ class RankingEngine:
         
         # Instrument Configurations (Target, SL, Trailing Jump)
         self.configs = {
-            "NIFTY": {"target": 75, "sl": 20, "trailing": 15},
-            "BANKNIFTY": {"target": 75, "sl": 20, "trailing": 15},
-            "FINNIFTY": {"target": 75, "sl": 20, "trailing": 15},
-            "DEFAULT": {"target": 75, "sl": 20, "trailing": 15}
+            "NIFTY": {"target": 10, "sl": 10, "trailing": 15},
+            "BANKNIFTY": {"target": 10, "sl": 10, "trailing": 15},
+            "FINNIFTY": {"target": 10, "sl": 10, "trailing": 15},
+            "DEFAULT": {"target": 10, "sl": 10, "trailing": 15}
         }
         
         # Scalping Mode Configuration (Target 75%, SL 20%, Trailing 5%)
