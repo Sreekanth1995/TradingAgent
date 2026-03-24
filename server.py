@@ -1,10 +1,12 @@
 import os
 import re
+import json
 import logging
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from ranking_engine import RankingEngine
 from broker_dhan import DhanClient
+from openai_analyzer import OpenAIAnalyzer
 
 # Load Environment Variables
 load_dotenv()
@@ -32,6 +34,41 @@ except Exception as e:
     init_error = str(e)
     logger.error(f"⚠️ Initialization Failed: {e}")
     logger.warning("App will start in degraded mode. Please check environment variables.")
+
+# OpenAI Analyzer (lazy init — works even without API key)
+try:
+    analyzer = OpenAIAnalyzer()
+except Exception as e:
+    analyzer = None
+    logger.warning(f"OpenAI Analyzer unavailable: {e}")
+
+# In-memory stores (persisted to JSON files for restart survival)
+_LEVELS_FILE = "levels.json"
+_CONTEXT_FILE = "ai_context.txt"
+_AI_LOG = []  # last 20 AI decisions
+
+def _load_levels():
+    try:
+        with open(_LEVELS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_levels(data):
+    with open(_LEVELS_FILE, 'w') as f:
+        json.dump(data, f)
+
+def _load_context():
+    try:
+        with open(_CONTEXT_FILE) as f:
+            return f.read()
+    except Exception:
+        return ""
+
+def _save_context(text):
+    with open(_CONTEXT_FILE, 'w') as f:
+        f.write(text)
+
 
 @app.route('/health')
 def health():
@@ -112,6 +149,30 @@ def webhook():
             
             transaction_type = leg.get('transactionType')
             logger.info(f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe")
+
+            # 2.5 AI Analysis Gate
+            if analyzer:
+                ai_result = analyzer.analyze(
+                    {**leg, 'underlying': underlying, 'timeframe': timeframe},
+                    _load_levels(),
+                    _load_context()
+                )
+                # Log AI decision
+                _AI_LOG.append({
+                    "underlying": underlying,
+                    "direction": transaction_type,
+                    "decision": ai_result["decision"],
+                    "reason": ai_result["reason"],
+                    "confidence": ai_result["confidence"]
+                })
+                if len(_AI_LOG) > 20:
+                    _AI_LOG.pop(0)
+
+                if ai_result["decision"] == "REJECT":
+                    logger.warning(f"AI REJECTED signal for {underlying}: {ai_result['reason']}")
+                    results.append({"action": "AI_REJECTED", "underlying": underlying, "reason": ai_result["reason"]})
+                    continue
+                logger.info(f"AI APPROVED signal for {underlying} (confidence={ai_result['confidence']}%)")
             
             # 3. Process with Ranking Engine (Index-Based)
             try:
@@ -322,6 +383,51 @@ def volume_alert():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route('/set-levels', methods=['POST'])
+def set_levels():
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    levels = data.get('levels', {})
+    _save_levels(levels)
+    return jsonify({"status": "success", "message": "Levels saved"}), 200
+
+@app.route('/get-levels', methods=['POST'])
+def get_levels():
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    return jsonify({"status": "success", "levels": _load_levels()}), 200
+
+@app.route('/set-context', methods=['POST'])
+def set_context():
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    context_text = data.get('context', '')
+    _save_context(context_text)
+    return jsonify({"status": "success", "message": "Context saved"}), 200
+
+@app.route('/get-context', methods=['POST'])
+def get_context():
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    return jsonify({"status": "success", "context": _load_context()}), 200
+
+@app.route('/get-ai-logs', methods=['POST'])
+def get_ai_logs():
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    return jsonify({"status": "success", "logs": _AI_LOG}), 200
+
+@app.route('/update-token', methods=['POST'])
 def update_token():
     """
     Endpoint to update Dhan Access Token dynamically.

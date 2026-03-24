@@ -37,7 +37,7 @@
 
         .dashboard-container {
             width: 100%;
-            max-width: 480px;
+            max-width: 900px;
             background: var(--glass);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
@@ -269,6 +269,120 @@
         .msg-success { background: rgba(34, 197, 94, 0.1); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.2); }
         .msg-error { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
 
+        /* AI SECTIONS */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 800px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+
+        .side-card {
+            background: var(--glass-strong);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .side-card-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* PRICE LEVELS */
+        .level-row {
+            display: grid;
+            grid-template-columns: 60px 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        .level-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); }
+        .level-input {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 8px;
+            color: #fff;
+            font-size: 12px;
+            width: 100%;
+            text-align: center;
+        }
+        .level-input:focus { outline: none; border-color: var(--accent); }
+        
+        .add-level-btn {
+            background: transparent;
+            border: 1px dashed var(--glass-border);
+            color: var(--text-secondary);
+            width: 100%;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px 0 16px 0;
+            transition: all 0.2s;
+        }
+        .add-level-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .save-btn {
+            background: rgba(0, 242, 254, 0.1);
+            color: var(--accent);
+            border: 1px solid var(--accent-glow);
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .save-btn:hover { background: var(--accent); color: #000; }
+
+        /* AI CONTEXT */
+        .context-area {
+            width: 100%;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 12px;
+            color: #fff;
+            font-size: 12px;
+            font-family: monospace;
+            resize: vertical;
+            margin-bottom: 12px;
+        }
+        .context-area:focus { outline: none; border-color: var(--accent); }
+
+        /* AI LOGS */
+        .ai-log-list {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .ai-log-item {
+            padding: 8px;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .ai-log-item:last-child { border-bottom: none; }
+        .log-allow { color: var(--success); }
+        .log-reject { color: var(--danger); }
+        .log-reason { color: var(--text-secondary); }
+
         .footer { margin-top: 40px; text-align: center; font-size: 11px; color: var(--text-secondary); letter-spacing: 0.05em; }
     </style>
 </head>
@@ -287,58 +401,107 @@
             <input type="password" id="secret" name="webhook-secret" placeholder="Enter Webhook Secret to Enable Controls" aria-label="Webhook Secret" autocomplete="current-password">
         </section>
 
-        <section id="position-radar" class="monitor-card" aria-label="Position Status" role="status">
-            <div class="monitor-header">
-                <span class="monitor-label">Position Radar</span>
-                <span id="badge-live" class="live-badge" aria-live="polite">● LIVE</span>
-            </div>
-            <div class="monitor-grid">
-                <div class="monitor-item">
-                    <label for="val-trend">Current Trend</label>
-                    <div id="val-trend" class="monitor-value" data-field="current-trend" aria-live="polite">IDLE</div>
-                </div>
-                <div class="monitor-item">
-                    <label for="val-qty">Open Quantity</label>
-                    <div id="val-qty" class="monitor-value" data-field="open-quantity" aria-live="polite">0</div>
-                </div>
-            </div>
-            <div id="val-symbol" class="monitor-symbol" data-field="active-symbol">System Standby • No active orders</div>
-        </section>
-
-        <section id="command-center" class="command-center" aria-label="NIFTY Trade Controls">
-            <!-- CALL SECTOR -->
-            <div id="sector-call" class="command-sector" data-sector="CALL" aria-label="NIFTY CALL CE Controls">
-                <div class="sector-title">NIFTY CALL (CE)</div>
-                <div class="btn-group">
-                    <div class="indicator-box">
-                        <div id="stat-CALL" class="pos-active-label" aria-live="polite" data-status="call-active">CALL POSITION ACTIVE</div>
-                        <button id="btn-buy-call" class="btn btn-buy-call" onclick="agentAPI.sendUIAction('CALL')" data-action="buy-call" aria-label="Buy NIFTY Call option">BUY CALL</button>
+        <div class="dashboard-grid">
+            <!-- Left Column: Controls -->
+            <div class="col-controls">
+                <section id="position-radar" class="monitor-card" aria-label="Position Status" role="status">
+                    <div class="monitor-header">
+                        <span class="monitor-label">Position Radar</span>
+                        <span id="badge-live" class="live-badge" aria-live="polite">● LIVE</span>
                     </div>
-                    <button id="btn-exit-call" class="btn btn-exit" onclick="agentAPI.sendUIAction('EXIT_CALL')" data-action="exit-call" aria-label="Exit NIFTY Call position">EXIT</button>
-                </div>
-            </div>
-
-            <!-- PUT SECTOR -->
-            <div id="sector-put" class="command-sector" data-sector="PUT" aria-label="NIFTY PUT PE Controls">
-                <div class="sector-title">NIFTY PUT (PE)</div>
-                <div class="btn-group">
-                    <div class="indicator-box">
-                        <div id="stat-PUT" class="pos-active-label" aria-live="polite" data-status="put-active">PUT POSITION ACTIVE</div>
-                        <button id="btn-buy-put" class="btn btn-buy-put" onclick="agentAPI.sendUIAction('PUT')" data-action="buy-put" aria-label="Buy NIFTY Put option">BUY PUT</button>
+                    <div class="monitor-grid">
+                        <div class="monitor-item">
+                            <label for="val-trend">Current Trend</label>
+                            <div id="val-trend" class="monitor-value" data-field="current-trend" aria-live="polite">IDLE</div>
+                        </div>
+                        <div class="monitor-item">
+                            <label for="val-qty">Open Quantity</label>
+                            <div id="val-qty" class="monitor-value" data-field="open-quantity" aria-live="polite">0</div>
+                        </div>
                     </div>
-                    <button id="btn-exit-put" class="btn btn-exit" onclick="agentAPI.sendUIAction('EXIT_PUT')" data-action="exit-put" aria-label="Exit NIFTY Put position">EXIT</button>
-                </div>
-            </div>
-        </section>
+                    <div id="val-symbol" class="monitor-symbol" data-field="active-symbol">System Standby • No active orders</div>
+                </section>
 
-        <button id="btn-exit-all" class="emergency-btn" onclick="agentAPI.emergencyExit()" data-action="exit-all" aria-label="Emergency exit all positions and reset">
-            🚨 EXIT ALL POSITIONS &amp; RESET RANKS
-        </button>
+                <section id="command-center" class="command-center" aria-label="NIFTY Trade Controls">
+                    <!-- CALL SECTOR -->
+                    <div id="sector-call" class="command-sector" data-sector="CALL" aria-label="NIFTY CALL CE Controls">
+                        <div class="sector-title">NIFTY CALL (CE)</div>
+                        <div class="btn-group">
+                            <div class="indicator-box">
+                                <div id="stat-CALL" class="pos-active-label" aria-live="polite" data-status="call-active">CALL POSITION ACTIVE</div>
+                                <button id="btn-buy-call" class="btn btn-buy-call" onclick="agentAPI.sendUIAction('CALL')" data-action="buy-call" aria-label="Buy NIFTY Call option">BUY CALL</button>
+                            </div>
+                            <button id="btn-exit-call" class="btn btn-exit" onclick="agentAPI.sendUIAction('EXIT_CALL')" data-action="exit-call" aria-label="Exit NIFTY Call position">EXIT</button>
+                        </div>
+                    </div>
+
+                    <!-- PUT SECTOR -->
+                    <div id="sector-put" class="command-sector" data-sector="PUT" aria-label="NIFTY PUT PE Controls">
+                        <div class="sector-title">NIFTY PUT (PE)</div>
+                        <div class="btn-group">
+                            <div class="indicator-box">
+                                <div id="stat-PUT" class="pos-active-label" aria-live="polite" data-status="put-active">PUT POSITION ACTIVE</div>
+                                <button id="btn-buy-put" class="btn btn-buy-put" onclick="agentAPI.sendUIAction('PUT')" data-action="buy-put" aria-label="Buy NIFTY Put option">BUY PUT</button>
+                            </div>
+                            <button id="btn-exit-put" class="btn btn-exit" onclick="agentAPI.sendUIAction('EXIT_PUT')" data-action="exit-put" aria-label="Exit NIFTY Put position">EXIT</button>
+                        </div>
+                    </div>
+                </section>
+
+                <button id="btn-exit-all" class="emergency-btn" onclick="agentAPI.emergencyExit()" data-action="exit-all" aria-label="Emergency exit all positions and reset">
+                    🚨 EXIT ALL POSITIONS &amp; RESET RANKS
+                </button>
+            </div>
+
+            <!-- Right Column: AI & Levels -->
+            <div class="col-ai">
+                <!-- PRICE LEVELS STUDIO -->
+                <section class="side-card">
+                    <div class="side-card-title">Price Levels Studio</div>
+                    
+                    <div id="utp-container"></div>
+                    <button class="add-level-btn" onclick="addLevelRow('UTP')">+ Add Upper Level (UTP)</button>
+                    
+                    <div style="height: 1px; background: var(--glass-border); margin: 16px 0;"></div>
+                    
+                    <div class="level-row">
+                        <span class="level-label">TP0 Base</span>
+                        <input type="number" id="tp0-low" class="level-input" placeholder="Low">
+                        <input type="number" id="tp0-high" class="level-input" placeholder="High">
+                    </div>
+                    
+                    <div style="height: 1px; background: var(--glass-border); margin: 16px 0;"></div>
+                    
+                    <div id="ltp-container"></div>
+                    <button class="add-level-btn" onclick="addLevelRow('LTP')">+ Add Lower Level (LTP)</button>
+
+                    <button class="save-btn" onclick="saveLevels()">Save Levels</button>
+                </section>
+
+                <!-- AI STRATEGY CONTEXT -->
+                <section class="side-card">
+                    <div class="side-card-title">AI Strategy Context</div>
+                    <textarea id="ai-context" class="context-area" placeholder="Enter system prompt / strategy context for OpenAI signal analysis..."></textarea>
+                    <button class="save-btn" onclick="saveContext()">Save Context</button>
+                </section>
+
+                <!-- AI DECISION LOG -->
+                <section class="side-card">
+                    <div class="side-card-title">
+                        AI Decision Log
+                        <button style="background:none;border:none;color:var(--text-secondary);cursor:pointer;" onclick="refreshAILogs()">↻</button>
+                    </div>
+                    <div id="ai-logs" class="ai-log-list">
+                        <div class="ai-log-item" style="color: var(--text-secondary); text-align: center;">No logs yet.</div>
+                    </div>
+                </section>
+            </div>
+        </div>
 
         <div id="status-msg" role="alert" aria-live="assertive"></div>
 
         <footer class="footer">
-            Precision Trading v2.0 • Secured Backend Integration
+            Precision Trading v2.1 • OpenAI Enhanced
         </footer>
     </div>
 
@@ -349,8 +512,12 @@
             if (savedSecret) {
                 document.getElementById('secret').value = savedSecret;
                 refreshState();
+                loadLevels();
+                loadContext();
+                refreshAILogs();
             }
             setInterval(refreshState, 5000);
+            setInterval(refreshAILogs, 10000);
             
             // Handle Auth Success Redirect
             const params = new URLSearchParams(window.location.search);
@@ -467,6 +634,148 @@
             el.style.display = 'block';
             setTimeout(() => { el.style.display = 'none'; }, 5000);
         }
+
+        // --- AI INTEGRATION LOGIC ---
+
+        let utpCount = 0;
+        let ltpCount = 0;
+
+        function addLevelRow(type, low = '', high = '') {
+            const container = document.getElementById(`${type.toLowerCase()}-container`);
+            const count = type === 'UTP' ? ++utpCount : ++ltpCount;
+            const name = `${type}${count}`;
+            
+            const div = document.createElement('div');
+            div.className = 'level-row';
+            div.id = `row-${name}`;
+            div.innerHTML = `
+                <span class="level-label">${name}</span>
+                <input type="number" id="${name}-low" class="level-input" placeholder="Low" value="${low}">
+                <input type="number" id="${name}-high" class="level-input" placeholder="High" value="${high}">
+            `;
+            container.appendChild(div);
+            return name;
+        }
+
+        async function loadLevels() {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return;
+            try {
+                const res = await fetch('/get-levels', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({secret})
+                });
+                const data = await res.json();
+                if (data.status === 'success' && data.levels) {
+                    const l = data.levels;
+                    if (l.TP0) {
+                        document.getElementById('tp0-low').value = l.TP0.low || '';
+                        document.getElementById('tp0-high').value = l.TP0.high || '';
+                    }
+                    
+                    document.getElementById('utp-container').innerHTML = '';
+                    utpCount = 0;
+                    Object.keys(l).filter(k => k.startsWith('UTP')).sort().forEach(k => {
+                        addLevelRow('UTP', l[k].low, l[k].high);
+                    });
+                    
+                    document.getElementById('ltp-container').innerHTML = '';
+                    ltpCount = 0;
+                    Object.keys(l).filter(k => k.startsWith('LTP')).sort().forEach(k => {
+                        addLevelRow('LTP', l[k].low, l[k].high);
+                    });
+                }
+            } catch (err) { console.error('Failed to load levels', err); }
+        }
+
+        async function saveLevels() {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return notify('Secret required', 'error');
+
+            const levels = {};
+            const tp0Low = document.getElementById('tp0-low').value;
+            const tp0High = document.getElementById('tp0-high').value;
+            if (tp0Low || tp0High) levels.TP0 = { low: parseFloat(tp0Low), high: parseFloat(tp0High) };
+
+            for (let i = 1; i <= utpCount; i++) {
+                const l = document.getElementById(`UTP${i}-low`)?.value;
+                const h = document.getElementById(`UTP${i}-high`)?.value;
+                if (l || h) levels[`UTP${i}`] = { low: parseFloat(l), high: parseFloat(h) };
+            }
+            for (let i = 1; i <= ltpCount; i++) {
+                const l = document.getElementById(`LTP${i}-low`)?.value;
+                const h = document.getElementById(`LTP${i}-high`)?.value;
+                if (l || h) levels[`LTP${i}`] = { low: parseFloat(l), high: parseFloat(h) };
+            }
+
+            try {
+                const res = await fetch('/set-levels', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({secret, levels})
+                });
+                const data = await res.json();
+                if (data.status === 'success') notify('Levels Saved Successfully', 'success');
+                else notify(data.message, 'error');
+            } catch (err) { notify('Failed to save levels', 'error'); }
+        }
+
+        async function loadContext() {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return;
+            try {
+                const res = await fetch('/get-context', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({secret})
+                });
+                const data = await res.json();
+                if (data.status === 'success') document.getElementById('ai-context').value = data.context || '';
+            } catch (err) {}
+        }
+
+        async function saveContext() {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return notify('Secret required', 'error');
+            const context = document.getElementById('ai-context').value;
+            try {
+                const res = await fetch('/set-context', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({secret, context})
+                });
+                const data = await res.json();
+                if (data.status === 'success') notify('Context Saved Successfully', 'success');
+                else notify(data.message, 'error');
+            } catch (err) { notify('Failed to save context', 'error'); }
+        }
+
+        async function refreshAILogs() {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return;
+            try {
+                const res = await fetch('/get-ai-logs', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({secret})
+                });
+                const data = await res.json();
+                if (data.status === 'success' && data.logs) {
+                    const list = document.getElementById('ai-logs');
+                    if (data.logs.length === 0) {
+                        list.innerHTML = `<div class="ai-log-item" style="color: var(--text-secondary); text-align: center;">No logs yet.</div>`;
+                        return;
+                    }
+                    // Reverse to show newest first
+                    list.innerHTML = data.logs.reverse().map(log => `
+                        <div class="ai-log-item">
+                            <div style="display:flex; justify-content:space-between;">
+                                <strong>${log.underlying} - ${log.direction}</strong>
+                                <span class="${log.decision === 'ALLOW' ? 'log-allow' : 'log-reject'}">${log.decision} (${log.confidence}%)</span>
+                            </div>
+                            <div class="log-reason">${log.reason}</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (err) {}
+        }
+
 
         /**
          * AI Agent API
