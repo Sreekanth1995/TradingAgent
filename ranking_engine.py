@@ -36,19 +36,19 @@ class RankingEngine:
         self.use_redis = False
         self.memory_store = {}
         
-        # Instrument Configurations (Target, SL, Trailing Jump)
+        # Instrument Configurations (Target 55%, SL 20%, Trailing 10%)
         self.configs = {
-            "NIFTY": {"target": 10, "sl": 10, "trailing": 15},
-            "BANKNIFTY": {"target": 10, "sl": 10, "trailing": 15},
-            "FINNIFTY": {"target": 10, "sl": 10, "trailing": 15},
-            "DEFAULT": {"target": 10, "sl": 10, "trailing": 15}
+            "NIFTY": {"target": 55, "sl": 20, "trailing": 10},
+            "BANKNIFTY": {"target": 55, "sl": 20, "trailing": 10},
+            "FINNIFTY": {"target": 55, "sl": 20, "trailing": 10},
+            "DEFAULT": {"target": 55, "sl": 20, "trailing": 10}
         }
         
-        # Scalping Mode Configuration (Target 75%, SL 20%, Trailing 5%)
+        # Scalping Mode Configuration (Same as baseline for Phase 1)
         self.scalping_configs = {
-            "target": 75,
+            "target": 55,
             "sl": 20,
-            "trailing": 5
+            "trailing": 10
         }
         
         self.processing_locks = set()
@@ -111,10 +111,8 @@ class RankingEngine:
 
     def _is_scalping_active(self, underlying=None):
         """
-        Checks if scalping mode is currently active or eligible.
-        Priority:
-        1. Volume Trigger (Bypasses Window/Expiry)
-        2. Standard Rules (Inside Window AND on Expiry Day)
+        Checks if scalping mode is currently active based on volume trigger.
+        Time-based windows and expiry day rules have been removed.
         
         Args:
             underlying (str): The underlying instrument symbol (e.g., NIFTY).
@@ -130,16 +128,6 @@ class RankingEngine:
         
         if val and int(val) > time.time():
             return True
-        
-        # 2. Standard Window/Expiry Rules
-        if underlying:
-            now_ist = datetime.now(IST)
-            h, m = now_ist.hour, now_ist.minute
-            in_window1 = (h == 9 and m >= 20) or (h == 10 and m <= 35)
-            in_window2 = (h == 14 and m >= 45) or (h == 15 and m <= 30)
-            
-            if (in_window1 or in_window2) and self.broker.is_expiry_day(underlying):
-                return True
                 
         return False
 
@@ -506,21 +494,18 @@ class RankingEngine:
         if sl_price <= 0: sl_price = 0.05
         if trailing_val <= 0: trailing_val = 1.0 # Minimum 1 tick jump
         
-        offset = 1 if is_scalping else 5
-        entry_limit_price = round(ltp - offset, 1)
-        if entry_limit_price <= 0.05: entry_limit_price = 0.05
-
+        entry_limit_price = 0  # Market Entry
         so_leg = itm_data.copy()
         so_leg.update({
             'quantity': leg_data.get('quantity', 1),
             'target_price': tgt_price,
             'stop_loss_price': sl_price,
             'trailing_jump': trailing_val,
-            'order_type': 'LIMIT',
+            'order_type': 'MARKET',
             'price': entry_limit_price
         })
         
-        logger.info(f"Attempting Native Super Order for {symbol}. EntryLimit={entry_limit_price} (LTP-{offset}), SL={sl_price}, TGT={tgt_price}")
+        logger.info(f"Attempting Native Super Order for {symbol}. EntryLimit={entry_limit_price}, SL={sl_price}, TGT={tgt_price}")
         resp = self.broker.place_super_order(symbol, so_leg)
         
         if resp.get('success'):
@@ -702,8 +687,8 @@ class RankingEngine:
             self.broker.cancel_order(oid)
 
     def _modify_super_leg(self, oid, leg_name, ltp, order_data, is_scalping=False):
-        """Modifies a leg of a Native Super Order."""
-        offset = 1 if is_scalping else 5
+        """Modifies a leg of a Native Super Order for Smart Exit (LTP +/- 5)."""
+        offset = 5
         if leg_name == 'TARGET_LEG':
             new_target = round(ltp + offset, 1)
             self.broker.modify_super_target_leg(oid, new_target)

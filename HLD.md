@@ -41,7 +41,8 @@ graph TD
   - **Sequential Trading**: Ensures only one trend (CALL or PUT) is active at a time.
   - **Rank/Score System**: Accumulates "Strength" from signals across multiple timeframes.
   - **Weighting**: assigns higher decay power to longer timeframes (e.g., 8m signal has more weight than 1m).
-  - **Market Filter**: Prevents trading during volatile opening hours (before 09:30 IST).
+  - **Market Entry**: Executes at market price for immediate fill.
+  - **Smart Exit**: Works the exit via limit modification (LTP +/- 5) on reversal.
 
 ### 3.3 Broker Middleware (`broker_dhan.py`)
 - **Role**: Abstraction layer for order execution.

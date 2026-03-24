@@ -14,26 +14,16 @@ When a **BUY (Call)** or **SELL (Put)** signal is received:
 2.  **ITM Selection**:
     -   **Call (Buy)**: ATM Strike - 50 points.
     -   **Put (Sell)**: ATM Strike + 50 points.
-    -   **Entry Price**: **`LTP - 5 points`**.
-    -   *Goal*: To enter as a "Maker" at a better price.
-3.  **Bracket Legs** (Fixed Points):
-    -   **Target**: Entry + 55% of Entry Price.
-    -   **Stop Loss**: Entry - 20% of Entry Price.
-    -   **Trailing Jump**: 10% of Entry Price.
+*   **Entry Strategy**: Market Order for immediate execution.
+*   **Target Profit**: **55%** (Limit leg via Native Super Order).
+*   **Stop Loss**: **20%** (Trigger/Limit leg via Native Super Order).
+*   **Trailing Stop Loss**: **10%** (Automatic via Native Super Order).
+*   **Smart Exit**: In case of trend reversal, entry legs are cancelled, and exit legs are modified to `LTP + 5` (Target) or `LTP - 5` (SL) to capture "Maker" fills.
 
-## 3. Smart Exit Strategy (Reversal Handling)
-When a **Reverse Signal** arrives (e.g., Switching from Long Call to Long Put):
-
-The bot **DOES NOT** place a Market Exit Order. It attempts to "work" the exit:
-
-1.  **Unfilled Entry Safety**: 
-    -   It checks if the original Entry Limit Order is still **PENDING** (never filled).
-    -   If found, it **CANCELS** it immediately to prevent stale fills.
-2.  **Smart Modification (Filled Position)**:
-    -   It identifies the active **Target (Sell Limit)** and **Stop Loss** legs.
-    -   **Target Modification**: Updates the Limit Price to **`LTP + 5 points`**.
-    -   **Stop Loss Trailing**: Updates the SL Trigger to **`LTP - 10 points`** (tightening risk).
-3.  **Result**: The old position is left to close at the modified Target (or SL), avoiding Taker slippage.
+### 3. Smart Exit (Reversal Handling)
+If a signal reverses (e.g., LONG -> SHORT) while a position is active:
+1.  Cancel any unfilled Entry Legs.
+2.  Modify the active Exit Legs (Target/SL) to work the EXIT at `LTP + 5` or `LTP - 5`.
 
 ## 4. Reversal Entry
 -   Immediately after handling the exit Modification/Cancellation, the bot triggers the **Smart Entry** logic for the **New Position** (e.g., Short/Put).
@@ -86,7 +76,7 @@ State persistence is critical to survive restarts/crashes.
     -   Payload includes `targetPrice` and `stopLossPrice`.
 5.  **State Update**: Store `entry_id` in Redis.
 
-#### 2. Reversal Flow (Smart Exit + Clean Switch)
+#### 2. Reversal Flow
 1.  **Signal Received** (e.g., Short Signal while Long).
 2.  **Cleanup (Unfilled)**:
     -   Check for pending **BUY** orders (Stale Entry).
