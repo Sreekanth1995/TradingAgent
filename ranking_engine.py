@@ -351,6 +351,7 @@ class RankingEngine:
             if 'ENTRY_LEG' in leg_names:
                 logger.info(f"Strategy: Cancelling opposite {side_to_manage} super order {oid} (Entry active)")
                 self.broker.cancel_super_order(oid, 'ENTRY_LEG')
+                self._clear_state(underlying) # Clear state to reflect closure in UI
                 action_log.append(f"CANCELLED_{side_to_manage}_ENTRY")
             elif 'TARGET_LEG' in leg_names and 'STOP_LOSS_LEG' in leg_names:
                 if ltp:
@@ -381,6 +382,7 @@ class RankingEngine:
             logger.info(f"Strategy: Placing NEW {side} position for {underlying}")
             new_state = self._open_position(underlying, side, {"quantity": 1}, is_scalping) # Default 1 lot
             if new_state:
+                self._set_state(underlying, new_state) # Persist the new position state
                 action_log.append(f"OPENED_{side}")
         else:
             # Manage Existing Order (Smart Exit / Modification)
@@ -652,7 +654,9 @@ class RankingEngine:
             return {"action": "NONE", "reason": "No matching side active"}
             
         logger.info(f"Directional Exit ({side}) triggered for {underlying}. Performing Market Square-off.")
-        return self._close_position_market(underlying, state)
+        res = self._close_position_market(underlying, state)
+        self._clear_state(underlying)  # Clear state for UI
+        return res
 
     def _close_position_market(self, underlying, state):
         """
@@ -747,5 +751,6 @@ class RankingEngine:
         for k in keys:
             underlying = k.split(":")[1]
             state = self._get_state(underlying)
-            self._close_position(underlying, state)
+            self._close_position_market(underlying, state)
+            self._clear_state(underlying) # Clear state for UI
 

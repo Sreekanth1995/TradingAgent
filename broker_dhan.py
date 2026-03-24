@@ -286,6 +286,11 @@ class DhanClient:
     def place_sell_order(self, symbol, leg_data):
         return self._place_order(symbol, leg_data, TransactionType.SELL)
 
+    def place_order(self, symbol, leg_data):
+        """Generic order placement wrapper."""
+        txn_type = leg_data.get('transaction_type', TransactionType.BUY)
+        return self._place_order(symbol, leg_data, txn_type)
+
     def _place_order(self, symbol, leg_data, transaction_type):
         """
         Internal method to execute order via Dhan API
@@ -389,32 +394,103 @@ class DhanClient:
         if not price: return 0.0
         return round(round(float(price) / tick) * tick, 2)
 
+    def get_index_spot_fallback(self, symbol):
+        """
+        Fetches live index spot price from Yahoo Finance.
+        Works reliably without authentication — used when Dhan is unavailable.
+        Returns the last traded price as float, or None on failure.
+        """
+        yahoo_map = {
+            "NIFTY": "^NSEI",
+            "BANKNIFTY": "^NSEBANK",
+            "FINNIFTY": "NIFTY_FIN_SERVICE.NS",
+        }
+        ticker = yahoo_map.get(symbol.upper())
+        if not ticker:
+            logger.warning(f"No Yahoo ticker mapping for {symbol}")
+            return None
+
+        try:
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1m&range=1d"
+            resp = requests.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; TradingAgent/1.0)"},
+                timeout=8
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                price = data['chart']['result'][0]['meta'].get('regularMarketPrice')
+                if price and float(price) > 0:
+                    logger.info(f"Yahoo Fallback: {symbol} ({ticker}) spot = {price}")
+                    return float(price)
+            logger.warning(f"Yahoo Fallback: Empty response for {ticker} ({resp.status_code})")
+            return None
+        except Exception as e:
+            logger.error(f"Yahoo Fallback failed for {symbol}: {e}")
+            return None
+
     def get_ltp(self, security_id, exchange_segment=ExchangeSegment.NSE_FNO):
         """
         Fetches the Last Traded Price (LTP) using Dhan API v2.
+        Falls back to NSE public API for index prices when Dhan is unavailable.
         """
+        # For index LTP requests (IDX_I segment), always try NSE public fallback
+        # since it works without authentication
+        if exchange_segment == "IDX_I":
+            # Map known Dhan index security IDs to symbols
+            index_id_map = {"13": "NIFTY", "25": "BANKNIFTY", "27": "FINNIFTY"}
+            sym = index_id_map.get(str(security_id))
+            if sym:
+                # Try Dhan API first (if credentials available and not dry_run)
+                if self.access_token and self.client_id and not self.dry_run:
+                    try:
+                        url = "https://api.dhan.co/v2/marketfeed/ltp"
+                        headers = {
+                            'Content-Type': 'application/json',
+                            'access-token': self.access_token,
+                            'client-id': self.client_id
+                        }
+                        payload = {exchange_segment: [int(security_id)]}
+                        resp = requests.post(url, headers=headers, json=payload, timeout=5)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            seg_data = data.get('data', {}).get(exchange_segment, {})
+                            inst_data = seg_data.get(str(security_id), {})
+                            price = inst_data.get('last_price')
+                            if price and float(price) > 0:
+                                return float(price)
+                    except Exception as e:
+                        logger.warning(f"Dhan index LTP failed: {e}")
+
+                # Always fall back to NSE public API for index prices
+                price = self.get_index_spot_fallback(sym)
+                if price:
+                    return price
+            logger.error(f"Index LTP unavailable for ID {security_id}")
+            return None
+
         if self.dry_run:
-             return 100.0 # Mock Price
+            return 100.0  # Mock Price for options (not used for index)
 
         if not self.access_token or not self.client_id:
             return None
-            
+
         url = "https://api.dhan.co/v2/marketfeed/ltp"
         headers = {
             'Content-Type': 'application/json',
             'access-token': self.access_token,
             'client-id': self.client_id
         }
-        
+
         # Dhan API v2 'marketfeed/ltp' expects:
         # { "NSE_FNO": [sec_id1, sec_id2], "NSE_EQ": [sec_id3] }
         # securityId MUST be sent as an integer in the list.
         payload = {
             exchange_segment: [int(security_id)]
         }
-        
+
         try:
-            resp = requests.post(url, headers=headers, json=payload)
+            resp = requests.post(url, headers=headers, json=payload, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
                 # Response Structure: { "data": { "NSE_FNO": { "123": { "last_price": 100 } } }, "status": "success" }
