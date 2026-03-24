@@ -1,483 +1,170 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Agent | Admin Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@700&display=swap"
-        rel="stylesheet">
+    <title>TradingAgent | AI-Accessible Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0a0a0c;
-            --glass: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --accent: #00f2fe;
-            --accent-glow: rgba(0, 242, 254, 0.3);
-            --text: #ffffff;
+            --bg: #050505;
+            --card-bg: rgba(20, 20, 25, 0.8);
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #f8fafc;
             --text-dim: #94a3b8;
+            --call: #22c55e;
+            --put: #ef4444;
+            --accent: #00f2fe;
+            --panic: #ff0000;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg);
-            background-image: radial-gradient(circle at 50% -20%, #1e293b, var(--bg));
+            background: var(--bg);
             color: var(--text);
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        header { text-align: center; margin-bottom: 40px; }
+        h1 { font-family: 'Outfit', sans-serif; font-size: 32px; background: linear-gradient(to right, #fff, var(--text-dim)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .dashboard-grid { width: 100%; max-width: 600px; display: grid; gap: 24px; }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .auth-section { margin-bottom: 24px; }
+        input { width: 100%; padding: 14px; background: #000; border: 1px solid var(--border); border-radius: 12px; color: white; margin-top: 8px; }
+
+        label { font-size: 12px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+
+        .control-group { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+
+        .btn {
             padding: 20px;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 480px;
-            background: var(--glass);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            animation: fadeIn 0.8s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        h1 {
-            font-family: 'Outfit', sans-serif;
-            font-size: 28px;
-            margin-bottom: 8px;
-            background: linear-gradient(to right, #fff, #94a3b8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            /* standard property for compatibility */
-        }
-
-        p.subtitle {
-            color: var(--text-dim);
-            font-size: 14px;
-            margin-bottom: 32px;
-        }
-
-        .form-group {
-            margin-bottom: 24px;
-        }
-
-        label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 8px;
-        }
-
-        input {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 14px 16px;
-            color: white;
-            font-family: inherit;
-            font-size: 15px;
-            transition: all 0.3s ease;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 4px var(--accent-glow);
-        }
-
-        button {
-            width: 100%;
-            background: var(--accent);
-            color: #000;
+            border-radius: 14px;
             border: none;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+        }
+
+        .btn:active { transform: scale(0.98); }
+
+        .btn-call { background: var(--call); color: #003311; }
+        .btn-put { background: var(--put); color: #330000; }
+        .btn-exit { background: transparent; border: 1px solid var(--border); color: var(--text); font-size: 12px; }
+        .btn-exit:hover { background: rgba(255,255,255,0.05); }
+
+        .btn-panic { grid-column: span 2; background: var(--panic); color: white; margin-top: 10px; box-shadow: 0 0 20px rgba(255,0,0,0.2); }
+
+        #ai-status {
+            margin-top: 30px;
+            width: 100%;
+            max-width: 600px;
+            background: #000;
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 16px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 8px;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px -5px var(--accent-glow);
-            filter: brightness(1.1);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        #status {
-            margin-top: 24px;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 14px;
-            text-align: center;
-            display: none;
-        }
-
-        .success {
-            background: rgba(34, 197, 94, 0.1);
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
             color: #4ade80;
-            border: 1px solid rgba(34, 197, 94, 0.2);
+            min-height: 60px;
+            overflow-y: auto;
         }
 
-        .error {
-            background: rgba(239, 68, 68, 0.1);
-            color: #f87171;
-            border: 1px solid rgba(239, 68, 68, 0.2);
-        }
-
-        .footer {
-            margin-top: 32px;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-dim);
-        }
+        .instrument-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
     </style>
 </head>
-
 <body>
-    <div class="container">
-        <h1>Dhan API Access</h1>
-        <p class="subtitle">Daily token update for Trading Agent</p>
+    <header>
+        <h1>TradingAgent Dashboard</h1>
+        <p style="color: var(--text-dim); font-size: 14px; margin-top: 8px;">Control Hub v2.0 (AI-Optimized)</p>
+    </header>
 
-        <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('smart')">Smart Login</button>
-            <button class="tab-btn" onclick="showTab('control')">Control</button>
-        </div>
-
-        <div class="form-group">
+    <main class="dashboard-grid">
+        <section class="card auth-section">
             <label for="secret">Webhook Secret</label>
-            <input type="password" id="secret" placeholder="Enter your secret key">
-        </div>
+            <input type="password" id="secret" placeholder="••••••••" value="">
+        </section>
 
-        <!-- Smart Tab -->
-        <div id="smart-tab" class="tab-content">
-            <div style="text-align: center; padding: 20px 0;">
-                <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 24px; line-height: 1.5;">
-                    Highly recommended for security. Connect your account once, and the agent will automatically refresh
-                    its own 24-hour token. Supports <b>QR Scan</b> and <b>Mobile OTP</b>.
-                </p>
-                <button onclick="startOfficialAuth()"
-                    style="background: linear-gradient(to right, #00f2fe, #4facfe); color: #000; font-weight: 700;">
-                    Connect via Dhan Official Login
-                </button>
+        <section class="card" id="nifty-controls">
+            <div class="instrument-title">NIFTY 50</div>
+            <div class="control-group">
+                <button id="btn-nifty-call" class="btn btn-call" onclick="sendSignal('CALL')">Enter CALL</button>
+                <button id="btn-nifty-put" class="btn btn-put" onclick="sendSignal('PUT')">Enter PUT</button>
+                <button id="btn-nifty-exit-call" class="btn btn-exit" onclick="sendSignal('EXIT_CALL')">Exit CALL</button>
+                <button id="btn-nifty-exit-put" class="btn btn-exit" onclick="sendSignal('EXIT_PUT')">Exit PUT</button>
             </div>
-        </div>
+        </section>
 
-        <!-- Control Tab -->
-        <div id="control-tab" class="tab-content" style="display: none;">
-            <div style="text-align: center; padding: 20px 0;">
-                <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 24px; line-height: 1.5;">
-                    <b>Emergency Exit:</b> Immediately closes all active option positions and resets all ranking logic
-                    to zero.
-                </p>
-                <button onclick="manualExit()"
-                    style="background: linear-gradient(to right, #ef4444, #b91c1c); color: #fff; font-weight: 700;">
-                    🚨 EXIT ALL POSITIONS & RESET RANKS
-                </button>
-
-                <div class="toggle-container"
-                    style="margin-top: 32px; border-top: 1px solid var(--glass-border); padding-top: 24px;">
-                    <label>Manual Position Side</label>
-                    <div class="side-selector">
-                        <div id="side-indicator" class="side-indicator"></div>
-                        <button class="side-btn" id="btn-CALL" onclick="confirmToggle('CALL')">CALL</button>
-                        <button class="side-btn" id="btn-PUT" onclick="confirmToggle('PUT')">PUT</button>
-                    </div>
-                    <p style="color: var(--text-dim); font-size: 11px; margin-top: 12px;">
-                        Toggling will automatically send a Sell signal for the current side and a Buy signal for the
-                        target side.
-                    </p>
-                </div>
+        <section class="card" id="global-actions">
+            <div class="instrument-title">Global Controls</div>
+            <div class="control-group">
+                <button id="btn-exit-all" class="btn btn-panic" onclick="exitAll()">🚨 EXIT ALL POSITIONS & RESET</button>
             </div>
-        </div>
+        </section>
+    </main>
 
-        <div id="status"></div>
-
-        <div class="footer">
-            Admin Dashboard v1.2 • Connected to Cloud Redis
-        </div>
-    </div>
-
-    <style>
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 24px;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 4px;
-            border-radius: 14px;
-            border: 1px solid var(--glass-border);
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 10px;
-            font-size: 13px;
-            background: transparent;
-            color: var(--text-dim);
-            margin: 0;
-            border-radius: 10px;
-        }
-
-        .tab-btn.active {
-            background: var(--glass);
-            color: white;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .tab-btn:hover {
-            transform: none;
-            box-shadow: none;
-        }
-
-        /* Side Selector Styles */
-        .side-selector {
-            display: flex;
-            position: relative;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 4px;
-            margin-top: 10px;
-            border: 1px solid var(--glass-border);
-            height: 48px;
-        }
-
-        .side-btn {
-            flex: 1;
-            z-index: 2;
-            background: transparent;
-            border: none;
-            color: var(--text-dim);
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: color 0.3s ease;
-            margin: 0;
-            padding: 0;
-        }
-
-        .side-btn.active {
-            color: white;
-        }
-
-        .side-indicator {
-            position: absolute;
-            top: 4px;
-            left: 4px;
-            width: calc(50% - 4px);
-            height: 40px;
-            background: var(--glass);
-            border-radius: 8px;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 1;
-        }
-
-        .side-indicator.CALL {
-            background: rgba(34, 197, 94, 0.2);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            box-shadow: 0 0 15px rgba(34, 197, 94, 0.1);
-        }
-
-        .side-indicator.PUT {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            box-shadow: 0 0 15px rgba(239, 68, 68, 0.1);
-        }
-    </style>
+    <div id="ai-status">READY FOR COMMANDS...</div>
 
     <script>
-        // Check for auth_status from server-side redirect
-        window.onload = function () {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('auth_status') === 'success' || "{{ auth_status }}" === "success") {
-                showStatus('✅ Authentication Successful! Your token is updated.', 'success');
-                // Clean up URL parameters after showing status
-                window.history.replaceState({}, document.title, "/");
-            }
-        }
-
-        function showTab(type) {
-            document.getElementById('smart-tab').style.display = type === 'smart' ? 'block' : 'none';
-            document.getElementById('control-tab').style.display = type === 'control' ? 'block' : 'none';
-
-            const btns = document.querySelectorAll('.tab-btn');
-            btns[0].classList.toggle('active', type === 'smart');
-            btns[1].classList.toggle('active', type === 'control');
-            document.getElementById('status').style.display = 'none';
-
-            if (type === 'control') {
-                fetchCurrentState();
-            }
-        }
-
-        let currentActiveSide = 'NONE';
-
-        async function fetchCurrentState() {
+        async function sendSignal(action) {
             const secret = document.getElementById('secret').value.trim();
-            if (!secret) return;
+            if (!secret) return updateStatus('ERROR: Missing Webhook Secret');
 
+            updateStatus(`EXECUTING ${action} FOR NIFTY...`);
+            
             try {
-                const response = await fetch('/get-state', {
+                const response = await fetch('/ui-signal', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret, underlying: 'NIFTY' })
+                    body: JSON.stringify({ secret, underlying: 'NIFTY', action })
                 });
-                const result = await response.json();
-                if (result.status === 'success') {
-                    updateToggleUI(result.state.side);
-                }
-            } catch (e) {
-                console.error('Failed to fetch state', e);
+                const data = await response.json();
+                updateStatus(`RESPONSE: ${JSON.stringify(data.result || data.message)}`);
+            } catch (error) {
+                updateStatus(`NETWORK ERROR: ${error.message}`);
             }
         }
 
-        function updateToggleUI(side) {
-            currentActiveSide = side;
-            const indicator = document.getElementById('side-indicator');
-            const btnCall = document.getElementById('btn-CALL');
-            const btnPut = document.getElementById('btn-PUT');
-
-            btnCall.classList.toggle('active', side === 'CALL');
-            btnPut.classList.toggle('active', side === 'PUT');
-
-            indicator.className = 'side-indicator ' + (side || 'NONE');
-            if (side === 'CALL') {
-                indicator.style.transform = 'translateX(0)';
-            } else if (side === 'PUT') {
-                indicator.style.transform = 'translateX(100%)';
-            } else {
-                indicator.style.transform = 'scale(0)';
-            }
-        }
-
-        function confirmToggle(targetSide) {
-            if (targetSide === currentActiveSide) return;
-
-            const msg = `Switch from ${currentActiveSide} to ${targetSide}? This will trigger manual signal processing.`;
-            if (confirm(msg)) {
-                executeToggle(targetSide);
-            }
-        }
-
-        async function executeToggle(targetSide) {
+        async function exitAll() {
             const secret = document.getElementById('secret').value.trim();
-            if (!secret) return showStatus('Please enter your Webhook Secret first.', 'error');
+            if (!secret) return updateStatus('ERROR: Missing Webhook Secret');
+            if (!confirm("EMERGENCY: Close all positions?")) return;
 
-            showStatus(`🚀 Switching to ${targetSide}...`, 'success');
-
+            updateStatus('TRIGGERING EMERGENCY EXIT ALL...');
             try {
-                const response = await fetch('/toggle-side', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret, underlying: 'NIFTY', target_side: targetSide })
-                });
-                const result = await response.json();
-                if (result.status === 'success') {
-                    showStatus(`✅ Successfully switched to ${targetSide}`, 'success');
-                    fetchCurrentState();
-                } else {
-                    showStatus('❌ ' + (result.message || 'Toggle failed'), 'error');
-                }
-            } catch (e) {
-                showStatus('❌ Network error', 'error');
-            }
-        }
-
-        async function manualExit() {
-            const secret = document.getElementById('secret').value.trim();
-            if (!secret) return showStatus('Please enter your Webhook Secret first.', 'error');
-
-            if (!confirm("⚠️ CAUTION: Are you sure you want to close ALL positions and reset ranks?")) return;
-
-            showStatus('🚨 Triggering emergency exit...', 'success');
-            await apiCall('/manual-exit', { secret });
-        }
-
-
-        async function startOfficialAuth() {
-            const secret = document.getElementById('secret').value.trim();
-            if (!secret) return showStatus('Please enter your Webhook Secret first.', 'error');
-
-            showStatus('🚀 Preparing secure connection...', 'success');
-
-            try {
-                const response = await fetch('/auth/initiate', {
+                const response = await fetch('/manual-exit', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ secret })
                 });
-
-                const result = await response.json();
-
-                if (response.ok && result.url) {
-                    // Redirect the user to Dhan's login page
-                    window.location.href = result.url;
-                } else {
-                    showStatus('❌ ' + (result.message || 'Failed to initiate auth'), 'error');
-                }
+                const data = await response.json();
+                updateStatus(`RESPONSE: ${data.message}`);
             } catch (error) {
-                showStatus('❌ Network error. Is the server running?', 'error');
+                updateStatus(`NETWORK ERROR: ${error.message}`);
             }
         }
 
-        async function apiCall(endpoint, payload) {
-            const statusDiv = document.getElementById('status');
-            try {
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    showStatus('✅ ' + (result.message || 'Success!'), 'success');
-                } else {
-                    showStatus('❌ ' + (result.message || 'Operation failed'), 'error');
-                }
-            } catch (error) {
-                showStatus('❌ Network error. Is the server running?', 'error');
-            }
-        }
-
-        function showStatus(msg, type) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.textContent = msg;
-            statusDiv.className = type;
-            statusDiv.style.display = 'block';
+        function updateStatus(msg) {
+            const display = document.getElementById('ai-status');
+            display.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            console.log(msg);
         }
     </script>
 </body>
-
 </html>

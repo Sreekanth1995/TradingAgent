@@ -252,6 +252,55 @@ def toggle_side():
         logger.error(f"Toggle Side Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/ui-signal', methods=['POST'])
+def ui_signal():
+    """
+    Programmatic/AI entry point for manual UI signals.
+    """
+    if not broker or not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+        
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    underlying = data.get('underlying', 'NIFTY')
+    action = data.get('action') # 'CALL', 'PUT', 'EXIT_CALL', 'EXIT_PUT'
+    
+    mapping = {
+        'CALL': 'B',
+        'PUT': 'S',
+        'EXIT_CALL': 'LONG_EXIT',
+        'EXIT_PUT': 'SHORT_EXIT'
+    }
+    
+    signal_type = mapping.get(action)
+    if not signal_type:
+        return jsonify({"status": "error", "message": f"Invalid action: {action}"}), 400
+        
+    try:
+        # Fetch Index LTP for manual entries if needed
+        spot_price = 0.0
+        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"}
+        idx_id = index_ids.get(underlying.upper())
+        if idx_id and signal_type in ['B', 'S']:
+            spot_price = broker.get_ltp(idx_id, exchange_segment="IDX_I") or 0.0
+            
+        leg_data = {
+            "underlying": underlying,
+            "quantity": data.get('quantity', 1),
+            "current_price": spot_price
+        }
+        
+        # Trigger processing (Default to 5m timeframe for manual override)
+        result = engine.process_signal(underlying, signal_type, 5, leg_data)
+        logger.info(f"UI Signal: {action} processed for {underlying} -> {result.get('action')}")
+        
+        return jsonify({"status": "success", "result": result}), 200
+    except Exception as e:
+        logger.error(f"UI Signal Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/volume-alert', methods=['POST'])
 def volume_alert():
     """
