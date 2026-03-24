@@ -20,6 +20,7 @@ logging.basicConfig(level=getattr(logging, LOG_LEVEL), format='%(asctime)s - %(l
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 # Initialize Components with graceful error handling
 broker = None

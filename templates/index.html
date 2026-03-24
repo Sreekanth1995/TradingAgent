@@ -677,15 +677,21 @@
                     
                     document.getElementById('utp-container').innerHTML = '';
                     utpCount = 0;
-                    Object.keys(l).filter(k => k.startsWith('UTP')).sort().forEach(k => {
-                        addLevelRow('UTP', l[k].low, l[k].high);
-                    });
+                    Object.keys(l)
+                        .filter(k => k.startsWith('UTP'))
+                        .sort((a,b) => parseInt(a.replace('UTP','')) - parseInt(b.replace('UTP','')))
+                        .forEach(k => {
+                            addLevelRow('UTP', l[k].low, l[k].high);
+                        });
                     
                     document.getElementById('ltp-container').innerHTML = '';
                     ltpCount = 0;
-                    Object.keys(l).filter(k => k.startsWith('LTP')).sort().forEach(k => {
-                        addLevelRow('LTP', l[k].low, l[k].high);
-                    });
+                    Object.keys(l)
+                        .filter(k => k.startsWith('LTP'))
+                        .sort((a,b) => parseInt(a.replace('LTP','')) - parseInt(b.replace('LTP','')))
+                        .forEach(k => {
+                            addLevelRow('LTP', l[k].low, l[k].high);
+                        });
                 }
             } catch (err) { console.error('Failed to load levels', err); }
         }
