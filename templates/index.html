@@ -67,6 +67,7 @@
             font-size: 24px;
             background: linear-gradient(to right, #fff, #94a3b8);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: -0.02em;
         }
@@ -459,8 +460,8 @@
                 <section class="side-card">
                     <div class="side-card-title">Price Levels Studio</div>
                     
-                    <div id="utp-container"></div>
                     <button class="add-level-btn" onclick="addLevelRow('UTP')">+ Add Upper Level (UTP)</button>
+                    <div id="utp-container"></div>
                     
                     <div style="height: 1px; background: var(--glass-border); margin: 16px 0;"></div>
                     
@@ -653,7 +654,12 @@
                 <input type="number" id="${name}-low" class="level-input" placeholder="Low" value="${low}">
                 <input type="number" id="${name}-high" class="level-input" placeholder="High" value="${high}">
             `;
-            container.appendChild(div);
+            
+            if (type === 'UTP') {
+                container.prepend(div);
+            } else {
+                container.appendChild(div);
+            }
             return name;
         }
 
