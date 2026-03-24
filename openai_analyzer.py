@@ -109,13 +109,16 @@ class OpenAIAnalyzer:
         )
 
         # Build a concise signal summary for the user message
+        active_leg = signal_data.get('active_leg', {})
+        
         signal_summary = (
             f"Incoming TradingView Signal:\n"
-            f"  Underlying: {signal_data.get('underlying') or signal_data.get('symbol', 'NIFTY')}\n"
-            f"  Direction: {signal_data.get('transactionType') or signal_data.get('signal_type', 'UNKNOWN')}\n"
+            f"  Underlying: {signal_data.get('underlying') or active_leg.get('symbol', 'NIFTY')}\n"
+            f"  Direction: {active_leg.get('transactionType') or active_leg.get('signal_type', 'UNKNOWN')}\n"
             f"  Timeframe: {signal_data.get('timeframe', 'N/A')}m\n"
-            f"  Spot Price: {signal_data.get('current_price') or signal_data.get('close', 'N/A')}\n"
-            f"  Raw Payload: {json.dumps(signal_data, default=str)}"
+            f"  Spot Price: {active_leg.get('current_price') or signal_data.get('full_webhook_payload', {}).get('current_price', 'N/A')}\n"
+            f"  Raw Webhook Payload: {json.dumps(signal_data.get('full_webhook_payload', {}), default=str)}\n"
+            f"  Active Leg Context: {json.dumps(active_leg, default=str)}"
         )
 
         try:

@@ -153,8 +153,14 @@ def webhook():
 
             # 2.5 AI Analysis Gate
             if analyzer:
+                full_signal_context = {
+                    "active_leg": leg,
+                    "underlying": underlying,
+                    "timeframe": timeframe,
+                    "full_webhook_payload": {k: v for k, v in data.items() if k != 'secret'}
+                }
                 ai_result = analyzer.analyze(
-                    {**leg, 'underlying': underlying, 'timeframe': timeframe},
+                    full_signal_context,
                     _load_levels(),
                     _load_context()
                 )
