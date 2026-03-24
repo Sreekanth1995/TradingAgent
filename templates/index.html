@@ -460,21 +460,17 @@
                 <section class="side-card">
                     <div class="side-card-title">Price Levels Studio</div>
                     
-                    <button class="add-level-btn" onclick="addLevelRow('UTP')">+ Add Upper Level (UTP)</button>
+                    <button class="add-level-btn" onclick="addLevelRow('UTP')" style="margin-bottom: 8px;">+ Add Upper Level (UTP)</button>
                     <div id="utp-container"></div>
                     
-                    <div style="height: 1px; background: var(--glass-border); margin: 16px 0;"></div>
-                    
-                    <div class="level-row">
+                    <div class="level-row" style="margin-top: 8px; margin-bottom: 8px;">
                         <span class="level-label">TP0 Base</span>
                         <input type="number" id="tp0-low" class="level-input" placeholder="Low">
                         <input type="number" id="tp0-high" class="level-input" placeholder="High">
                     </div>
                     
-                    <div style="height: 1px; background: var(--glass-border); margin: 16px 0;"></div>
-                    
                     <div id="ltp-container"></div>
-                    <button class="add-level-btn" onclick="addLevelRow('LTP')">+ Add Lower Level (LTP)</button>
+                    <button class="add-level-btn" onclick="addLevelRow('LTP')" style="margin-top: 8px;">+ Add Lower Level (LTP)</button>
 
                     <button class="save-btn" onclick="saveLevels()">Save Levels</button>
                 </section>
