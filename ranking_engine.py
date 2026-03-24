@@ -44,11 +44,11 @@ class RankingEngine:
             "DEFAULT": {"target": 55, "sl": 20, "trailing": 10}
         }
         
-        # Scalping Mode Configuration (Same as baseline for Phase 1)
+        # Scalping Mode Configuration (Trailing 5% for 1m signals)
         self.scalping_configs = {
             "target": 55,
             "sl": 20,
-            "trailing": 10
+            "trailing": 5
         }
         
         self.processing_locks = set()
@@ -133,29 +133,20 @@ class RankingEngine:
 
     def _validate_signal_timeframe(self, underlying, timeframe, now_ist):
         """
-        Validates signal timeframe against current market mode (Scalping vs Standard).
-        
-        Args:
-            underlying (str): The underlying symbol.
-            timeframe (int): 1 or 5.
-            now_ist (datetime): Current IST time.
-            
-        Returns:
-            tuple: (is_valid, is_scalping, error_response)
+        Validates signal timeframe and determines if scalping mode should be used.
+        In Phase 2, 1m signals are always allowed and use scalping configs.
         """
-        is_scalping = self._is_scalping_active(underlying)
-        
         if timeframe == 1:
-            if not is_scalping:
-                logger.info(f"Scalping Mode: Ignoring 1m signal for {underlying} (Conditions not met).")
-                return False, False, {"underlying": underlying, "action": "SKIPPED_SCALPING_INACTIVE", "time": now_ist.strftime('%H:%M:%S')}
-            logger.info(f"⚡ SCALPING MODE ACTIVE for {underlying} (1m signal)")
+            logger.info(f"⚡ 1m SIGNAL DETECTED: Using Scalping Mode for {underlying}")
             return True, True, None
 
         elif timeframe == 5:
-            if is_scalping:
-                logger.info(f"Scalping Mode: Ignoring 5m signal for {underlying} (Scalping mode IS active).")
-                return False, True, {"underlying": underlying, "action": "SKIPPED_SCALPING_ACTIVE", "time": now_ist.strftime('%H:%M:%S')}
+            # Check if volume-based scalping is manually active for 5m signals
+            is_volume_scalping = self._is_scalping_active(underlying)
+            if is_volume_scalping:
+                logger.info(f"Scalping Mode: Using Scalping Configs for 5m signal (Volume Trigger Active).")
+                return True, True, None
+            
             logger.info(f"Standard Mode processing for {underlying} (5m signal)")
             return True, False, None
 
@@ -215,7 +206,17 @@ class RankingEngine:
         self.processing_locks.add(underlying)
         try:
             current_side = state.get('side', 'NONE')
-            result = self._execute_signal(underlying, signal_type, timeframe, leg_data, state, current_side, now_ist, is_scalping)
+            if signal_type in ['B', 'LONG']:
+                result = self._execute_signal(underlying, 'B', timeframe, leg_data, state, current_side, now_ist, is_scalping)
+            elif signal_type in ['S', 'SHORT']:
+                result = self._execute_signal(underlying, 'S', timeframe, leg_data, state, current_side, now_ist, is_scalping)
+            elif signal_type == 'LONG_EXIT':
+                result = self._handle_directional_exit(underlying, 'CALL')
+            elif signal_type == 'SHORT_EXIT':
+                result = self._handle_directional_exit(underlying, 'PUT')
+            else:
+                logger.warning(f"Unknown signal type: {signal_type}")
+                result = {"action": "NONE", "reason": f"Unknown signal type: {signal_type}"}
             
             # 5. Commit state only on successful outcomes
             self._finalize_signal_state(underlying, result, signal_type)
@@ -309,13 +310,13 @@ class RankingEngine:
             # 4.1 Handle Opposite Side (PE)
             self._manage_opposite_orders(orders_by_id, 'PE', action_log)
             # 4.2 Handle Aligned Side (CE)
-            self._manage_aligned_orders(underlying, itm_ce, orders_by_id, 'CE', action_log)
+            self._manage_aligned_orders(underlying, itm_ce, orders_by_id, 'CE', action_log, timeframe, is_scalping)
             
         elif signal_type == 'S': # SELL (PE Aligned, CE Opposite)
             # 4.1 Handle Opposite Side (CE)
             self._manage_opposite_orders(orders_by_id, 'CE', action_log)
             # 4.2 Handle Aligned Side (PE)
-            self._manage_aligned_orders(underlying, itm_pe, orders_by_id, 'PE', action_log)
+            self._manage_aligned_orders(underlying, itm_pe, orders_by_id, 'PE', action_log, timeframe, is_scalping)
 
         elif signal_type == 'LONG_EXIT':
             logger.info(f"Strategy: Explicit LONG_EXIT for {underlying}")
@@ -353,86 +354,40 @@ class RankingEngine:
                 action_log.append(f"CANCELLED_{side_to_manage}_ENTRY")
             elif 'TARGET_LEG' in leg_names and 'STOP_LOSS_LEG' in leg_names:
                 if ltp:
-                    new_tgt = ltp + 1
+                    new_tgt = ltp + 5
                     new_sl = ltp - 5
                     logger.info(f"Strategy: Modifying opposite {side_to_manage} {oid} -> TGT:{new_tgt}, SL:{new_sl}")
                     self.broker.modify_super_target_leg(oid, new_tgt)
                     self.broker.modify_super_sl_leg(oid, new_sl)
                     action_log.append(f"MODIFIED_OPPOSITE_{side_to_manage}_EXIT")
 
-    def _manage_aligned_orders(self, underlying, itm_data, orders_by_id, side_to_manage, action_log):
+    def _manage_aligned_orders(self, underlying, itm_data, orders_by_id, side_to_manage, action_log, timeframe, is_scalping):
         """
         Aligned side logic:
-        - If no order: Place new (Entry -3%, Target +75%, SL -20%).
-        - If Entry/Target/SL all active: Modify all (Entry -3%, Target +75%, SL -20%).
-        - If only Target/SL active: Modify (Target +75%, SL -20%).
+        - If no order: Place new Native Super Order (Market Entry, 55/20/Config SL).
+        - If existing order: No modifications (trust Native Legs).
         """
+        params = self._get_params(underlying, is_scalping)
         target_oid = None
         for oid, order in orders_by_id.items():
             if order['side'] == side_to_manage:
                 target_oid = oid
                 break
         
-        # Resolve LTP for the Option
-        sec_id = itm_data['security_id']
-        ltp = self._wait_for_ltp(itm_data['symbol'], sec_id)
-        if not ltp:
-            logger.warning(f"Could not fetch LTP for aligned {side_to_manage}. Skipping.")
-            return
-
-        # Define Advanced Strategy Offsets
-        entry_price = ltp * 0.97
-        tgt_price = ltp * 1.75
-        sl_price = ltp * 0.80
-
         if not target_oid:
-            # Place New Order
-            logger.info(f"Strategy: Placing NEW aligned {side_to_manage} super order at {ltp}")
-            so_leg = itm_data.copy()
-            so_leg.update({
-                'quantity': 1, # Default 1 lot
-                'target_price': tgt_price,
-                'stop_loss_price': sl_price,
-                'trailing_jump': 1.0,
-                'order_type': 'LIMIT',
-                'price': entry_price
-            })
-            self.broker.place_super_order(itm_data['symbol'], so_leg)
-            action_log.append(f"PLACED_NEW_{side_to_manage}")
+            # Resolve CALL/PUT side for _open_position
+            # side_to_manage is 'CE' or 'PE'
+            side = 'CALL' if side_to_manage == 'CE' else 'PUT'
+            logger.info(f"Strategy: Placing NEW {side} position for {underlying}")
+            new_state = self._open_position(underlying, side, {"quantity": 1}, is_scalping) # Default 1 lot
+            if new_state:
+                action_log.append(f"OPENED_{side}")
         else:
-            order = orders_by_id[target_oid]
-            leg_names = [l['legName'] for l in order['legs'] if 'legName' in l] # Guard against missing legName
-            
-            # Extract existing SL price from legs
-            existing_sl = None
-            for leg in order['legs']:
-                if leg.get('legName') == 'STOP_LOSS_LEG':
-                    existing_sl = float(leg.get('triggerPrice') or leg.get('price') or 0)
-                    break
-
-            if 'ENTRY_LEG' in leg_names:
-                logger.info(f"Strategy: Modifying aligned {side_to_manage} {target_oid} Entry/TGT/SL")
-                self.broker.modify_super_entry_leg(target_oid, entry_price)
-                self.broker.modify_super_target_leg(target_oid, tgt_price)
-                
-                # Update SL only if new SL is higher than existing SL
-                if existing_sl is None or sl_price > existing_sl:
-                    self.broker.modify_super_sl_leg(target_oid, sl_price)
-                else:
-                    logger.info(f"Strategy: New SL {sl_price} is not higher than existing SL {existing_sl} for {target_oid}. Skipping SL update.")
-                
-                action_log.append(f"MODIFIED_ALIGNED_{side_to_manage}_ALL")
-            else:
-                logger.info(f"Strategy: Modifying aligned {side_to_manage} {target_oid} TGT/SL")
-                self.broker.modify_super_target_leg(target_oid, tgt_price)
-                
-                # Update SL only if new SL is higher than existing SL
-                if existing_sl is None or sl_price > existing_sl:
-                    self.broker.modify_super_sl_leg(target_oid, sl_price)
-                else:
-                    logger.info(f"Strategy: New SL {sl_price} is not higher than existing SL {existing_sl} for {target_oid}. Skipping SL update.")
-                
-                action_log.append(f"MODIFIED_ALIGNED_{side_to_manage}_EXIT")
+            # Manage Existing Order (Smart Exit / Modification)
+            # In Phase 1/2, we only modify for reversals (handled in _manage_opposite)
+            # or for volume-based updates. 
+            # For now, we trust the existing Native Super Order legs unless a reversal happens.
+            logger.info(f"Strategy: Aligned {side_to_manage} position already exists ({target_oid}). No modifications needed.")
 
     def _open_position(self, underlying, side, leg_data, is_scalping=False):
         """
@@ -685,6 +640,65 @@ class RankingEngine:
             self.broker.cancel_super_order(parent_id, 'ENTRY_LEG')
         else:
             self.broker.cancel_order(oid)
+
+    def _handle_directional_exit(self, underlying, side):
+        """
+        Handles specific LONG_EXIT or SHORT_EXIT signals for a side.
+        Performs immediate Market Exit if the side matches.
+        """
+        state = self._get_state(underlying)
+        if not state or state.get('side') != side:
+            logger.info(f"Directional Exit ({side}) ignored: No matching position found for {underlying}.")
+            return {"action": "NONE", "reason": "No matching side active"}
+            
+        logger.info(f"Directional Exit ({side}) triggered for {underlying}. Performing Market Square-off.")
+        return self._close_position_market(underlying, state)
+
+    def _close_position_market(self, underlying, state):
+        """
+        Closes a position immediately using a MARKET order.
+        Squares off any filled quantity after cancelling pending legs.
+        """
+        symbol = state.get('symbol')
+        sec_id = state.get('security_id')
+        qty = state.get('quantity', 0)
+        parent_id = state.get('entry_id')
+        is_so = state.get('is_super_order', False)
+        
+        # 1. Cancel all pending legs for this Super Order
+        if is_so and parent_id:
+            logger.info(f"Market Exit: Cancelling Super Order legs for {parent_id}")
+            # Cancelling the parent order cancels all pending legs
+            self.broker.cancel_super_order(parent_id, 'ENTRY_LEG')
+            self.broker.cancel_super_order(parent_id, 'TARGET_LEG')
+            self.broker.cancel_super_order(parent_id, 'STOP_LOSS_LEG')
+        
+        # 2. Square off filled quantity
+        # In a real scenario, we might need to fetch the actual net position from broker.
+        # For now, we use the quantity tracked in our state.
+        if qty > 0:
+            logger.info(f"Market Exit: Placing square-off MARKET order for {symbol}, Qty: {qty}")
+            # Square off logic: Opposite transaction type
+            # State tracks the original ENTRY side: CALL (Long CE) or PUT (Long PE)
+            # Both are technically Buy entries in this bot (Long Options strategy)
+            # So square off is always a SELL.
+            resp = self.broker.place_order(symbol, {
+                'security_id': sec_id,
+                'quantity': qty,
+                'transaction_type': 'SELL',
+                'order_type': 'MARKET',
+                'product_type': 'MARGIN' # Or whatever matches the original
+            })
+            
+            if resp.get('success'):
+                logger.info(f"Market Square-off successful for {symbol}")
+            else:
+                logger.error(f"Market Square-off FAILED for {symbol}: {resp.get('error')}")
+                # We still clear state to avoid stuck loops, but log the error
+        
+        # 3. Clear state
+        self._clear_state(underlying)
+        return {"action": "EXIT_MARKET", "symbol": symbol, "quantity": qty}
 
     def _modify_super_leg(self, oid, leg_name, ltp, order_data, is_scalping=False):
         """Modifies a leg of a Native Super Order for Smart Exit (LTP +/- 5)."""

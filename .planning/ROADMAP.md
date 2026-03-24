@@ -11,10 +11,10 @@ Goal: Establish the core strategy with market entry and smart "Maker" exit logic
 **Requirements**: [REQ-01, REQ-02, REQ-03, REQ-05]
 **Canonical refs**: [HLD.md](file:///Users/sreekanthmekala/Desktop/TradingAgent/HLD.md), [README.md](file:///Users/sreekanthmekala/Desktop/TradingAgent/README.md)
 
-### Phase 2: Directional Exits & Advanced Logic
+### Phase 2: Directional Exits & Advanced Logic [COMPLETED]
 Goal: Refine exit logic and add multi-timeframe signal support.
-- [ ] Implement `LONG_EXIT` and `SHORT_EXIT` specific logic.
-- [ ] Implement dynamic trailing stop loss adjustments for 1m timeframe.
+- [x] Implement `LONG_EXIT` and `SHORT_EXIT` specific logic.
+- [x] Implement dynamic trailing stop loss adjustments for 1m timeframe.
 **Requirements**: [REQ-04, REQ-06]
 
 ## Milestone 0.2.0: Dashboard & Monitoring

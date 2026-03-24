@@ -25,7 +25,9 @@ text_color = input.color(color.white, "Text Color")
 
 // Position Settings
 box_width_bars = input.int(20, "Projection Width (Bars)", minval=5)
-webhook_secret = input.string("121995", "Webhook Secret")
+webhook_secret = input.string("61616", "Webhook Secret")
+tf_input       = input.string("5", "Strategy Timeframe (mins)")
+underlying_sym = input.string("NIFTY", "Instrument Symbol")
 
 // --- Logic Variables ---
 var box tp_box = na
@@ -110,9 +112,9 @@ alert_tp = is_long ? close >= tp_price : close <= tp_price
 alert_sl = is_long ? close <= sl_price : close >= sl_price
 
 // --- Webhook Payloads (Dynamic) ---
-buy_json = '{"secret": "' + webhook_secret + '", "timeframe": "5", "order_legs": [{"underlying": "NIFTY", "transactionType": "B", "current_price": {{close}}}]}'
-sell_json = '{"secret": "' + webhook_secret + '", "timeframe": "5", "order_legs": [{"underlying": "NIFTY", "transactionType": "S", "current_price": {{close}}}]}'
-exit_json = '{"secret": "' + webhook_secret + '", "timeframe": "5", "order_legs": [{"underlying": "NIFTY", "transactionType": "' + (is_long ? "LONG_EXIT" : "SHORT_EXIT") + '"}]}'
+buy_json  = '{"secret": "' + webhook_secret + '", "timeframe": "' + tf_input + '", "order_legs": [{"underlying": "' + underlying_sym + '", "transactionType": "B", "current_price": ' + str.tostring(close) + '}]}'
+sell_json = '{"secret": "' + webhook_secret + '", "timeframe": "' + tf_input + '", "order_legs": [{"underlying": "' + underlying_sym + '", "transactionType": "S", "current_price": ' + str.tostring(close) + '}]}'
+exit_json = '{"secret": "' + webhook_secret + '", "timeframe": "' + tf_input + '", "order_legs": [{"underlying": "' + underlying_sym + '", "transactionType": "' + (is_long ? "LONG_EXIT" : "SHORT_EXIT") + '"}]}'
 
 // --- Trigger Automation (One-Time Lifecycle) ---
 if not trade_completed

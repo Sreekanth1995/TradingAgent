@@ -1,8 +1,10 @@
 # State: TradingAgent
 
 **Milestone**: 0.1.0
-**Active Phase**: Phase 2: Directional Exits & Advanced Logic
-**Status**: Phase 1 VERIFIED. Ready for Phase 2 implementation.
+**Active- Phase 1: Baseline Strategy (Completed)
+- Phase 2: Directional Exits & Advanced Logic (Completed)
+- Phase 3: Web Dashboard (Upcoming)
+Ready for Phase 2 implementation.
 
 ## Active Phase Progress
 - [ ] Implement `LONG_EXIT` and `SHORT_EXIT` specific logic. [TODO]
