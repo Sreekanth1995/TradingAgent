@@ -666,7 +666,34 @@
                 <section class="side-card">
                     <div class="side-card-title">AI Strategy Context</div>
                     <textarea id="ai-context" class="context-area"
-                        placeholder="Enter system prompt / strategy context for OpenAI signal analysis..."></textarea>
+                        placeholder="Enter system prompt / strategy context for OpenAI signal analysis..."># CHANNEL-BASED SUPPORT & RESISTANCE STRATEGY
+
+## Core Concepts
+The configured price levels (TP0, UTP1, UTP2, LTP1, LTP2, etc.) act as dynamic trading channels. Every channel has a "High" and a "Low" boundary.
+1. **Resistance Rule:** When the price is moving UP, the **Low** level of any channel acts as strict resistance.
+2. **Support Rule:** When the price is falling DOWN, the **High** side of any channel acts as strict support.
+
+## Strict Entry Conditions (Gatekeeping Rules)
+
+### For BULLISH Signals (BUY / CALL Positions)
+The model must ONLY output ALLOW if the current spot price satisfies the following support/breakout condition:
+- The price is **NEAR AND ABOVE** the **High** level of an identified channel (e.g., TP0 High, UTP1 High, UTP2 High, LTP1 High, LTP2 High). 
+- *Rationale: The High level is acting as a newly established support base, or the price has cleanly broken out above it.*
+- If a BUY signal is generated while the price is struggling right at or below a channel's **Low** (Resistance), the signal MUST be REJECTED.
+
+### For BEARISH Signals (SELL / PUT Positions)
+The model must ONLY output ALLOW if the current spot price satisfies the following resistance/breakdown condition:
+- The price is **NEAR AND BELOW** the **Low** level of an identified channel (e.g., TP0 Low, UTP1 Low, UTP2 Low, LTP1 Low, LTP2 Low).
+- *Rationale: The Low level is acting as overhead resistance, or the price is breaking down below it.*
+- If a SELL signal is generated while the price is resting right at or above a channel's **High** (Support), the signal MUST be REJECTED.
+
+## AI Evaluation Checklist
+When evaluating the incoming webhook payload, follow these steps strictly:
+1. Identify if the signal is BULLISH (CALL) or BEARISH (PUT).
+2. Look at the Spot Price provided in the signal.
+3. Compare the Spot Price to the closest channel's High and Low levels provided in the Price Levels section.
+4. Check if the Spot Price confirms the logic (e.g., For a CALL, is the price >= Channel High? For a PUT, is the price <= Channel Low?).
+5. Output ALLOW only if the exact criteria are met. Otherwise, output REJECT.</textarea>
                     <button class="save-btn" onclick="saveContext()">Save Context</button>
                 </section>
 
