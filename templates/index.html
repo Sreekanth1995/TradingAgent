@@ -992,7 +992,7 @@ When evaluating the incoming webhook payload, follow these steps strictly:
                         <div class="ai-log-item">
                             <div style="display:flex; justify-content:space-between;">
                                 <strong>${log.underlying} - ${log.direction}</strong>
-                                <span class="${log.decision === 'ALLOW' ? 'log-allow' : 'log-reject'}">${log.decision} (${log.confidence}%)</span>
+                                <span class="${['HOLD', 'REJECT', 'EXTERNAL'].includes(log.action) ? 'log-reject' : 'log-allow'}">${log.action} (${log.confidence}%)</span>
                             </div>
                             <div class="log-reason">${log.reason}</div>
                         </div>

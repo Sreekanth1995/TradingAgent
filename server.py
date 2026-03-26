@@ -152,6 +152,7 @@ def webhook():
             logger.info(f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe")
 
             # 2.5 AI Analysis Gate
+            ai_action = "EXTERNAL"
             if analyzer:
                 full_signal_context = {
                     "active_leg": leg,
@@ -164,22 +165,25 @@ def webhook():
                     _load_levels(),
                     _load_context()
                 )
+                ai_action = ai_result.get("action", "HOLD")
+                
                 # Log AI decision
                 _AI_LOG.append({
                     "underlying": underlying,
                     "direction": transaction_type,
-                    "decision": ai_result["decision"],
-                    "reason": ai_result["reason"],
-                    "confidence": ai_result["confidence"]
+                    "action": ai_action,
+                    "reason": ai_result.get("reason", ""),
+                    "confidence": ai_result.get("confidence", 0)
                 })
                 if len(_AI_LOG) > 20:
                     _AI_LOG.pop(0)
 
-                if ai_result["decision"] == "REJECT":
-                    logger.warning(f"AI REJECTED signal for {underlying}: {ai_result['reason']}")
-                    results.append({"action": "AI_REJECTED", "underlying": underlying, "reason": ai_result["reason"]})
+                if ai_action == "HOLD":
+                    logger.warning(f"AI HOLD signal for {underlying}: {ai_result.get('reason')}")
+                    results.append({"action": "AI_HOLD", "underlying": underlying, "reason": ai_result.get("reason")})
                     continue
-                logger.info(f"AI APPROVED signal for {underlying} (confidence={ai_result['confidence']}%)")
+                
+                logger.info(f"AI Selected Action '{ai_action}' for {underlying} (confidence={ai_result.get('confidence')}%)")
             
             # 3. Process with Ranking Engine (Index-Based)
             try:
@@ -187,7 +191,19 @@ def webhook():
             except ValueError:
                 tf_val = timeframe # Pass as string (e.g. "TP0", "TP1")
             
-            action = engine.process_signal(underlying, transaction_type, tf_val, leg)
+            # Map AI action to RankingEngine signal_type
+            if ai_action in ("BUY_CALL", "BUY_PUT", "EXIT_CALL", "EXIT_PUT"):
+                action_map = {
+                    "BUY_CALL": "B",
+                    "BUY_PUT": "S",
+                    "EXIT_CALL": "LONG_EXIT",
+                    "EXIT_PUT": "SHORT_EXIT"
+                }
+                final_signal = action_map[ai_action]
+            else:
+                final_signal = transaction_type # External fallback
+
+            action = engine.process_signal(underlying, final_signal, tf_val, leg)
             results.append(action)
             
             # Check for Logic Failures
@@ -373,7 +389,7 @@ def ui_signal():
 def volume_alert():
     """
     Endpoint triggered when NIFTY crosses daily volume.
-    Activates Scalping Mode for 5 minutes.
+    Activates Scalping Mode for 5 minutes and runs AI Analysis.
     """
     if not broker or not engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
@@ -383,8 +399,51 @@ def volume_alert():
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     
     try:
+        # Always activate scalping mode
         engine.activate_scalping_mode(5)
-        return jsonify({"status": "success", "message": "Scalping Mode activated for 5 minutes."}), 200
+        
+        results = []
+        legs = data.get('order_legs', [])
+        volume_type = data.get('volume', 'Day')
+        
+        if legs and analyzer:
+            for leg in legs:
+                underlying = leg.get('symbol') or leg.get('underlying') or "NIFTY"
+                
+                full_signal_context = {
+                    "active_leg": leg,
+                    "underlying": underlying,
+                    "timeframe": "volume_alert",
+                    "volume_cross": volume_type,
+                    "full_webhook_payload": {k: v for k, v in data.items() if k != 'secret'}
+                }
+                ai_result = analyzer.analyze(full_signal_context, _load_levels(), _load_context())
+                ai_action = ai_result.get("action", "HOLD")
+                
+                _AI_LOG.append({
+                    "underlying": underlying,
+                    "direction": f"VOL_{volume_type.upper()}",
+                    "action": ai_action,
+                    "reason": ai_result.get("reason", ""),
+                    "confidence": ai_result.get("confidence", 0)
+                })
+                if len(_AI_LOG) > 20: _AI_LOG.pop(0)
+                
+                if ai_action in ("BUY_CALL", "BUY_PUT", "EXIT_CALL", "EXIT_PUT"):
+                    action_map = {"BUY_CALL": "B", "BUY_PUT": "S", "EXIT_CALL": "LONG_EXIT", "EXIT_PUT": "SHORT_EXIT"}
+                    mapped_signal = action_map[ai_action]
+                    logger.info(f"AI Selected Action '{ai_action}' from Volume Alert for {underlying}")
+                    res = engine.process_signal(underlying, mapped_signal, 5, leg)
+                    results.append(res)
+                else:
+                    logger.info(f"AI decided HOLD on Volume Alert for {underlying}: {ai_result.get('reason')}")
+                    results.append({"action": "AI_HOLD", "underlying": underlying, "reason": ai_result.get("reason")})
+        
+        return jsonify({
+            "status": "success", 
+            "message": "Scalping Mode activated.", 
+            "actions": results
+        }), 200
     except Exception as e:
         logger.error(f"Volume Alert Processing Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_TEMPLATE = """You are an expert NIFTY options trading signal validator.
 
-Your job is to analyze an incoming TradingView trading signal and decide whether it should EXECUTE or be REJECTED based on:
+Your job is to analyze an incoming TradingView trading signal and decide the best market action to take based on:
 1. The user-defined price level zones (Upper Target Price levels = UTP, Lower Target Price levels = LTP, Base = TP0)
 2. The user's custom strategy context / trading rules
 3. The current spot price in the signal
@@ -31,14 +31,16 @@ Your job is to analyze an incoming TradingView trading signal and decide whether
 {user_context}
 
 ## Decision Rules
-- If the signal direction aligns with the user's strategy, output ALLOW
-- If the signal is against the user's strategy context or in a dangerous zone, output REJECT
-- If no levels are configured, output ALLOW by default
+- Output specific actions: BUY_CALL, BUY_PUT, EXIT_CALL, EXIT_PUT, or HOLD.
+- If the signal direction and price levels strongly align with a bullish setup, output BUY_CALL. 
+- If they strongly align with a bearish setup, output BUY_PUT.
+- If the market structure suggests a reversal against open positions, output EXIT_CALL or EXIT_PUT.
+- If conditions are unsafe or contradictory, output HOLD.
 
 You MUST respond with only valid JSON. No other text.
 Response format:
 {{
-  "decision": "ALLOW" | "REJECT",
+  "action": "BUY_CALL" | "BUY_PUT" | "EXIT_CALL" | "EXIT_PUT" | "HOLD",
   "reason": "Brief explanation (max 2 sentences)",
   "confidence": 0-100
 }}"""
@@ -53,16 +55,16 @@ The configured price levels (TP0, UTP1, UTP2, LTP1, LTP2, etc.) act as dynamic t
 ## Strict Entry Conditions (Gatekeeping Rules)
 
 ### For BULLISH Signals (BUY / CALL Positions)
-The model must ONLY output ALLOW if the current spot price satisfies the following support/breakout condition:
+The model must ONLY output BUY_CALL if the current spot price satisfies the following support/breakout condition:
 - The price is **NEAR AND ABOVE** the **High** level of an identified channel (e.g., TP0 High, UTP1 High, UTP2 High, LTP1 High, LTP2 High). 
 - *Rationale: The High level is acting as a newly established support base, or the price has cleanly broken out above it.*
-- If a BUY signal is generated while the price is struggling right at or below a channel's **Low** (Resistance), the signal MUST be REJECTED.
+- If a BUY signal is generated while the price is struggling right at or below a channel's **Low** (Resistance), the signal MUST be HOLD.
 
 ### For BEARISH Signals (SELL / PUT Positions)
-The model must ONLY output ALLOW if the current spot price satisfies the following resistance/breakdown condition:
+The model must ONLY output BUY_PUT if the current spot price satisfies the following resistance/breakdown condition:
 - The price is **NEAR AND BELOW** the **Low** level of an identified channel (e.g., TP0 Low, UTP1 Low, UTP2 Low, LTP1 Low, LTP2 Low).
 - *Rationale: The Low level is acting as overhead resistance, or the price is breaking down below it.*
-- If a SELL signal is generated while the price is resting right at or above a channel's **High** (Support), the signal MUST be REJECTED.
+- If a SELL signal is generated while the price is resting right at or above a channel's **High** (Support), the signal MUST be HOLD.
 
 ## AI Evaluation Checklist
 When evaluating the incoming webhook payload, follow these steps strictly:
@@ -70,7 +72,7 @@ When evaluating the incoming webhook payload, follow these steps strictly:
 2. Look at the Spot Price provided in the signal.
 3. Compare the Spot Price to the closest channel's High and Low levels provided in the Price Levels section.
 4. Check if the Spot Price confirms the logic (e.g., For a CALL, is the price >= Channel High? For a PUT, is the price <= Channel Low?).
-5. Output ALLOW only if the exact criteria are met. Otherwise, output REJECT."""
+5. Output the respective BUY_ action only if the exact criteria are met. Otherwise, output HOLD."""
 
 
 def _format_levels(levels: dict) -> str:
@@ -123,11 +125,11 @@ class OpenAIAnalyzer:
             user_context: Free-text strategy context from the user
 
         Returns:
-            dict: { "decision": "ALLOW"|"REJECT", "reason": str, "confidence": int }
+            dict: { "action": "BUY_CALL"|"BUY_PUT"|"EXIT_CALL"|"EXIT_PUT"|"HOLD"|"EXTERNAL", "reason": str, "confidence": int }
         """
         if not self.client:
-            logger.info("OpenAI not configured — passing signal through.")
-            return {"decision": "ALLOW", "reason": "OpenAI not configured (no API key)", "confidence": 100}
+            logger.info("OpenAI not configured — passing signal through for external processing.")
+            return {"action": "EXTERNAL", "reason": "OpenAI not configured (no API key)", "confidence": 100}
 
         levels_section = _format_levels(levels)
         context_text = user_context.strip() if user_context and user_context.strip() else DEFAULT_USER_CONTEXT
@@ -167,16 +169,17 @@ class OpenAIAnalyzer:
             raw = response.choices[0].message.content
             result = json.loads(raw)
 
-            decision = result.get("decision", "ALLOW").upper()
+            action = result.get("action", "HOLD").upper()
             reason = result.get("reason", "")
             confidence = int(result.get("confidence", 80))
 
-            if decision not in ("ALLOW", "REJECT"):
-                decision = "ALLOW"
+            valid_actions = {"BUY_CALL", "BUY_PUT", "EXIT_CALL", "EXIT_PUT", "HOLD"}
+            if action not in valid_actions:
+                action = "HOLD"
 
-            logger.info(f"AI Decision: {decision} (confidence={confidence}%) — {reason}")
-            return {"decision": decision, "reason": reason, "confidence": confidence}
+            logger.info(f"AI Decision: {action} (confidence={confidence}%) — {reason}")
+            return {"action": action, "reason": reason, "confidence": confidence}
 
         except Exception as e:
-            logger.error(f"OpenAI analysis failed: {e}. Defaulting to ALLOW.")
-            return {"decision": "ALLOW", "reason": f"AI analysis error: {e}", "confidence": 0}
+            logger.error(f"OpenAI analysis failed: {e}. Defaulting to EXTERNAL fallback.")
+            return {"action": "EXTERNAL", "reason": f"AI analysis error: {e}", "confidence": 0}
