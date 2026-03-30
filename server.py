@@ -170,14 +170,10 @@ def webhook():
             logger.info(f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe")
 
             # 3. Process with Ranking Engine (Index-Based)
-            try:
-                tf_val = int(timeframe)
-            except ValueError:
-                tf_val = timeframe # Pass as string (e.g. "TP0", "TP1")
-            
+            mode = leg.get('mode', data.get('mode', 'regular')).lower()
             final_signal = transaction_type # Direct external fallback
 
-            action = engine.process_signal(underlying, final_signal, tf_val, leg)
+            action = engine.process_signal(underlying, final_signal, mode, leg)
             results.append(action)
             
             # Check for Logic Failures
@@ -304,7 +300,7 @@ def toggle_side():
             "current_price": spot_price
         }
         
-        action = engine.process_signal(underlying, signal_type, 5, leg_data)
+        action = engine.process_signal(underlying, signal_type, 'regular', leg_data)
         return jsonify({"status": "success", "action": action}), 200
     except Exception as e:
         logger.error(f"Toggle Side Error: {e}")
@@ -350,8 +346,8 @@ def ui_signal():
             "current_price": spot_price
         }
         
-        # Trigger processing (Default to 5m timeframe for manual override)
-        result = engine.process_signal(underlying, signal_type, 5, leg_data)
+        # Trigger processing (Default to regular mode for manual override)
+        result = engine.process_signal(underlying, signal_type, 'regular', leg_data)
         logger.info(f"UI Signal: {action} processed for {underlying} -> {result.get('action')}")
         
         return jsonify({"status": "success", "result": result}), 200

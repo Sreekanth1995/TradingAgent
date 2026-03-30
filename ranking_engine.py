@@ -131,27 +131,74 @@ class RankingEngine:
                 
         return False
 
-    def _validate_signal_timeframe(self, underlying, timeframe, now_ist):
+    def _handle_update_sl(self, underlying, is_scalping):
         """
-        Validates signal timeframe and determines if scalping mode should be used.
-        In Phase 2, 1m signals are always allowed and use scalping configs.
+        Calculates new SL based on active option's LTP and updates the pending
+        SL order only if the new SL price is greater than the existing SL price.
         """
-        if timeframe == 1:
-            logger.info(f"⚡ 1m SIGNAL DETECTED: Using Scalping Mode for {underlying}")
-            return True, True, None
+        state = self._get_state(underlying)
+        side = state.get('side', 'NONE')
+        if side not in ['CALL', 'PUT']:
+            logger.info(f"UPDATE_SL ignored: No active position for {underlying}")
+            return {"action": "NONE", "reason": "No active position to trail"}
 
-        elif timeframe == 5:
-            # Check if volume-based scalping is manually active for 5m signals
-            is_volume_scalping = self._is_scalping_active(underlying)
-            if is_volume_scalping:
-                logger.info(f"Scalping Mode: Using Scalping Configs for 5m signal (Volume Trigger Active).")
-                return True, True, None
+        symbol = state.get('symbol')
+        sec_id = state.get('security_id')
+        if not symbol or not sec_id:
+            return {"action": "NONE", "reason": "Missing security details"}
+
+        ltp = self.broker.get_ltp(sec_id)
+        if not ltp or ltp <= 0:
+            logger.warning(f"UPDATE_SL failed: Could not fetch LTP for {symbol}")
+            return {"action": "FAILED_LTP_FETCH", "symbol": symbol}
+
+        params = self._get_params(underlying, is_scalping)
+        
+        is_super_order = state.get('is_super_order', False)
+        pending_orders = self._get_pending_legs(sec_id, is_super_order)
+
+        if not pending_orders:
+            logger.info(f"UPDATE_SL ignored: No pending orders found for {symbol}")
+            return {"action": "NONE", "reason": "No pending orders"}
+
+        sl_updated = False
+        action_log = []
+
+        for order in pending_orders:
+            oid = order.get('orderId')
+            leg_name = order.get('legName', '')
+            otype = order.get('orderType') or order.get('order_type', '')
+
+            trail_offset = round(ltp * (params['trailing']/100), 1)
+            new_sl = round(ltp - trail_offset, 1)
             
-            logger.info(f"Standard Mode processing for {underlying} (5m signal)")
-            return True, False, None
+            if new_sl <= 0.05: new_sl = 0.05
 
-        logger.warning(f"Unknown timeframe {timeframe} for {underlying}. Defaulting to Standard Mode logic.")
-        return True, False, None
+            if is_super_order and leg_name == 'STOP_LOSS_LEG':
+                existing_trigger = float(order.get('triggerPrice') or order.get('price') or 0.0)
+                if new_sl > existing_trigger and existing_trigger > 0:
+                    logger.info(f"LEVEL_CROSS: Updating Super Order SL {oid} from {existing_trigger} to {new_sl} (LTP: {ltp})")
+                    tj = order.get('trailingJump', 1.0)
+                    self.broker.modify_super_sl_leg(oid, new_sl, tj)
+                    sl_updated = True
+                    action_log.append(f"UPDATED_SL_{new_sl}")
+                else:
+                    logger.info(f"LEVEL_CROSS: New SL {new_sl} not > existing {existing_trigger}. Skipping.")
+
+            elif not is_super_order and otype in ['STOP_LOSS', 'STOP_LOSS_MARKET']:
+                existing_trigger = float(order.get('triggerPrice') or order.get('trigger_price') or 0.0)
+                if new_sl > existing_trigger and existing_trigger > 0:
+                    logger.info(f"LEVEL_CROSS: Updating Standard SL {oid} from {existing_trigger} to {new_sl} (LTP: {ltp})")
+                    self.broker.modify_order(oid, 'SL', {'trigger_price': new_sl})
+                    sl_updated = True
+                    action_log.append(f"UPDATED_SL_{new_sl}")
+                else:
+                    logger.info(f"LEVEL_CROSS: New SL {new_sl} not > existing {existing_trigger}. Skipping.")
+
+        if sl_updated:
+            return {"underlying": underlying, "action": "UPDATED_SL", "actions": action_log, "symbol": symbol, "ltp": ltp}
+        else:
+            return {"action": "NONE", "reason": "New SL not greater than existing SL"}
 
     def _validate_market_volatility(self, underlying, is_scalping, now_ist):
         """
@@ -174,18 +221,13 @@ class RankingEngine:
         return True, None
 
     # --- Core Logic ---
-    def process_signal(self, underlying, signal_type, timeframe, leg_data):
+    def process_signal(self, underlying, signal_type, mode, leg_data):
         """
         Main entry point for processing BUY/SELL signals.
         Coordinates validation, locking, and execution.
         """
         now_ist = datetime.now(IST)
-        timeframe = int(timeframe)
-
-        # 1. Timeframe & Mode Validation
-        is_valid_tf, is_scalping, err_tf = self._validate_signal_timeframe(underlying, timeframe, now_ist)
-        if not is_valid_tf:
-            return err_tf
+        is_scalping = (str(mode).lower() == 'scalping')
 
         # 2. Deduplication Check (DISABLED as per new strategy)
         state = self._get_state(underlying)
@@ -206,14 +248,16 @@ class RankingEngine:
         self.processing_locks.add(underlying)
         try:
             current_side = state.get('side', 'NONE')
-            if signal_type in ['B', 'LONG']:
-                result = self._execute_signal(underlying, 'B', timeframe, leg_data, state, current_side, now_ist, is_scalping)
-            elif signal_type in ['S', 'SHORT']:
-                result = self._execute_signal(underlying, 'S', timeframe, leg_data, state, current_side, now_ist, is_scalping)
+            if signal_type in ['B', 'LONG', 'BUY']:
+                result = self._execute_signal(underlying, 'B', mode, leg_data, state, current_side, now_ist, is_scalping)
+            elif signal_type in ['S', 'SHORT', 'SELL']:
+                result = self._execute_signal(underlying, 'S', mode, leg_data, state, current_side, now_ist, is_scalping)
             elif signal_type == 'LONG_EXIT':
                 result = self._handle_directional_exit(underlying, 'CALL')
             elif signal_type == 'SHORT_EXIT':
                 result = self._handle_directional_exit(underlying, 'PUT')
+            elif signal_type in ['UPDATE_SL', 'LEVEL_CROSS', 'TRAIL', 'UPDATE']:
+                result = self._handle_update_sl(underlying, is_scalping)
             else:
                 logger.warning(f"Unknown signal type: {signal_type}")
                 result = {"action": "NONE", "reason": f"Unknown signal type: {signal_type}"}
@@ -248,7 +292,7 @@ class RankingEngine:
 
 
 
-    def _execute_signal(self, underlying, signal_type, timeframe, leg_data, state, current_side, now_ist, is_scalping=False):
+    def _execute_signal(self, underlying, signal_type, mode, leg_data, state, current_side, now_ist, is_scalping=False):
         """
         Advanced Strategy Implementation:
         Manages Super Orders based on signal alignment and leg status.
@@ -310,13 +354,13 @@ class RankingEngine:
             # 4.1 Handle Opposite Side (PE)
             self._manage_opposite_orders(orders_by_id, 'PE', action_log)
             # 4.2 Handle Aligned Side (CE)
-            self._manage_aligned_orders(underlying, itm_ce, orders_by_id, 'CE', action_log, timeframe, is_scalping)
+            self._manage_aligned_orders(underlying, itm_ce, orders_by_id, 'CE', action_log, mode, is_scalping)
             
         elif signal_type == 'S': # SELL (PE Aligned, CE Opposite)
             # 4.1 Handle Opposite Side (CE)
             self._manage_opposite_orders(orders_by_id, 'CE', action_log)
             # 4.2 Handle Aligned Side (PE)
-            self._manage_aligned_orders(underlying, itm_pe, orders_by_id, 'PE', action_log, timeframe, is_scalping)
+            self._manage_aligned_orders(underlying, itm_pe, orders_by_id, 'PE', action_log, mode, is_scalping)
 
         elif signal_type == 'LONG_EXIT':
             logger.info(f"Strategy: Explicit LONG_EXIT for {underlying}")
@@ -362,7 +406,7 @@ class RankingEngine:
                     self.broker.modify_super_sl_leg(oid, new_sl)
                     action_log.append(f"MODIFIED_OPPOSITE_{side_to_manage}_EXIT")
 
-    def _manage_aligned_orders(self, underlying, itm_data, orders_by_id, side_to_manage, action_log, timeframe, is_scalping):
+    def _manage_aligned_orders(self, underlying, itm_data, orders_by_id, side_to_manage, action_log, mode, is_scalping):
         """
         Aligned side logic:
         - If no order: Place new Native Super Order (Market Entry, 55/20/Config SL).
