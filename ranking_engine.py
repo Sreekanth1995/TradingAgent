@@ -36,19 +36,20 @@ class RankingEngine:
         self.use_redis = False
         self.memory_store = {}
         
-        # Instrument Configurations (Target 55%, SL 20%, Trailing 10%)
+        # Instrument Configurations (Target 55%, SL 20%, Trailing 10%, Slippage Buffer 1%)
         self.configs = {
-            "NIFTY": {"target": 55, "sl": 20, "trailing": 10},
-            "BANKNIFTY": {"target": 55, "sl": 20, "trailing": 10},
-            "FINNIFTY": {"target": 55, "sl": 20, "trailing": 10},
-            "DEFAULT": {"target": 55, "sl": 20, "trailing": 10}
+            "NIFTY": {"target": 55, "sl": 20, "trailing": 10, "slippage_buffer": 1.0},
+            "BANKNIFTY": {"target": 55, "sl": 20, "trailing": 10, "slippage_buffer": 1.0},
+            "FINNIFTY": {"target": 55, "sl": 20, "trailing": 10, "slippage_buffer": 1.0},
+            "DEFAULT": {"target": 55, "sl": 20, "trailing": 10, "slippage_buffer": 1.0}
         }
         
-        # Scalping Mode Configuration (Trailing 5% for 1m signals)
+        # Scalping Mode Configuration (Trailing 5%, Slippage 0.5%)
         self.scalping_configs = {
             "target": 55,
             "sl": 20,
-            "trailing": 5
+            "trailing": 5,
+            "slippage_buffer": 0.5
         }
         
         self.processing_locks = set()
@@ -465,7 +466,7 @@ class RankingEngine:
                 return state
 
         # 3. Fallback: Simulated Bracket
-        return self._execute_simulated_bracket(underlying, symbol, sec_id, itm, params, leg_data, is_scalping)
+        return self._execute_simulated_bracket(underlying, symbol, sec_id, itm, params, leg_data, is_scalping, ltp)
 
     def _resolve_entry_instrument(self, underlying, side, leg_data):
         """Resolves the ITM contract for the given side."""
@@ -495,18 +496,20 @@ class RankingEngine:
         if sl_price <= 0: sl_price = 0.05
         if trailing_val <= 0: trailing_val = 1.0 # Minimum 1 tick jump
         
-        entry_limit_price = 0  # Market Entry
+        slippage = params.get('slippage_buffer', 1.0)
+        entry_limit_price = round(ltp * (1 + slippage/100), 1)
+        
         so_leg = itm_data.copy()
         so_leg.update({
             'quantity': leg_data.get('quantity', 1),
             'target_price': tgt_price,
             'stop_loss_price': sl_price,
             'trailing_jump': trailing_val,
-            'order_type': 'MARKET',
+            'order_type': 'LIMIT',
             'price': entry_limit_price
         })
         
-        logger.info(f"Attempting Native Super Order for {symbol}. EntryLimit={entry_limit_price}, SL={sl_price}, TGT={tgt_price}")
+        logger.info(f"Attempting Native Super Order for {symbol}. EntryLimit={entry_limit_price} (LTP={ltp}), SL={sl_price}, TGT={tgt_price}")
         resp = self.broker.place_super_order(symbol, so_leg)
         
         if resp.get('success'):
@@ -525,11 +528,20 @@ class RankingEngine:
         logger.warning(f"Native Super Order Failed: {resp.get('error')}. Falling back to Simulation.")
         return None
 
-    def _execute_simulated_bracket(self, underlying, symbol, sec_id, itm_data, params, leg_data, is_scalping):
-        """Places a market entry and separate exit orders (Simulation mode)."""
-        logger.info(f"Placing Market Entry (Simulated Bracket) for {symbol}")
+    def _execute_simulated_bracket(self, underlying, symbol, sec_id, itm_data, params, leg_data, is_scalping, ltp=None):
+        """Places a protected entry and separate exit orders (Simulation mode)."""
         order_leg = itm_data.copy()
         order_leg['quantity'] = leg_data.get('quantity', 1)
+
+        if ltp and ltp > 0:
+            slippage = params.get('slippage_buffer', 1.0)
+            entry_limit_price = round(ltp * (1 + slippage/100), 1)
+            order_leg['order_type'] = 'LIMIT'
+            order_leg['price'] = entry_limit_price
+            logger.info(f"Placing LIMIT Entry (Simulated Bracket) for {symbol} at {entry_limit_price}")
+        else:
+            order_leg['order_type'] = 'MARKET'
+            logger.info(f"Placing MARKET Entry (Simulated Bracket) for {symbol} (LTP missing)")
         
         resp = self.broker.place_buy_order(symbol, order_leg)
         if not resp.get('success'):
