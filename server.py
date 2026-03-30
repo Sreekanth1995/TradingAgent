@@ -49,10 +49,37 @@ _CONTEXT_FILE = "ai_context.txt"
 _AI_LOG = []  # last 20 AI decisions
 
 def _load_levels():
+    """
+    Loads levels from file, but clears them if it's after NSE market hours (15:30 IST)
+    and the file has not been updated since market close.
+    """
     try:
+        if os.path.exists(_LEVELS_FILE):
+            import pytz
+            from datetime import datetime
+            IST = pytz.timezone('Asia/Kolkata')
+            now = datetime.now(IST)
+            
+            # Market close is 3:30 PM (15:30) IST
+            market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+            
+            # If it's currently PAST market close
+            if now > market_close:
+                mtime = datetime.fromtimestamp(os.path.getmtime(_LEVELS_FILE), IST)
+                # If the file was last modified BEFORE today's market close, it's stale.
+                if mtime < market_close:
+                    content = {}
+                    with open(_LEVELS_FILE) as f:
+                         content = json.load(f)
+                    
+                    if content and content != {} and content != []:
+                        logger.info("NSE Market Closed (15:30 IST). Clearing stale levels.")
+                        _save_levels({})
+                        return {}
+
         with open(_LEVELS_FILE) as f:
             return json.load(f)
-    except Exception:
+    except Exception as e:
         return {}
 
 def _save_levels(data):
