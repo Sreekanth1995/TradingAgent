@@ -38,10 +38,10 @@ class RankingEngine:
         
         # Instrument Configurations (Target 55%, SL 20%, Trailing 10%, Slippage Buffer 1%)
         self.configs = {
-            "NIFTY": {"target": 55, "sl": 20, "trailing": 10, "slippage_buffer": 1.0},
-            "BANKNIFTY": {"target": 55, "sl": 20, "trailing": 10, "slippage_buffer": 1.0},
-            "FINNIFTY": {"target": 55, "sl": 20, "trailing": 10, "slippage_buffer": 1.0},
-            "DEFAULT": {"target": 55, "sl": 20, "trailing": 10, "slippage_buffer": 1.0}
+            "NIFTY": {"target": 55, "sl": 20, "trailing": 20, "slippage_buffer": 1.0},
+            "BANKNIFTY": {"target": 55, "sl": 20, "trailing": 20, "slippage_buffer": 1.0},
+            "FINNIFTY": {"target": 55, "sl": 20, "trailing": 20, "slippage_buffer": 1.0},
+            "DEFAULT": {"target": 55, "sl": 20, "trailing": 20, "slippage_buffer": 1.0}
         }
         
         # Scalping Mode Configuration (Trailing 5%, Slippage 0.5%)
