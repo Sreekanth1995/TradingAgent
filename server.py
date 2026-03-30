@@ -355,6 +355,43 @@ def ui_signal():
         logger.error(f"UI Signal Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/level-hit', methods=['POST'])
+def level_hit():
+    """
+    Dedicated endpoint for level crossings.
+    Triggers the SL trailing logic (LEVEL_CROSS signal).
+    """
+    if not broker or not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+        
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    try:
+        results = []
+        legs = data.get('order_legs', [])
+        mode = data.get('mode', 'regular').lower()
+        
+        # If order_legs is provided, process each
+        if legs:
+            for leg in legs:
+                underlying = leg.get('symbol') or leg.get('underlying') or leg.get('ticker') or 'NIFTY'
+                leg_mode = leg.get('mode', mode).lower()
+                action = engine.process_signal(underlying, 'LEVEL_CROSS', leg_mode, leg)
+                results.append(action)
+        else:
+            # Fallback for simple payload: {"secret": "...", "underlying": "NIFTY"}
+            underlying = data.get('underlying') or data.get('ticker') or 'NIFTY'
+            leg_data = data
+            action = engine.process_signal(underlying, 'LEVEL_CROSS', mode, leg_data)
+            results.append(action)
+            
+        return jsonify({"status": "success", "actions": results}), 200
+    except Exception as e:
+        logger.error(f"Level Hit Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/volume-alert', methods=['POST'])
 def volume_alert():
     """
