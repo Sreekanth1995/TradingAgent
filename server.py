@@ -6,7 +6,6 @@ from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from ranking_engine import RankingEngine
 from broker_dhan import DhanClient
-from openai_analyzer import OpenAIAnalyzer
 
 # Load Environment Variables
 load_dotenv()
@@ -36,17 +35,9 @@ except Exception as e:
     logger.error(f"⚠️ Initialization Failed: {e}")
     logger.warning("App will start in degraded mode. Please check environment variables.")
 
-# OpenAI Analyzer (lazy init — works even without API key)
-try:
-    analyzer = OpenAIAnalyzer()
-except Exception as e:
-    analyzer = None
-    logger.warning(f"OpenAI Analyzer unavailable: {e}")
-
 # In-memory stores (persisted to JSON files for restart survival)
 _LEVELS_FILE = "levels.json"
 _CONTEXT_FILE = "ai_context.txt"
-_AI_LOG = []  # last 20 AI decisions
 
 def _load_levels():
     """
@@ -178,57 +169,13 @@ def webhook():
             transaction_type = leg.get('transactionType')
             logger.info(f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe")
 
-            # 2.5 AI Analysis Gate
-            ai_action = "EXTERNAL"
-            if analyzer:
-                full_signal_context = {
-                    "active_leg": leg,
-                    "underlying": underlying,
-                    "timeframe": timeframe,
-                    "full_webhook_payload": {k: v for k, v in data.items() if k != 'secret'}
-                }
-                ai_result = analyzer.analyze(
-                    full_signal_context,
-                    _load_levels(),
-                    _load_context()
-                )
-                ai_action = ai_result.get("action", "HOLD")
-                
-                # Log AI decision
-                _AI_LOG.append({
-                    "underlying": underlying,
-                    "direction": transaction_type,
-                    "action": ai_action,
-                    "reason": ai_result.get("reason", ""),
-                    "confidence": ai_result.get("confidence", 0)
-                })
-                if len(_AI_LOG) > 20:
-                    _AI_LOG.pop(0)
-
-                if ai_action == "HOLD":
-                    logger.warning(f"AI HOLD signal for {underlying}: {ai_result.get('reason')}")
-                    results.append({"action": "AI_HOLD", "underlying": underlying, "reason": ai_result.get("reason")})
-                    continue
-                
-                logger.info(f"AI Selected Action '{ai_action}' for {underlying} (confidence={ai_result.get('confidence')}%)")
-            
             # 3. Process with Ranking Engine (Index-Based)
             try:
                 tf_val = int(timeframe)
             except ValueError:
                 tf_val = timeframe # Pass as string (e.g. "TP0", "TP1")
             
-            # Map AI action to RankingEngine signal_type
-            if ai_action in ("BUY_CALL", "BUY_PUT", "EXIT_CALL", "EXIT_PUT"):
-                action_map = {
-                    "BUY_CALL": "B",
-                    "BUY_PUT": "S",
-                    "EXIT_CALL": "LONG_EXIT",
-                    "EXIT_PUT": "SHORT_EXIT"
-                }
-                final_signal = action_map[ai_action]
-            else:
-                final_signal = transaction_type # External fallback
+            final_signal = transaction_type # Direct external fallback
 
             action = engine.process_signal(underlying, final_signal, tf_val, leg)
             results.append(action)
@@ -430,41 +377,6 @@ def volume_alert():
         engine.activate_scalping_mode(5)
         
         results = []
-        legs = data.get('order_legs', [])
-        volume_type = data.get('volume', 'Day')
-        
-        if legs and analyzer:
-            for leg in legs:
-                underlying = leg.get('symbol') or leg.get('underlying') or "NIFTY"
-                
-                full_signal_context = {
-                    "active_leg": leg,
-                    "underlying": underlying,
-                    "timeframe": "volume_alert",
-                    "volume_cross": volume_type,
-                    "full_webhook_payload": {k: v for k, v in data.items() if k != 'secret'}
-                }
-                ai_result = analyzer.analyze(full_signal_context, _load_levels(), _load_context())
-                ai_action = ai_result.get("action", "HOLD")
-                
-                _AI_LOG.append({
-                    "underlying": underlying,
-                    "direction": f"VOL_{volume_type.upper()}",
-                    "action": ai_action,
-                    "reason": ai_result.get("reason", ""),
-                    "confidence": ai_result.get("confidence", 0)
-                })
-                if len(_AI_LOG) > 20: _AI_LOG.pop(0)
-                
-                if ai_action in ("BUY_CALL", "BUY_PUT", "EXIT_CALL", "EXIT_PUT"):
-                    action_map = {"BUY_CALL": "B", "BUY_PUT": "S", "EXIT_CALL": "LONG_EXIT", "EXIT_PUT": "SHORT_EXIT"}
-                    mapped_signal = action_map[ai_action]
-                    logger.info(f"AI Selected Action '{ai_action}' from Volume Alert for {underlying}")
-                    res = engine.process_signal(underlying, mapped_signal, 5, leg)
-                    results.append(res)
-                else:
-                    logger.info(f"AI decided HOLD on Volume Alert for {underlying}: {ai_result.get('reason')}")
-                    results.append({"action": "AI_HOLD", "underlying": underlying, "reason": ai_result.get("reason")})
         
         return jsonify({
             "status": "success", 
@@ -511,14 +423,6 @@ def get_context():
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     
     return jsonify({"status": "success", "context": _load_context()}), 200
-
-@app.route('/get-ai-logs', methods=['POST'])
-def get_ai_logs():
-    data = request.get_json(force=True, silent=True)
-    if not data or data.get('secret') != SECRET:
-        return jsonify({"status": "error", "message": "Unauthorized"}), 401
-    
-    return jsonify({"status": "success", "logs": _AI_LOG}), 200
 
 @app.route('/update-token', methods=['POST'])
 def update_token():
