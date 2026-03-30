@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_TEMPLATE = """You are an expert NIFTY options trading signal validator.
 
 Your job is to analyze an incoming TradingView trading signal and decide the best market action to take based on:
-1. The user-defined price level zones (Upper Target Price levels = UTP, Lower Target Price levels = LTP, Base = TP0)
+1. The user-defined price level zones
 2. The user's custom strategy context / trading rules
 3. The current spot price in the signal
 
@@ -47,63 +47,83 @@ Response format:
 
 DEFAULT_USER_CONTEXT = """# CHANNEL-BASED SUPPORT & RESISTANCE STRATEGY
 
-## Core Concepts
-The configured price levels (TP0, UTP1, UTP2, LTP1, LTP2, etc.) act as dynamic trading channels. Every channel has a "High" and a "Low" boundary.
-1. **Resistance Rule:** When the price is moving UP, the **Low** level of any channel acts as strict resistance.
-2. **Support Rule:** When the price is falling DOWN, the **High** side of any channel acts as strict support.
+📌 SYSTEM ROLE
+You are a level-based scalping execution assistant for NIFTY 1-minute.
+The indicator already calculates:
+Channel upper level
+Channel lower level
+Next upper channel
+Next lower channel
+Buy/Sell signal
+Current price
+Important fact:
+The gap between channels is larger than the height of a channel.
+Your job is NOT to analyze trend.
+Your job is NOT to interpret market structure.
+Your job is ONLY to trade boundary-to-boundary gaps.
+🎯 CORE RULES
+1️⃣ Never trade inside a channel.
+Inside channel means:
+Price is between upper and lower level of the same channel.
+If inside → Output: NO TRADE.
+2️⃣ Only trade near boundary.
+Near means:
+Price is within X points of a channel boundary (define X).
+3️⃣ PUT Trade Condition
+Take PUT only if:
+Sell signal is present
+Price is near AND below lower boundary of channel
+Price is not inside channel
+Distance to next lower channel high is greater than minimum target threshold
+Target:
+→ High of next lower channel
+Stop:
+→ Re-entry back inside broken channel
+4️⃣ CALL Trade Condition
+Take CALL only if:
+Buy signal is present
+Price is near AND above upper boundary of channel
+Price is not inside channel
+Distance to next upper channel low is greater than minimum target threshold
+Target:
+→ Low of next upper channel
+Stop:
+→ Re-entry back inside broken channel
+5️⃣ Ignore signals if:
+Signal occurs inside channel
+Price already moved 40%+ of the gap
+Price hesitates and re-enters level
+Only capture fresh boundary breaks."""
 
-## Strict Entry Conditions (Gatekeeping Rules)
 
-### For BULLISH Signals (BUY / CALL Positions)
-The model must ONLY output BUY_CALL if the current spot price satisfies the following support/breakout condition:
-- The price is **NEAR AND ABOVE** the **High** level of an identified channel (e.g., TP0 High, UTP1 High, UTP2 High, LTP1 High, LTP2 High). 
-- *Rationale: The High level is acting as a newly established support base, or the price has cleanly broken out above it.*
-- If a BUY signal is generated while the price is struggling right at or below a channel's **Low** (Resistance), the signal MUST be HOLD.
-
-### For BEARISH Signals (SELL / PUT Positions)
-The model must ONLY output BUY_PUT if the current spot price satisfies the following resistance/breakdown condition:
-- The price is **NEAR AND BELOW** the **Low** level of an identified channel (e.g., TP0 Low, UTP1 Low, UTP2 Low, LTP1 Low, LTP2 Low).
-- *Rationale: The Low level is acting as overhead resistance, or the price is breaking down below it.*
-- If a SELL signal is generated while the price is resting right at or above a channel's **High** (Support), the signal MUST be HOLD.
-
-## AI Evaluation Checklist
-When evaluating the incoming webhook payload, follow these steps strictly:
-1. Identify if the signal is BULLISH (CALL) or BEARISH (PUT).
-2. Look at the Spot Price provided in the signal.
-3. Compare the Spot Price to the closest channel's High and Low levels provided in the Price Levels section.
-4. Check if the Spot Price confirms the logic (e.g., For a CALL, is the price >= Channel High? For a PUT, is the price <= Channel Low?).
-5. Output the respective BUY_ action only if the exact criteria are met. Otherwise, output HOLD."""
-
-
-def _format_levels(levels: dict) -> str:
-    """Format the levels dict into a human-readable string for the prompt."""
+def _format_levels(levels: any) -> str:
+    """Format the levels list/dict into neutral channel markers (e.g. channel_low_high)."""
     if not levels:
         return "No price levels configured. Apply signal as-is."
 
-    lines = []
-
-    utp_levels = {k: v for k, v in levels.items() if k.startswith('UTP')}
-    tp0 = levels.get('TP0')
-    ltp_levels = {k: v for k, v in levels.items() if k.startswith('LTP')}
-
-    if utp_levels:
-        lines.append("### Upper Resistance/Target Levels (UTP)")
-        for name, vals in sorted(utp_levels.items()):
-            lo = vals.get('low', '—')
-            hi = vals.get('high', '—')
-            lines.append(f"  {name}: Low={lo}, High={hi}")
-
-    if tp0:
-        lines.append("### Base Pivot Level (TP0)")
-        lines.append(f"  TP0: Low={tp0.get('low', '—')}, High={tp0.get('high', '—')}")
-
-    if ltp_levels:
-        lines.append("### Lower Support Levels (LTP)")
-        for name, vals in sorted(ltp_levels.items()):
-            lo = vals.get('low', '—')
-            hi = vals.get('high', '—')
-            lines.append(f"  {name}: Low={lo}, High={hi}")
-
+    lines = ["### Configured Trading Channels"]
+    
+    # 1. Normalize into a list of (low, high) tuples
+    channel_list = []
+    if isinstance(levels, list):
+        for lvl in levels:
+            try:
+                channel_list.append((float(lvl.get('low', 0)), float(lvl.get('high', 0))))
+            except: pass
+    elif isinstance(levels, dict):
+        for vals in levels.values():
+            try:
+                channel_list.append((float(vals.get('low', 0)), float(vals.get('high', 0))))
+            except: pass
+    
+    # 2. Sort by low price and format neutral names
+    sorted_channels = sorted(channel_list, key=lambda x: x[0])
+    
+    for i, (lo, hi) in enumerate(sorted_channels, 1):
+        # Using the requested format: channel_low_high
+        label = f"channel_{int(lo)}_{int(hi)}"
+        lines.append(f"  - {label}: Low={lo}, High={hi}")
+    
     return "\n".join(lines)
 
 
@@ -132,7 +152,12 @@ class OpenAIAnalyzer:
             return {"action": "EXTERNAL", "reason": "OpenAI not configured (no API key)", "confidence": 100}
 
         levels_section = _format_levels(levels)
-        context_text = user_context.strip() if user_context and user_context.strip() else DEFAULT_USER_CONTEXT
+        
+        base_strategy = DEFAULT_USER_CONTEXT
+        if user_context and user_context.strip():
+            context_text = f"{base_strategy}\n\n### User's Custom Strategy Constraints:\n{user_context.strip()}\n"
+        else:
+            context_text = base_strategy
 
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             levels_section=levels_section,

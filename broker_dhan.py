@@ -357,6 +357,25 @@ class DhanClient:
                 
                 if resp.get('status') == 'success':
                      return {"success": True, "order_id": resp.get('data', {}).get('orderId'), "error": None}
+                elif resp.get('errorCode') == 'DH-901' or 'Unauthorized' in str(resp):
+                     logger.warning("Order Placement: 401 Unauthorized detected. Syncing token...")
+                     if self._sync_token_from_redis():
+                         # Retry placement with re-initialized self.dhan
+                         resp = self.dhan.place_order(
+                            security_id=sec_id,
+                            exchange_segment=ExchangeSegment.NSE_FNO,
+                            transaction_type=transaction_type,
+                            quantity=final_qty,
+                            order_type=order_type,
+                            product_type=ProductType.INTRADAY, 
+                            price=price,
+                            trigger_price=trigger_price,
+                            validity=Validity.DAY
+                         )
+                         if resp.get('status') == 'success':
+                             return {"success": True, "order_id": resp.get('data', {}).get('orderId'), "error": None}
+                     
+                     return {"success": False, "order_id": None, "error": resp.get('remarks', 'Authentication Failed')}
                 else:
                      return {"success": False, "order_id": None, "error": resp.get('remarks', 'Unknown Error')}
             else:
@@ -497,6 +516,20 @@ class DhanClient:
                 seg_data = data.get('data', {}).get(exchange_segment, {})
                 inst_data = seg_data.get(str(security_id), {})
                 return inst_data.get('last_price')
+            elif resp.status_code == 401:
+                logger.warning("LTP Fetch: 401 Unauthorized. Attempting token sync from Redis...")
+                if self._sync_token_from_redis():
+                    # Retry once with new token
+                    headers['access-token'] = self.access_token
+                    resp = requests.post(url, headers=headers, json=payload, timeout=5)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        seg_data = data.get('data', {}).get(exchange_segment, {})
+                        inst_data = seg_data.get(str(security_id), {})
+                        return inst_data.get('last_price')
+                
+                logger.error(f"LTP Fetch Failed after sync attempt: {resp.status_code} {resp.text}")
+                return None
             else:
                 logger.error(f"LTP Fetch Failed: {resp.status_code} {resp.text}")
                 return None
@@ -519,6 +552,10 @@ class DhanClient:
                 resp = self.dhan.get_positions()
                 if resp.get('status') == 'success':
                     return resp.get('data', [])
+                elif resp.get('errorCode') == 'DH-901' or 'Unauthorized' in str(resp):
+                    logger.warning("Get Positions: 401 Unauthorized. Syncing token...")
+                    if self._sync_token_from_redis():
+                        return self.dhan.get_positions()
                 else:
                     logger.error(f"Failed to fetch positions: {resp}")
                     return []
@@ -546,6 +583,10 @@ class DhanClient:
 
                 if isinstance(resp, dict) and resp.get('status') == 'success':
                     return resp.get('data', {})
+                elif isinstance(resp, dict) and (resp.get('errorCode') == 'DH-901' or 'Unauthorized' in str(resp)):
+                    logger.warning("Get Order Status: 401 Unauthorized. Syncing token...")
+                    if self._sync_token_from_redis():
+                        return self.dhan.get_order_by_id(order_id)
                 else:
                     logger.error(f"Failed to fetch order status for {order_id}: {resp}")
                     return None
@@ -613,8 +654,19 @@ class DhanClient:
                     all_orders = resp
                 elif isinstance(resp, dict) and resp.get('status') == 'success':
                     all_orders = resp.get('data', [])
+                elif isinstance(resp, dict) and (resp.get('errorCode') == 'DH-901' or 'Unauthorized' in str(resp)):
+                    logger.warning("Get Pending Orders: 401 Unauthorized. Syncing token...")
+                    if self._sync_token_from_redis():
+                        # Retry once
+                        resp = self.dhan.get_order_list()
+                        if isinstance(resp, list): all_orders = resp
+                        elif isinstance(resp, dict) and resp.get('status') == 'success':
+                            all_orders = resp.get('data', [])
+                        else: all_orders = []
+                    else:
+                        all_orders = []
                 else:
-                    return []
+                    all_orders = []
 
                 pending = [o for o in all_orders if o.get('orderStatus') in ['PENDING', 'TRIGGER_PENDING', 'TRANSIT', 'PARTIALLY_FILLED', 'MODIFY_PENDING']]
                 
@@ -797,6 +849,18 @@ class DhanClient:
                     return {"success": True, "order_id": order_id, "status": status}
                 else:
                     return {"success": False, "error": f"No orderId in response: {resp.text}"}
+            elif resp.status_code == 401:
+                logger.warning("Super Order Placement: 401 Unauthorized. Syncing token...")
+                if self._sync_token_from_redis():
+                    headers['access-token'] = self.access_token # Retry once
+                    resp = requests.post(url, headers=headers, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        order_id = data.get('orderId') or data.get('data', {}).get('orderId')
+                        status = data.get('orderStatus') or data.get('data', {}).get('orderStatus')
+                        return {"success": True, "order_id": order_id, "status": status}
+                
+                return {"success": False, "error": f"Auth failed after sync: {resp.text}"}
             else:
                  logger.error(f"Super Order Failed: {resp.status_code} {resp.text}")
                  return {"success": False, "error": resp.text}
@@ -834,6 +898,14 @@ class DhanClient:
             resp = requests.put(url, headers=headers, json=payload)
             if resp.status_code == 200:
                 return {"success": True, "data": resp.json()}
+            elif resp.status_code == 401:
+                logger.warning("Modify Super Target: 401 Unauthorized. Syncing token...")
+                if self._sync_token_from_redis():
+                    headers['access-token'] = self.access_token
+                    resp = requests.put(url, headers=headers, json=payload)
+                    if resp.status_code == 200:
+                        return {"success": True, "data": resp.json()}
+                return {"success": False, "error": f"Auth failed after sync: {resp.text}"}
             else:
                 logger.error(f"Modify Super Target Failed: {resp.status_code} {resp.text}")
                 return {"success": False, "error": resp.text}
@@ -841,7 +913,7 @@ class DhanClient:
             logger.error(f"Modify Super Target Exception: {e}")
             return {"success": False, "error": str(e)}
 
-    def modify_super_sl_leg(self, order_id, stop_loss_price, trailing_jump=5.0):
+    def modify_super_sl_leg(self, order_id, stop_loss_price, trailing_jump=1.0):
         """
         Modifies the Stop Loss Leg of a Super Order.
         """
@@ -872,6 +944,14 @@ class DhanClient:
             resp = requests.put(url, headers=headers, json=payload)
             if resp.status_code == 200:
                 return {"success": True, "data": resp.json()}
+            elif resp.status_code == 401:
+                logger.warning("Modify Super SL: 401 Unauthorized. Syncing token...")
+                if self._sync_token_from_redis():
+                    headers['access-token'] = self.access_token
+                    resp = requests.put(url, headers=headers, json=payload)
+                    if resp.status_code == 200:
+                        return {"success": True, "data": resp.json()}
+                return {"success": False, "error": f"Auth failed after sync: {resp.text}"}
             else:
                 logger.error(f"Modify Super SL Failed: {resp.status_code} {resp.text}")
                 return {"success": False, "error": resp.text}
@@ -916,6 +996,14 @@ class DhanClient:
             resp = requests.put(url, headers=headers, json=payload)
             if resp.status_code == 200:
                 return {"success": True, "data": resp.json()}
+            elif resp.status_code == 401:
+                logger.warning("Modify Super Entry: 401 Unauthorized. Syncing token...")
+                if self._sync_token_from_redis():
+                    headers['access-token'] = self.access_token
+                    resp = requests.put(url, headers=headers, json=payload)
+                    if resp.status_code == 200:
+                        return {"success": True, "data": resp.json()}
+                return {"success": False, "error": f"Auth failed after sync: {resp.text}"}
             else:
                 logger.error(f"Modify Super Entry Failed: {resp.status_code} {resp.text}")
                 return {"success": False, "error": resp.text}
@@ -947,6 +1035,14 @@ class DhanClient:
             # Docs say 202 Accepted, but 200 is also common
             if resp.status_code in [200, 202]:
                 return {"success": True, "data": resp.json() if resp.text else {}}
+            elif resp.status_code == 401:
+                logger.warning("Cancel Super Order: 401 Unauthorized. Syncing token...")
+                if self._sync_token_from_redis():
+                    headers['access-token'] = self.access_token
+                    resp = requests.delete(url, headers=headers)
+                    if resp.status_code in [200, 202]:
+                        return {"success": True, "data": resp.json() if resp.text else {}}
+                return {"success": False, "error": f"Auth failed after sync: {resp.text}"}
             else:
                 logger.error(f"Cancel Super Order Failed: {resp.status_code} {resp.text}")
                 return {"success": False, "error": resp.text}
@@ -973,6 +1069,23 @@ class DhanClient:
                 self.dhan = dhanhq(self.client_id, self.access_token)
                 logger.info("Dhan Client Re-initialized with new token.")
             return True
+        return False
+
+    def _sync_token_from_redis(self):
+        """
+        Checks Redis for a potentially newer token and refreshes the client if found.
+        Used to recover from 401 errors if another process updated the token.
+        """
+        if not self.r:
+            return False
+            
+        try:
+            latest_token = self.r.get("dhan_access_token")
+            if latest_token and latest_token != self.access_token:
+                logger.info("🔄 Newer token found in Redis. Syncing...")
+                return self.refresh_client(latest_token)
+        except Exception as e:
+            logger.error(f"Failed to sync token from Redis: {e}")
         return False
 
     def get_consent_url(self):

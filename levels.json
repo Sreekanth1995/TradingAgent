@@ -1,1 +1,4 @@
-{"TP0": {"low": 22800, "high": 22900}, "UTP1": {"low": 23000, "high": 23050}}
+[
+  {"name": "Base Pivot", "low": 22800, "high": 22900},
+  {"name": "Resistance Zone 1", "low": 23000, "high": 23050}
+]
