@@ -497,26 +497,6 @@
             color: #000;
         }
 
-        /* AI CONTEXT */
-        .context-area {
-            width: 100%;
-            height: 100px;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid var(--glass-border);
-            border-radius: 10px;
-            padding: 12px;
-            color: #fff;
-            font-size: 12px;
-            font-family: monospace;
-            resize: vertical;
-            margin-bottom: 12px;
-        }
-
-        .context-area:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
         /* AI LOGS */
         .ai-log-list {
             max-height: 200px;
@@ -662,51 +642,15 @@
                     <button class="save-btn" onclick="saveLevels()">Save Levels</button>
                 </section>
 
-                <!-- AI STRATEGY CONTEXT -->
+                <!-- ACTIVITY FEED -->
                 <section class="side-card">
-                    <div class="side-card-title">AI Strategy Context</div>
-                    <textarea id="ai-context" class="context-area"
-                        placeholder="Enter system prompt / strategy context for OpenAI signal analysis..."># CHANNEL-BASED SUPPORT & RESISTANCE STRATEGY
-
-## Core Concepts
-The configured price levels (TP0, UTP1, UTP2, LTP1, LTP2, etc.) act as dynamic trading channels. Every channel has a "High" and a "Low" boundary.
-1. **Resistance Rule:** When the price is moving UP, the **Low** level of any channel acts as strict resistance.
-2. **Support Rule:** When the price is falling DOWN, the **High** side of any channel acts as strict support.
-
-## Strict Entry Conditions (Gatekeeping Rules)
-
-### For BULLISH Signals (BUY / CALL Positions)
-The model must ONLY output ALLOW if the current spot price satisfies the following support/breakout condition:
-- The price is **NEAR AND ABOVE** the **High** level of an identified channel (e.g., TP0 High, UTP1 High, UTP2 High, LTP1 High, LTP2 High). 
-- *Rationale: The High level is acting as a newly established support base, or the price has cleanly broken out above it.*
-- If a BUY signal is generated while the price is struggling right at or below a channel's **Low** (Resistance), the signal MUST be REJECTED.
-
-### For BEARISH Signals (SELL / PUT Positions)
-The model must ONLY output ALLOW if the current spot price satisfies the following resistance/breakdown condition:
-- The price is **NEAR AND BELOW** the **Low** level of an identified channel (e.g., TP0 Low, UTP1 Low, UTP2 Low, LTP1 Low, LTP2 Low).
-- *Rationale: The Low level is acting as overhead resistance, or the price is breaking down below it.*
-- If a SELL signal is generated while the price is resting right at or above a channel's **High** (Support), the signal MUST be REJECTED.
-
-## AI Evaluation Checklist
-When evaluating the incoming webhook payload, follow these steps strictly:
-1. Identify if the signal is BULLISH (CALL) or BEARISH (PUT).
-2. Look at the Spot Price provided in the signal.
-3. Compare the Spot Price to the closest channel's High and Low levels provided in the Price Levels section.
-4. Check if the Spot Price confirms the logic (e.g., For a CALL, is the price >= Channel High? For a PUT, is the price <= Channel Low?).
-5. Output ALLOW only if the exact criteria are met. Otherwise, output REJECT.</textarea>
-                    <button class="save-btn" onclick="saveContext()">Save Context</button>
-                </section>
-
-                <!-- AI DECISION LOG -->
-                <section class="side-card">
-                    <div class="side-card-title">
-                        AI Decision Log
-                        <button style="background:none;border:none;color:var(--text-secondary);cursor:pointer;"
+                    <div class="side-card-title form-group" style="margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                        System Activity Feed
+                        <button class="settings-btn" style="padding: 2px 8px; font-size: 0.8rem; background: var(--border-color);" 
                             onclick="refreshAILogs()">↻</button>
                     </div>
-                    <div id="ai-logs" class="ai-log-list">
-                        <div class="ai-log-item" style="color: var(--text-secondary); text-align: center;">No logs yet.
-                        </div>
+                    <div id="ai-logs" class="ai-log-list" style="font-family: monospace; font-size: 0.85rem;">
+                        <div class="ai-log-item" style="color: var(--text-secondary); text-align: center;">No activity yet.</div>
                     </div>
                 </section>
             </div>
@@ -727,7 +671,6 @@ When evaluating the incoming webhook payload, follow these steps strictly:
                 document.getElementById('secret').value = savedSecret;
                 refreshState();
                 loadLevels();
-                loadContext();
                 refreshAILogs();
             }
             setInterval(refreshState, 5000);
@@ -943,62 +886,32 @@ When evaluating the incoming webhook payload, follow these steps strictly:
                 else notify(data.message, 'error');
             } catch (err) { notify('Failed to save levels', 'error'); }
         }
-
-        async function loadContext() {
-            const secret = document.getElementById('secret').value.trim();
-            if (!secret) return;
-            try {
-                const res = await fetch('/get-context', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret })
-                });
-                const data = await res.json();
-                if (data.status === 'success') document.getElementById('ai-context').value = data.context || '';
-            } catch (err) { }
-        }
-
-        async function saveContext() {
-            const secret = document.getElementById('secret').value.trim();
-            if (!secret) return notify('Secret required', 'error');
-            const context = document.getElementById('ai-context').value;
-            try {
-                const res = await fetch('/set-context', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret, context })
-                });
-                const data = await res.json();
-                if (data.status === 'success') notify('Context Saved Successfully', 'success');
-                else notify(data.message, 'error');
-            } catch (err) { notify('Failed to save context', 'error'); }
-        }
-
         async function refreshAILogs() {
             const secret = document.getElementById('secret').value.trim();
             if (!secret) return;
             try {
-                const res = await fetch('/get-ai-logs', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                const res = await fetch('/activity-logs', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ secret })
                 });
                 const data = await res.json();
-                if (data.status === 'success' && data.logs) {
-                    const list = document.getElementById('ai-logs');
-                    if (data.logs.length === 0) {
-                        list.innerHTML = `<div class="ai-log-item" style="color: var(--text-secondary); text-align: center;">No logs yet.</div>`;
-                        return;
-                    }
-                    // Reverse to show newest first
-                    list.innerHTML = data.logs.reverse().map(log => `
-                        <div class="ai-log-item">
-                            <div style="display:flex; justify-content:space-between;">
-                                <strong>${log.underlying} - ${log.direction}</strong>
-                                <span class="${['HOLD', 'REJECT', 'EXTERNAL'].includes(log.action) ? 'log-reject' : 'log-allow'}">${log.action} (${log.confidence}%)</span>
-                            </div>
-                            <div class="log-reason">${log.reason}</div>
-                        </div>
-                    `).join('');
+                
+                const container = document.getElementById('ai-logs');
+                if (data.status === 'success' && data.logs && data.logs.length > 0) {
+                    container.innerHTML = '';
+                    data.logs.forEach(log => {
+                        const div = document.createElement('div');
+                        div.className = 'ai-log-item';
+                        if(log.includes('🛑')) div.style.color = 'var(--danger)';
+                        else if(log.includes('✅')) div.style.color = 'var(--success)';
+                        else if(log.includes('❌')) div.style.color = 'var(--danger)';
+                        else if(log.includes('🧠')) div.style.color = 'var(--accent)';
+                        div.innerText = log;
+                        container.appendChild(div);
+                    });
                 }
-            } catch (err) { }
+            } catch (err) { console.error('Failed to parse activity logs', err); }
         }
 
 

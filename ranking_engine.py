@@ -25,14 +25,20 @@ class RankingEngine:
     Direct Signal Trading Engine.
     Handles BUY/SELL signals to manage simulated bracket orders (Entry + SL + Target).
     """
-    def __init__(self, broker):
+    def __init__(self, broker=None, is_dry_run=False, redis_client=None, activity_logs=None):
         """
         Initializes the RankingEngine with a broker and state storage.
         
         Args:
             broker: The broker client instance (e.g., DhanClient).
+            is_dry_run: Boolean, true if we should skip real broker calls.
+            redis_client: Optional Redis connection for persisting state across multiple workers.
+            activity_logs: Optional deque for pushing live frontend logs.
         """
         self.broker = broker
+        self.is_dry_run = is_dry_run
+        self.redis = redis_client
+        self.activity_logs = activity_logs
         self.use_redis = False
         self.memory_store = {}
         
@@ -355,13 +361,13 @@ class RankingEngine:
             # 4.1 Handle Opposite Side (PE)
             self._manage_opposite_orders(orders_by_id, 'PE', action_log)
             # 4.2 Handle Aligned Side (CE)
-            self._manage_aligned_orders(underlying, itm_ce, orders_by_id, 'CE', action_log, mode, is_scalping)
+            self._manage_aligned_orders(underlying, itm_ce, orders_by_id, 'CE', action_log, mode, leg_data, is_scalping)
             
         elif signal_type == 'S': # SELL (PE Aligned, CE Opposite)
             # 4.1 Handle Opposite Side (CE)
             self._manage_opposite_orders(orders_by_id, 'CE', action_log)
             # 4.2 Handle Aligned Side (PE)
-            self._manage_aligned_orders(underlying, itm_pe, orders_by_id, 'PE', action_log, mode, is_scalping)
+            self._manage_aligned_orders(underlying, itm_pe, orders_by_id, 'PE', action_log, mode, leg_data, is_scalping)
 
         elif signal_type == 'LONG_EXIT':
             logger.info(f"Strategy: Explicit LONG_EXIT for {underlying}")
@@ -407,7 +413,7 @@ class RankingEngine:
                     self.broker.modify_super_sl_leg(oid, new_sl)
                     action_log.append(f"MODIFIED_OPPOSITE_{side_to_manage}_EXIT")
 
-    def _manage_aligned_orders(self, underlying, itm_data, orders_by_id, side_to_manage, action_log, mode, is_scalping):
+    def _manage_aligned_orders(self, underlying, itm_data, orders_by_id, side_to_manage, action_log, mode, leg_data, is_scalping):
         """
         Aligned side logic:
         - If no order: Place new Native Super Order (Market Entry, 55/20/Config SL).
@@ -425,7 +431,9 @@ class RankingEngine:
             # side_to_manage is 'CE' or 'PE'
             side = 'CALL' if side_to_manage == 'CE' else 'PUT'
             logger.info(f"Strategy: Placing NEW {side} position for {underlying}")
-            new_state = self._open_position(underlying, side, {"quantity": 1}, is_scalping) # Default 1 lot
+            entry_data = leg_data.copy() if hasattr(leg_data, 'copy') else {}
+            if 'quantity' not in entry_data: entry_data['quantity'] = 1
+            new_state = self._open_position(underlying, side, entry_data, is_scalping)
             if new_state:
                 self._set_state(underlying, new_state) # Persist the new position state
                 action_log.append(f"OPENED_{side}")
@@ -510,10 +518,31 @@ class RankingEngine:
         })
         
         logger.info(f"Attempting Native Super Order for {symbol}. EntryLimit={entry_limit_price} (LTP={ltp}), SL={sl_price}, TGT={tgt_price}")
+        if self.is_dry_run:
+            msg = f"[BROKER] MOCK SUPER ORDER for {symbol}. EntryLimit={entry_limit_price} (LTP={ltp}), SL={sl_price}, TGT={tgt_price}"
+            logger.info(msg)
+            if self.activity_logs is not None:
+                self.activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+            logger.info(f"Native Super Order Placed: mock_bo_123")
+            return {
+                'side': 'CALL' if 'CE' in symbol else 'PUT',
+                'entry_id': 'mock_bo_123',
+                'symbol': symbol,
+                'security_id': sec_id,
+                'sl_id': "NATIVE_BO", 
+                'tgt_id': "NATIVE_BO",
+                'is_super_order': True,
+                'is_scalping': is_scalping,
+                'quantity': so_leg['quantity']
+            }
+
         resp = self.broker.place_super_order(symbol, so_leg)
         
         if resp.get('success'):
-            logger.info(f"Native Super Order Placed: {resp.get('order_id')}")
+            msg = f"Native Super Order Placed: {resp.get('order_id')}"
+            logger.info(msg)
+            if self.activity_logs is not None:
+                self.activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
             return {
                 'side': 'CALL' if 'CE' in symbol else 'PUT',
                 'entry_id': resp.get('order_id'),

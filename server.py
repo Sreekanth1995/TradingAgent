@@ -6,6 +6,8 @@ from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from ranking_engine import RankingEngine
 from broker_dhan import DhanClient
+from collections import deque
+from datetime import datetime
 
 # Load Environment Variables
 load_dotenv()
@@ -20,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
+
+# Live Activity Feed using deque (Thread-safe memory buffer)
+activity_logs = deque(maxlen=50)
 
 # Initialize Components with graceful error handling
 broker = None
@@ -174,15 +179,21 @@ def webhook():
             
             # Apply Feeling API Logic
             if feeling == 'BUY' and transaction_type == 'S':
-                logger.info(f"Ignored 'S' signal for {underlying} on {timeframe}m due to state feeling '{feeling}'")
+                msg = f"Ignored 'S' signal for {underlying} on {timeframe}m due to state feeling '{feeling}'"
+                logger.info(msg)
+                activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 🛑 {msg}")
                 results.append({"action": "IGNORED_DUE_TO_FEELING", "reason": f"State feeling is {feeling}, ignored S signal"})
                 continue
             if feeling == 'SELL' and transaction_type == 'B':
-                logger.info(f"Ignored 'B' signal for {underlying} on {timeframe}m due to state feeling '{feeling}'")
+                msg = f"Ignored 'B' signal for {underlying} on {timeframe}m due to state feeling '{feeling}'"
+                logger.info(msg)
+                activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 🛑 {msg}")
                 results.append({"action": "IGNORED_DUE_TO_FEELING", "reason": f"State feeling is {feeling}, ignored B signal"})
                 continue
                 
-            logger.info(f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe")
+            msg = f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe"
+            logger.info(msg)
+            activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 📡 {msg}")
 
             # 3. Process with Ranking Engine (Index-Based)
             mode = leg.get('mode', data.get('mode', 'regular')).lower()
@@ -253,7 +264,9 @@ def update_feeling():
                 state['feeling'] = feeling
                 engine._set_state(symbol, state)
                 updated.append({"symbol": symbol, "feeling": feeling})
-                logger.info(f"Updated Feeling State for {symbol}: {feeling}")
+                msg = f"Updated Feeling State for {symbol}: {feeling}"
+                logger.info(msg)
+                activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 🧠 {msg}")
                 
         return jsonify({"status": "success", "updated": updated}), 200
     except Exception as e:
@@ -355,6 +368,19 @@ def toggle_side():
     except Exception as e:
         logger.error(f"Toggle Side Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/activity-logs', methods=['POST', 'GET'])
+def get_activity_logs():
+    """
+    Returns the most recent system activity logs (signals received, orders placed, feelings updated).
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    # We still allow fetching logs safely if secrets match, or skip if internal dashboard UI does it passively.
+    # We will enforce secret check to match the existing UI logic.
+    if data and data.get('secret') and data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    return jsonify({"status": "success", "logs": list(activity_logs)}), 200
 
 @app.route('/ui-signal', methods=['POST'])
 def ui_signal():
