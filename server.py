@@ -167,6 +167,21 @@ def webhook():
                  continue
             
             transaction_type = leg.get('transactionType')
+            
+            # Fetch feeling from state (which is populated by /feeling API)
+            state = engine._get_state(underlying)
+            feeling = state.get('feeling', '').upper()
+            
+            # Apply Feeling API Logic
+            if feeling == 'BUY' and transaction_type == 'S':
+                logger.info(f"Ignored 'S' signal for {underlying} on {timeframe}m due to state feeling '{feeling}'")
+                results.append({"action": "IGNORED_DUE_TO_FEELING", "reason": f"State feeling is {feeling}, ignored S signal"})
+                continue
+            if feeling == 'SELL' and transaction_type == 'B':
+                logger.info(f"Ignored 'B' signal for {underlying} on {timeframe}m due to state feeling '{feeling}'")
+                results.append({"action": "IGNORED_DUE_TO_FEELING", "reason": f"State feeling is {feeling}, ignored B signal"})
+                continue
+                
             logger.info(f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe")
 
             # 3. Process with Ranking Engine (Index-Based)
@@ -208,6 +223,41 @@ def manual_exit():
         return jsonify({"status": "success", "message": "All positions closed and ranks reset successfully."}), 200
     except Exception as e:
         logger.error(f"Manual Exit Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/feeling', methods=['POST'])
+def update_feeling():
+    """
+    Endpoint to receive feeling logic (e.g. BUY/SELL market mood) on higher timeframes.
+    This limits TradingView webhook usage by storing state instead of multi-conditional alerts.
+    """
+    if not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+        
+    try:
+        data = request.get_json(force=True, silent=True)
+        if not data or data.get('secret') != SECRET:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        
+        legs = data.get('order_legs', [])
+        updated = []
+        
+        for leg in legs:
+            symbol = leg.get('symbol') or leg.get('ticker') or leg.get('underlying')
+            if not symbol:
+                continue
+            
+            feeling = leg.get('feeling', '').strip().upper()
+            if feeling in ['BUY', 'SELL']:
+                state = engine._get_state(symbol)
+                state['feeling'] = feeling
+                engine._set_state(symbol, state)
+                updated.append({"symbol": symbol, "feeling": feeling})
+                logger.info(f"Updated Feeling State for {symbol}: {feeling}")
+                
+        return jsonify({"status": "success", "updated": updated}), 200
+    except Exception as e:
+        logger.error(f"Update Feeling Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/get-state', methods=['POST'])
