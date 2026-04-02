@@ -114,9 +114,14 @@ class DhanClient:
         csv_file = "dhan_scrip_master.csv"
         url = "https://images.dhan.co/api-data/api-scrip-master.csv"
         
-        # Download if not exists or old (simplification: always download on startup or check existence)
-        if not os.path.exists(csv_file):
-            logger.info(f"Downloading Scrip Master from {url}...")
+        # Download if not exists or older than 12 hours
+        file_age_hours = 999
+        if os.path.exists(csv_file):
+            import time
+            file_age_hours = (time.time() - os.path.getmtime(csv_file)) / 3600
+
+        if file_age_hours > 12:
+            logger.info(f"Downloading fresh Scrip Master from {url}...")
             try:
                 r = requests.get(url, stream=True)
                 if r.status_code == 200:
