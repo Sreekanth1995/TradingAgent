@@ -342,19 +342,29 @@ class RankingEngine:
                 orders_by_id[oid] = {'legs': [], 'side': None, 'securityId': leg.get('securityId')}
             orders_by_id[oid]['legs'].append(leg)
             
-            # Identify side based on securityId or tradingSymbol (heuristic)
-            if leg.get('securityId') == itm_ce['security_id']:
+            # Identify side using exact security map reference
+            sec_id = leg.get('securityId')
+            
+            if sec_id == itm_ce['security_id']:
                 orders_by_id[oid]['side'] = 'CE'
-            elif leg.get('securityId') == itm_pe['security_id']:
+            elif sec_id == itm_pe['security_id']:
                 orders_by_id[oid]['side'] = 'PE'
             else:
-                # Fallback: Check tradingSymbol for Side identification
-                t_sym = str(leg.get('tradingSymbol') or '').upper()
-                if underlying.upper() in t_sym:
-                    if 'CE' in t_sym:
-                        orders_by_id[oid]['side'] = 'CE'
-                    elif 'PE' in t_sym:
-                        orders_by_id[oid]['side'] = 'PE'
+                # Robust reverse lookup: natively decode sec_id directly from Master Scrip map
+                # This guarantees side mapping even if the NIFTY spot price shifted the ITM baseline
+                info = self.broker.get_security_info(sec_id)
+                if info:
+                    sym, _, opt_type, _ = info
+                    if sym == underlying:
+                        orders_by_id[oid]['side'] = opt_type
+                else:
+                    # Final fallback: Check tradingSymbol payload logic
+                    t_sym = str(leg.get('tradingSymbol') or '').upper()
+                    if underlying.upper() in t_sym:
+                        if 'CE' in t_sym:
+                            orders_by_id[oid]['side'] = 'CE'
+                        elif 'PE' in t_sym:
+                            orders_by_id[oid]['side'] = 'PE'
 
         # 4. Strategy Processing
         if signal_type == 'B': # BUY (CE Aligned, PE Opposite)
