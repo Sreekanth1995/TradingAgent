@@ -369,23 +369,23 @@ class RankingEngine:
         # 4. Strategy Processing
         if signal_type == 'B': # BUY (CE Aligned, PE Opposite)
             # 4.1 Handle Opposite Side (PE)
-            self._manage_opposite_orders(orders_by_id, 'PE', action_log)
+            self._manage_opposite_orders(underlying, state, orders_by_id, 'PE', action_log)
             # 4.2 Handle Aligned Side (CE)
             self._manage_aligned_orders(underlying, itm_ce, orders_by_id, 'CE', action_log, mode, leg_data, is_scalping)
             
         elif signal_type == 'S': # SELL (PE Aligned, CE Opposite)
             # 4.1 Handle Opposite Side (CE)
-            self._manage_opposite_orders(orders_by_id, 'CE', action_log)
+            self._manage_opposite_orders(underlying, state, orders_by_id, 'CE', action_log)
             # 4.2 Handle Aligned Side (PE)
             self._manage_aligned_orders(underlying, itm_pe, orders_by_id, 'PE', action_log, mode, leg_data, is_scalping)
 
         elif signal_type == 'LONG_EXIT':
             logger.info(f"Strategy: Explicit LONG_EXIT for {underlying}")
-            self._manage_opposite_orders(orders_by_id, 'CE', action_log)
+            self._manage_opposite_orders(underlying, state, orders_by_id, 'CE', action_log)
 
         elif signal_type == 'SHORT_EXIT':
             logger.info(f"Strategy: Explicit SHORT_EXIT for {underlying}")
-            self._manage_opposite_orders(orders_by_id, 'PE', action_log)
+            self._manage_opposite_orders(underlying, state, orders_by_id, 'PE', action_log)
 
         return {
             "underlying": underlying,
@@ -395,33 +395,69 @@ class RankingEngine:
             "time": now_ist.strftime('%H:%M:%S')
         }
 
-    def _manage_opposite_orders(self, orders_by_id, side_to_manage, action_log):
+    def _manage_opposite_orders(self, underlying, state, orders_by_id, side_to_manage, action_log):
         """
         Opposite side logic:
-        - If Entry Leg exists: Cancel.
-        - If only Target/SL legs exist: Modify Target=LTP+1, SL=LTP-5.
+        - Completely square off the opposite position.
         """
+        closed_from_state = False
         for oid, order in orders_by_id.items():
             if order['side'] != side_to_manage:
                 continue
             
             leg_names = [l['legName'] for l in order['legs']]
             sec_id = order['securityId']
-            ltp = self.broker.get_ltp(sec_id) if sec_id else None
             
             if 'ENTRY_LEG' in leg_names:
                 logger.info(f"Strategy: Cancelling opposite {side_to_manage} super order {oid} (Entry active)")
                 self.broker.cancel_super_order(oid, 'ENTRY_LEG')
                 self._clear_state(underlying) # Clear state to reflect closure in UI
                 action_log.append(f"CANCELLED_{side_to_manage}_ENTRY")
-            elif 'TARGET_LEG' in leg_names and 'STOP_LOSS_LEG' in leg_names:
-                if ltp:
-                    new_tgt = ltp + 5
-                    new_sl = ltp - 5
-                    logger.info(f"Strategy: Modifying opposite {side_to_manage} {oid} -> TGT:{new_tgt}, SL:{new_sl}")
-                    self.broker.modify_super_target_leg(oid, new_tgt)
-                    self.broker.modify_super_sl_leg(oid, new_sl)
-                    action_log.append(f"MODIFIED_OPPOSITE_{side_to_manage}_EXIT")
+                state_sec_id = state.get('security_id')
+                if state_sec_id and str(state_sec_id) == str(sec_id):
+                    closed_from_state = True
+            elif 'TARGET_LEG' in leg_names or 'STOP_LOSS_LEG' in leg_names:
+                logger.info(f"Strategy: Closing opposite {side_to_manage} {oid}")
+                # Check if it corresponds to the current state
+                state_sec_id = state.get('security_id')
+                if state_sec_id and str(state_sec_id) == str(sec_id):
+                    self._close_position_market(underlying, state)
+                    action_log.append(f"CLOSED_OPPOSITE_{side_to_manage}")
+                    closed_from_state = True
+                else:
+                    # Manually close orphan position
+                    if 'TARGET_LEG' in leg_names:
+                        self.broker.cancel_super_order(oid, 'TARGET_LEG')
+                    if 'STOP_LOSS_LEG' in leg_names:
+                        self.broker.cancel_super_order(oid, 'STOP_LOSS_LEG')
+                    
+                    info = self.broker.get_security_info(sec_id)
+                    if info:
+                        sym = info[0]
+                        qty = 0
+                        for pos in self.broker.get_positions():
+                            if str(pos.get('securityId')) == str(sec_id):
+                                qty = abs(int(pos.get('netQty', 0)))
+                                break
+                        if qty > 0:
+                            self.broker.place_order(sym, {
+                                'security_id': sec_id,
+                                'quantity': qty,
+                                'transaction_type': 'SELL',
+                                'order_type': 'MARKET',
+                                'product_type': 'MARGIN'
+                            })
+                    self._clear_state(underlying)
+                    action_log.append(f"CLOSED_OPPOSITE_{side_to_manage}")
+
+        # Also check if opposite position is active in state (but wasn't in Super Orders)
+        if not closed_from_state:
+            state_side = state.get('side', 'NONE')
+            target_state_side = 'CALL' if side_to_manage == 'CE' else 'PUT'
+            if state_side == target_state_side:
+                logger.info(f"Strategy: Closing opposite {target_state_side} position from state")
+                self._close_position_market(underlying, state)
+                action_log.append(f"CLOSED_OPPOSITE_{side_to_manage}")
 
     def _manage_aligned_orders(self, underlying, itm_data, orders_by_id, side_to_manage, action_log, mode, leg_data, is_scalping):
         """
