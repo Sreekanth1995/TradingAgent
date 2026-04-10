@@ -96,7 +96,19 @@ class RankingEngine:
             self.memory_store[key] = state
 
     def _clear_state(self, underlying):
+        """Clears the state and cancels associated conditional orders."""
+        state = self._get_state(underlying)
+        self._cancel_active_conditional_orders(underlying, state)
         self._set_state(underlying, {'side': 'NONE'})
+
+    def _cancel_active_conditional_orders(self, underlying, state):
+        """Cancels associated Dhan Alert triggers (GTT) if they exist in state."""
+        alert_keys = ('conditional_target_alert_id', 'conditional_sl_alert_id')
+        for key in alert_keys:
+            alert_id = state.get(key)
+            if alert_id:
+                logger.info(f"Cleanup: Cancelling conditional order {alert_id} for {underlying}")
+                self.broker.cancel_conditional_order(alert_id)
 
     def _get_params(self, underlying, is_scalping=False):
         """Returns the configuration for the given underlying."""

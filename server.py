@@ -538,6 +538,13 @@ def set_conditional_orders():
         lot_size = broker.lot_map.get(str(sec_id), 1)
         actual_qty = quantity * lot_size
 
+        # Resolve product type: default to MARGIN as used in RankingEngine square-offs
+        product_type = state.get('product_type', 'MARGIN')
+        
+        # Determine transaction side: Strategy is Long CE/PE, so Exit is always SELL
+        # If we ever support Shorting, this would need to be BUY for PE/CE shorts.
+        tx_type = "SELL"
+
         # Cancel any pre-existing conditional orders for this position
         for key in ('conditional_target_alert_id', 'conditional_sl_alert_id'):
             existing = state.get(key)
@@ -550,7 +557,9 @@ def set_conditional_orders():
             exchange_seg="NSE_FNO",
             quantity=actual_qty,
             operator="CROSSING_UP",
-            comparing_value=float(target_price)
+            comparing_value=float(target_price),
+            transaction_type=tx_type,
+            product_type=product_type
         )
 
         # SL: SELL when LTP crosses DOWN below sl_price
@@ -559,7 +568,9 @@ def set_conditional_orders():
             exchange_seg="NSE_FNO",
             quantity=actual_qty,
             operator="CROSSING_DOWN",
-            comparing_value=float(sl_price)
+            comparing_value=float(sl_price),
+            transaction_type=tx_type,
+            product_type=product_type
         )
 
         # Persist alert IDs in state

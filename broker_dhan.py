@@ -755,7 +755,7 @@ class DhanClient:
             return []
 
 
-    def place_conditional_order(self, sec_id, exchange_seg, quantity, operator, comparing_value):
+    def place_conditional_order(self, sec_id, exchange_seg, quantity, operator, comparing_value, transaction_type="SELL", product_type="MARGIN"):
         """
         Places a Dhan Conditional Trigger Order (GTT-style).
         When option LTP crosses `comparing_value` via `operator`, a SELL MARKET order fires.
@@ -763,9 +763,12 @@ class DhanClient:
         operator: "CROSSING_UP" for target exit, "CROSSING_DOWN" for SL exit.
         Returns: {"success": bool, "alert_id": str|None, "error": str|None}
         """
+        # Ensure price is rounded to 0.05 tick
+        comparing_value = self._round_to_tick(comparing_value)
+
         if self.dry_run:
             mock_id = f"DRY_{operator}_{comparing_value}"
-            logger.info(f"[DRY RUN] Conditional Order: {operator} @ {comparing_value} secId={sec_id}")
+            logger.info(f"[DRY RUN] Conditional Order: {transaction_type} {operator} @ {comparing_value} secId={sec_id} Prod={product_type}")
             return {"success": True, "alert_id": mock_id, "error": None}
 
         if not self.client_id or not self.access_token:
@@ -793,9 +796,9 @@ class DhanClient:
                 "frequency": "ONCE"
             },
             "orders": [{
-                "transactionType": "SELL",
+                "transactionType": transaction_type,
                 "exchangeSegment": exchange_seg,
-                "productType": "INTRADAY",
+                "productType": product_type,
                 "orderType": "MARKET",
                 "securityId": str(sec_id),
                 "quantity": int(quantity),
