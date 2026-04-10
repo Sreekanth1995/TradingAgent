@@ -755,6 +755,101 @@ class DhanClient:
             return []
 
 
+    def place_conditional_order(self, sec_id, exchange_seg, quantity, operator, comparing_value):
+        """
+        Places a Dhan Conditional Trigger Order (GTT-style).
+        When option LTP crosses `comparing_value` via `operator`, a SELL MARKET order fires.
+
+        operator: "CROSSING_UP" for target exit, "CROSSING_DOWN" for SL exit.
+        Returns: {"success": bool, "alert_id": str|None, "error": str|None}
+        """
+        if self.dry_run:
+            mock_id = f"DRY_{operator}_{comparing_value}"
+            logger.info(f"[DRY RUN] Conditional Order: {operator} @ {comparing_value} secId={sec_id}")
+            return {"success": True, "alert_id": mock_id, "error": None}
+
+        if not self.client_id or not self.access_token:
+            return {"success": False, "alert_id": None, "error": "Missing credentials"}
+
+        import pytz
+        IST = pytz.timezone('Asia/Kolkata')
+        exp_date = datetime.now(IST).strftime('%Y-%m-%d')
+
+        url = "https://api.dhan.co/v2/alerts/orders"
+        headers = {
+            'Content-Type': 'application/json',
+            'access-token': self.access_token,
+            'client-id': self.client_id
+        }
+        payload = {
+            "dhanClientId": self.client_id,
+            "condition": {
+                "comparisonType": "LTP_WITH_VALUE",
+                "exchangeSegment": exchange_seg,
+                "securityId": str(sec_id),
+                "operator": operator,
+                "comparingValue": float(comparing_value),
+                "expDate": exp_date,
+                "frequency": "ONCE"
+            },
+            "orders": [{
+                "transactionType": "SELL",
+                "exchangeSegment": exchange_seg,
+                "productType": "INTRADAY",
+                "orderType": "MARKET",
+                "securityId": str(sec_id),
+                "quantity": int(quantity),
+                "validity": "DAY",
+                "price": "0",
+                "discQuantity": "0",
+                "triggerPrice": "0"
+            }]
+        }
+        try:
+            resp = requests.post(url, headers=headers, json=payload)
+            if resp.status_code in [200, 201]:
+                data = resp.json()
+                alert_id = data.get('alertId') or (data.get('data') or {}).get('alertId')
+                logger.info(f"Conditional order placed: alertId={alert_id}, op={operator}, val={comparing_value}")
+                return {"success": True, "alert_id": alert_id, "error": None}
+            else:
+                logger.error(f"Conditional order failed: {resp.status_code} {resp.text}")
+                return {"success": False, "alert_id": None, "error": resp.text}
+        except Exception as e:
+            logger.error(f"Conditional order exception: {e}")
+            return {"success": False, "alert_id": None, "error": str(e)}
+
+    def cancel_conditional_order(self, alert_id):
+        """
+        Cancels an active Dhan Conditional Trigger by alertId.
+        Returns: {"success": bool}
+        """
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Cancel conditional order alertId={alert_id}")
+            return {"success": True}
+
+        if not self.access_token:
+            return {"success": False, "error": "Missing credentials"}
+
+        url = f"https://api.dhan.co/v2/alerts/orders/{alert_id}"
+        headers = {
+            'Content-Type': 'application/json',
+            'access-token': self.access_token,
+            'client-id': self.client_id
+        }
+        try:
+            resp = requests.delete(url, headers=headers)
+            if resp.status_code in [200, 204]:
+                logger.info(f"Conditional order cancelled: alertId={alert_id}")
+                return {"success": True}
+            else:
+                logger.error(f"Cancel conditional order failed: {resp.status_code} {resp.text}")
+                return {"success": False, "error": resp.text}
+        except Exception as e:
+            logger.error(f"Cancel conditional order exception: {e}")
+            return {"success": False, "error": str(e)}
+
+
     def place_super_order(self, symbol, leg_data):
         """
         Places a Native Bracket Order (Super Order) using Dhan API v2.

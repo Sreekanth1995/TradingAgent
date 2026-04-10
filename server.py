@@ -497,6 +497,134 @@ def volume_alert():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route('/set-conditional-orders', methods=['POST'])
+def set_conditional_orders():
+    """
+    Creates Dhan Conditional Trigger orders (GTT) for Target and SL on an open position.
+    Payload: { secret, underlying, side ('CALL'|'PUT'), target_price, sl_price }
+    """
+    if not broker or not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY')
+    side = data.get('side', '').upper()
+    target_price = data.get('target_price')
+    sl_price = data.get('sl_price')
+
+    if side not in ['CALL', 'PUT']:
+        return jsonify({"status": "error", "message": "side must be CALL or PUT"}), 400
+    if not target_price or not sl_price:
+        return jsonify({"status": "error", "message": "target_price and sl_price are required"}), 400
+    if float(sl_price) >= float(target_price):
+        return jsonify({"status": "error", "message": "sl_price must be less than target_price"}), 400
+
+    try:
+        state = engine._get_state(underlying)
+        if state.get('side', 'NONE') == 'NONE':
+            return jsonify({"status": "error", "message": "No open position — open a position first"}), 400
+
+        sec_id = state.get('security_id')
+        symbol = state.get('symbol', underlying)
+        quantity = int(state.get('quantity', 1))
+
+        if not sec_id:
+            return jsonify({"status": "error", "message": "No security_id in state; position may not be broker-placed"}), 400
+
+        # Convert lots → actual quantity using lot map
+        lot_size = broker.lot_map.get(str(sec_id), 1)
+        actual_qty = quantity * lot_size
+
+        # Cancel any pre-existing conditional orders for this position
+        for key in ('conditional_target_alert_id', 'conditional_sl_alert_id'):
+            existing = state.get(key)
+            if existing:
+                broker.cancel_conditional_order(existing)
+
+        # Target: SELL when LTP crosses UP above target_price
+        tgt_result = broker.place_conditional_order(
+            sec_id=sec_id,
+            exchange_seg="NSE_FNO",
+            quantity=actual_qty,
+            operator="CROSSING_UP",
+            comparing_value=float(target_price)
+        )
+
+        # SL: SELL when LTP crosses DOWN below sl_price
+        sl_result = broker.place_conditional_order(
+            sec_id=sec_id,
+            exchange_seg="NSE_FNO",
+            quantity=actual_qty,
+            operator="CROSSING_DOWN",
+            comparing_value=float(sl_price)
+        )
+
+        # Persist alert IDs in state
+        state['conditional_target_alert_id'] = tgt_result.get('alert_id')
+        state['conditional_sl_alert_id'] = sl_result.get('alert_id')
+        state['conditional_target_price'] = float(target_price)
+        state['conditional_sl_price'] = float(sl_price)
+        engine._set_state(underlying, state)
+
+        msg = f"GTT orders set for {symbol}: Target={target_price}, SL={sl_price}"
+        logger.info(msg)
+        activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 🎯 {msg}")
+
+        return jsonify({
+            "status": "success",
+            "symbol": symbol,
+            "target_alert_id": tgt_result.get('alert_id'),
+            "sl_alert_id": sl_result.get('alert_id'),
+            "target_error": tgt_result.get('error'),
+            "sl_error": sl_result.get('error')
+        }), 200
+    except Exception as e:
+        logger.error(f"Set Conditional Orders Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/cancel-conditional-orders', methods=['POST'])
+def cancel_conditional_orders():
+    """
+    Cancels active GTT conditional orders for a position.
+    Payload: { secret, underlying }
+    """
+    if not broker or not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY')
+    try:
+        state = engine._get_state(underlying)
+        tgt_id = state.get('conditional_target_alert_id')
+        sl_id = state.get('conditional_sl_alert_id')
+
+        results = []
+        for alert_id in filter(None, [tgt_id, sl_id]):
+            r = broker.cancel_conditional_order(alert_id)
+            results.append({"alert_id": alert_id, "cancelled": r.get("success")})
+
+        # Clear from state
+        for key in ('conditional_target_alert_id', 'conditional_sl_alert_id',
+                    'conditional_target_price', 'conditional_sl_price'):
+            state.pop(key, None)
+        engine._set_state(underlying, state)
+
+        msg = f"GTT orders cancelled for {underlying}"
+        activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ {msg}")
+
+        return jsonify({"status": "success", "cancelled": results}), 200
+    except Exception as e:
+        logger.error(f"Cancel Conditional Orders Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route('/set-levels', methods=['POST'])
 def set_levels():
     data = request.get_json(force=True, silent=True)

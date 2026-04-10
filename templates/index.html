@@ -536,6 +536,94 @@
             color: var(--text-secondary);
             letter-spacing: 0.05em;
         }
+
+        /* CONDITIONAL ORDERS */
+        .cond-panel {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed var(--glass-border);
+        }
+
+        .cond-panel-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 10px;
+        }
+
+        .cond-row {
+            display: grid;
+            grid-template-columns: 55px 1fr 1fr;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .cond-label {
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .cond-label.target { color: var(--success); }
+        .cond-label.sl     { color: var(--danger);  }
+
+        .cond-input {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 8px;
+            color: #fff;
+            font-size: 12px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .cond-input:focus { outline: none; border-color: var(--accent); }
+
+        .cond-btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .cond-set-btn {
+            background: rgba(0, 242, 254, 0.1);
+            color: var(--accent);
+            border: 1px solid var(--accent-glow);
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .cond-set-btn:hover { background: var(--accent); color: #000; }
+
+        .cond-cancel-btn {
+            background: rgba(239, 68, 68, 0.08);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .cond-cancel-btn:hover { background: var(--danger); color: #fff; }
+
+        .cond-status {
+            margin-top: 6px;
+            font-size: 10px;
+            font-family: monospace;
+            color: var(--text-secondary);
+            min-height: 14px;
+        }
     </style>
 </head>
 
@@ -595,6 +683,25 @@
                             <button id="btn-exit-call" class="btn btn-exit" onclick="agentAPI.sendUIAction('EXIT_CALL')"
                                 data-action="exit-call" aria-label="Exit NIFTY Call position">EXIT</button>
                         </div>
+                        <!-- Conditional Orders: CALL -->
+                        <div class="cond-panel">
+                            <div class="cond-panel-title">Conditional Exit (GTT)</div>
+                            <div class="cond-row">
+                                <span class="cond-label target">Target</span>
+                                <input type="number" id="call-target" class="cond-input" placeholder="Price" step="0.5" aria-label="Call target price">
+                                <span style="font-size:10px;color:var(--text-secondary)">LTP crosses UP</span>
+                            </div>
+                            <div class="cond-row">
+                                <span class="cond-label sl">SL</span>
+                                <input type="number" id="call-sl" class="cond-input" placeholder="Price" step="0.5" aria-label="Call stop loss price">
+                                <span style="font-size:10px;color:var(--text-secondary)">LTP crosses DOWN</span>
+                            </div>
+                            <div class="cond-btn-row">
+                                <button class="cond-set-btn" onclick="setConditionalOrders('CALL')">Set GTT</button>
+                                <button class="cond-cancel-btn" onclick="cancelConditionalOrders('CALL')">Cancel GTT</button>
+                            </div>
+                            <div id="cond-status-call" class="cond-status"></div>
+                        </div>
                     </div>
 
                     <!-- PUT SECTOR -->
@@ -609,6 +716,25 @@
                             </div>
                             <button id="btn-exit-put" class="btn btn-exit" onclick="agentAPI.sendUIAction('EXIT_PUT')"
                                 data-action="exit-put" aria-label="Exit NIFTY Put position">EXIT</button>
+                        </div>
+                        <!-- Conditional Orders: PUT -->
+                        <div class="cond-panel">
+                            <div class="cond-panel-title">Conditional Exit (GTT)</div>
+                            <div class="cond-row">
+                                <span class="cond-label target">Target</span>
+                                <input type="number" id="put-target" class="cond-input" placeholder="Price" step="0.5" aria-label="Put target price">
+                                <span style="font-size:10px;color:var(--text-secondary)">LTP crosses UP</span>
+                            </div>
+                            <div class="cond-row">
+                                <span class="cond-label sl">SL</span>
+                                <input type="number" id="put-sl" class="cond-input" placeholder="Price" step="0.5" aria-label="Put stop loss price">
+                                <span style="font-size:10px;color:var(--text-secondary)">LTP crosses DOWN</span>
+                            </div>
+                            <div class="cond-btn-row">
+                                <button class="cond-set-btn" onclick="setConditionalOrders('PUT')">Set GTT</button>
+                                <button class="cond-cancel-btn" onclick="cancelConditionalOrders('PUT')">Cancel GTT</button>
+                            </div>
+                            <div id="cond-status-put" class="cond-status"></div>
                         </div>
                     </div>
                 </section>
@@ -721,6 +847,18 @@
             // Active Position Labels
             document.getElementById('stat-CALL').style.display = trend === 'CALL' ? 'block' : 'none';
             document.getElementById('stat-PUT').style.display = trend === 'PUT' ? 'block' : 'none';
+
+            // Restore GTT prices from state if set
+            if (state.conditional_target_price) {
+                const prefix = trend === 'PUT' ? 'put' : 'call';
+                const tEl = document.getElementById(`${prefix}-target`);
+                const sEl = document.getElementById(`${prefix}-sl`);
+                const stEl = document.getElementById(`cond-status-${prefix}`);
+                if (tEl && !tEl.value) tEl.value = state.conditional_target_price;
+                if (sEl && !sEl.value) sEl.value = state.conditional_sl_price;
+                if (stEl && !stEl.textContent)
+                    stEl.textContent = `✅ GTT active — T:${state.conditional_target_price}  SL:${state.conditional_sl_price}`;
+            }
         }
 
         async function sendUIAction(action, skipConfirm = false) {
@@ -915,6 +1053,69 @@
         }
 
 
+        async function setConditionalOrders(side, opts = {}) {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return notify('Webhook secret required', 'error');
+
+            const prefix = side === 'CALL' ? 'call' : 'put';
+            const target = opts.target_price ?? parseFloat(document.getElementById(`${prefix}-target`).value);
+            const sl     = opts.sl_price    ?? parseFloat(document.getElementById(`${prefix}-sl`).value);
+            const statusEl = document.getElementById(`cond-status-${prefix}`);
+
+            if (!target || !sl) return notify('Enter both Target and SL prices', 'error');
+            if (sl >= target) return notify('SL must be below Target', 'error');
+
+            statusEl.textContent = 'Setting GTT orders...';
+            try {
+                const resp = await fetch('/set-conditional-orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret, underlying: 'NIFTY', side, target_price: target, sl_price: sl })
+                });
+                const data = await resp.json();
+                if (data.status === 'success') {
+                    statusEl.textContent = `✅ GTT set — Target: ${target}  SL: ${sl}`;
+                    notify(`✅ GTT orders set for ${side}: T=${target} SL=${sl}`, 'success');
+                } else {
+                    statusEl.textContent = `❌ ${data.message}`;
+                    notify(`❌ ${data.message}`, 'error');
+                }
+            } catch (err) {
+                statusEl.textContent = '❌ Network error';
+                notify('❌ Connection error', 'error');
+            }
+        }
+
+        async function cancelConditionalOrders(side) {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return notify('Webhook secret required', 'error');
+
+            const prefix = side === 'CALL' ? 'call' : 'put';
+            const statusEl = document.getElementById(`cond-status-${prefix}`);
+
+            statusEl.textContent = 'Cancelling GTT orders...';
+            try {
+                const resp = await fetch('/cancel-conditional-orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret, underlying: 'NIFTY' })
+                });
+                const data = await resp.json();
+                if (data.status === 'success') {
+                    statusEl.textContent = 'GTT orders cancelled';
+                    document.getElementById(`${prefix}-target`).value = '';
+                    document.getElementById(`${prefix}-sl`).value = '';
+                    notify(`GTT orders cancelled for ${side}`, 'success');
+                } else {
+                    statusEl.textContent = `❌ ${data.message}`;
+                    notify(`❌ ${data.message}`, 'error');
+                }
+            } catch (err) {
+                statusEl.textContent = '❌ Network error';
+                notify('❌ Connection error', 'error');
+            }
+        }
+
         /**
          * AI Agent API
          * ─────────────────────────────────────────────────────────────
@@ -929,6 +1130,8 @@
          *   await window.agentAPI.sendUIAction('EXIT_PUT')
          *   await window.agentAPI.emergencyExit()          // Exit all positions
          *   window.agentAPI.getState()                     // Get current UI state
+         *   await window.agentAPI.setConditionalOrders('CALL', { target_price: 250, sl_price: 150 })
+         *   await window.agentAPI.cancelConditionalOrders('CALL')
          */
         window.agentAPI = {
             setSecret: (s) => { document.getElementById('secret').value = s; localStorage.setItem('agent_secret', s); },
@@ -942,7 +1145,9 @@
                 putActive: document.getElementById('stat-PUT').style.display !== 'none',
                 statusMsg: document.getElementById('status-msg').textContent
             }),
-            refresh: () => refreshState()
+            refresh: () => refreshState(),
+            setConditionalOrders: (side, opts) => setConditionalOrders(side, opts),
+            cancelConditionalOrders: (side) => cancelConditionalOrders(side)
         };
     </script>
 </body>
