@@ -31,8 +31,18 @@ broker = None
 engine = None
 init_error = None
 
+USE_MOCK = os.getenv("USE_MOCK_API", "false").lower() == "true"
+
 try:
-    broker = DhanClient()
+    if USE_MOCK:
+        from broker_mock import MockDhanClient
+        broker = MockDhanClient()
+        logger.info("🛠️  Running in MOCK API MODE - Using broker_mock.py")
+    else:
+        from broker_dhan import DhanClient
+        broker = DhanClient()
+        logger.info("🔗 Running in LIVE API MODE - Using broker_dhan.py")
+        
     engine = RankingEngine(broker)
     logger.info("✅ System Initialized Successfully")
 except Exception as e:
@@ -43,6 +53,29 @@ except Exception as e:
 # In-memory stores (persisted to JSON files for restart survival)
 _LEVELS_FILE = "levels.json"
 _CONTEXT_FILE = "ai_context.txt"
+_HISTORY_FILE = "trade_history.json"
+
+def _load_history():
+    try:
+        if os.path.exists(_HISTORY_FILE):
+             with open(_HISTORY_FILE) as f:
+                 return json.load(f)
+        return []
+    except Exception as e:
+        logger.error(f"Error loading history: {e}")
+        return []
+
+def _save_history(data):
+    try:
+        with open(_HISTORY_FILE, 'w') as f:
+            json.dump(data[-50:], f) # Keep last 50 trades
+    except Exception as e:
+        logger.error(f"Error saving history: {e}")
+
+def _add_to_history(trade):
+    history = _load_history()
+    history.append(trade)
+    _save_history(history)
 
 def _load_levels():
     """
@@ -364,6 +397,12 @@ def get_state():
             idx_state = engine._get_state(idx)
             range_tracker[idx] = idx_state.get('range_position', 'INSIDE')
 
+        # NEW: Capture any newly completed trades from mock broker
+        if hasattr(broker, 'get_completed_trades'):
+            recent_trades = broker.get_completed_trades()
+            for trade in recent_trades:
+                _add_to_history(trade)
+
         return jsonify({
             "status": "success", 
             "state": state,
@@ -372,6 +411,26 @@ def get_state():
         }), 200
     except Exception as e:
         logger.error(f"Get State Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/get-history', methods=['POST'])
+def get_history():
+    """
+    Returns the persistent trade history.
+    """
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    try:
+        history = _load_history()
+        # Return reversed to show newest first
+        return jsonify({
+            "status": "success",
+            "history": list(reversed(history))
+        }), 200
+    except Exception as e:
+        logger.error(f"Get History Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

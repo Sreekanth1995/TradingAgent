@@ -346,6 +346,71 @@
             text-align: center;
         }
 
+        /* TRADE HISTORY */
+        .history-container {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .history-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .history-card:hover { background: rgba(255, 255, 255, 0.06); }
+
+        .hist-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .hist-symbol { font-weight: 700; color: #fff; }
+        .hist-time { font-size: 10px; color: var(--text-secondary); }
+
+        .hist-badges { display: flex; gap: 6px; }
+        .badge {
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .badge-target { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+        .badge-sl     { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+        .badge-call   { background: rgba(0, 242, 254, 0.1); color: var(--accent); }
+        .badge-put    { background: rgba(255, 170, 0, 0.1); color: orange; }
+
+        .hist-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 8px;
+        }
+
+        .hist-stats { display: flex; flex-direction: column; gap: 2px; }
+        .hist-stats label { font-size: 9px; color: var(--text-secondary); text-transform: uppercase; }
+        .hist-stats span { font-weight: 700; color: #fff; }
+
+        .hist-pnl { text-align: right; }
+        .pnl-val { font-size: 14px; font-weight: 800; }
+        .pnl-val.profit { color: var(--success); }
+        .pnl-val.loss   { color: var(--danger); }
+
         /* COMMAND SECTORS */
         .command-center {
             display: flex;
@@ -783,6 +848,13 @@
                         <div class="no-positions">No active positions currently detected</div>
                     </div>
 
+                    <div class="history-container">
+                        <div class="sector-title">Live Performance History</div>
+                        <div id="history-list" class="history-list">
+                            <div class="no-positions" style="padding: 15px;">No historical trades recorded yet.</div>
+                        </div>
+                    </div>
+
                     <div id="val-symbol" class="monitor-symbol" style="display:none"></div>
                 </section>
 
@@ -935,16 +1007,28 @@
             localStorage.setItem('agent_secret', secret);
 
             try {
-                const response = await fetch('/get-state', {
+                // 1. Fetch State & Active Positions
+                const stateResp = await fetch('/get-state', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ secret, underlying: 'NIFTY' })
                 });
-                const data = await response.json();
-                if (data.status === 'success') {
-                    updateUI(data);
+                const stateData = await stateResp.json();
+                if (stateData.status === 'success') {
+                    updateUI(stateData);
                 }
-            } catch (err) { console.error('State Sync Failed', err); }
+
+                // 2. Fetch Trade History
+                const histResp = await fetch('/get-history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret })
+                });
+                const histData = await histResp.json();
+                if (histData.status === 'success') {
+                    updateHistoryUI(histData.history);
+                }
+            } catch (err) { console.error('Data Sync Failed', err); }
         }
 
         function renderPositionCard(pos) {
@@ -983,6 +1067,46 @@
                     </div>
                 </div>
             `;
+        }
+
+        function renderHistoryCard(trade) {
+            const isProfit = trade.pnl_abs >= 0;
+            const pnlClass = isProfit ? 'profit' : 'loss';
+            const sign = isProfit ? '+' : '';
+            const badgeClass = trade.reason === 'TARGET_HIT' ? 'badge-target' : 'badge-sl';
+            const sideClass = trade.side === 'CALL' ? 'badge-call' : 'badge-put';
+
+            return `
+                <div class="history-card">
+                    <div class="hist-header">
+                        <span class="hist-symbol">${trade.symbol}</span>
+                        <span class="hist-time">${trade.exit_time}</span>
+                    </div>
+                    <div class="hist-badges" style="margin-bottom: 8px;">
+                        <span class="badge ${sideClass}">${trade.side}</span>
+                        <span class="badge ${badgeClass}">${trade.reason.replace('_', ' ')}</span>
+                    </div>
+                    <div class="hist-grid">
+                        <div class="hist-stats">
+                            <label>Entry/Exit</label>
+                            <span>₹${trade.entry_price} → ₹${trade.exit_price}</span>
+                        </div>
+                        <div class="hist-pnl">
+                            <label>Realized PnL</label>
+                            <div class="pnl-val ${pnlClass}">${sign}₹${trade.pnl_abs} (${sign}${trade.pnl_pct}%)</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateHistoryUI(history) {
+            const histEl = document.getElementById('history-list');
+            if (history && history.length > 0) {
+                histEl.innerHTML = history.map(t => renderHistoryCard(t)).join('');
+            } else {
+                histEl.innerHTML = '<div class="no-positions" style="padding: 15px;">No historical trades recorded yet.</div>';
+            }
         }
 
         function updateUI(data) {
