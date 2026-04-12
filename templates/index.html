@@ -160,32 +160,6 @@
             color: var(--text-secondary);
         }
 
-        .live-badge {
-            font-size: 10px;
-            font-weight: 800;
-            padding: 4px 10px;
-            background: rgba(34, 197, 94, 0.15);
-            color: var(--success);
-            border-radius: 20px;
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            display: none;
-            animation: pulse-light 2s infinite;
-        }
-
-        @keyframes pulse-light {
-            0% {
-                opacity: 0.5;
-            }
-
-            50% {
-                opacity: 1;
-                text-shadow: 0 0 10px var(--success);
-            }
-
-            100% {
-                opacity: 0.5;
-            }
-        }
 
         .monitor-grid {
             display: grid;
@@ -841,7 +815,6 @@
                             <span id="range-NIFTY">NIFTY: --</span>
                             <span id="range-BANKNIFTY">BNIFTY: --</span>
                         </div>
-                        <span id="badge-live" class="live-badge" aria-live="polite">● LIVE</span>
                     </div>
                     
                     <div id="active-positions-list">
@@ -1134,7 +1107,6 @@
 
             // 3. Update NIFTY status markers (Backward compatibility for badges/GTT)
             const trend = state.side || 'IDLE';
-            document.getElementById('badge-live').style.display = trend !== 'IDLE' ? 'inline-block' : 'none';
             document.getElementById('stat-CALL').style.display = trend === 'CALL' ? 'block' : 'none';
             document.getElementById('stat-PUT').style.display = trend === 'PUT' ? 'block' : 'none';
 
