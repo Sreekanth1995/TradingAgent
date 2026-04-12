@@ -19,7 +19,16 @@ Goal: Refine exit logic and add multi-timeframe signal support.
 
 ## Milestone 0.2.0: Dashboard & Monitoring
 
-### Phase 3: Web Dashboard & Control Panel
+### Phase 3: Web Dashboard & Control Panel [COMPLETED]
 Goal: Visual monitoring and manual overrides.
-- [ ] Build Flask dashboard with position status.
-- [ ] Add "Toggle Side" and "Emergency Exit" controls.
+- [x] Build Flask dashboard with position status.
+- [x] Add "Emergency Exit" control.
+- [x] Integrated Range Tracker API & UI.
+**Depends on**: 1, 2
+
+### Phase 4: Positions Container
+Goal: Display real-time summary of currently opened positions including PnL and strike details on the dashboard.
+- [ ] Implement backend endpoint `/get-positions` or enhance `/get-state`.
+- [ ] Build a "Live Positions" container with real-time PnL tracking.
+- [ ] Add visual indicators for PnL (Profit/Loss color coding).
+**Depends on**: 3

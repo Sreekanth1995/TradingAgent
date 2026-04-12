@@ -273,6 +273,63 @@ def update_feeling():
         logger.error(f"Update Feeling Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+def _get_active_positions():
+    """
+    Aggregates active positions across NIFTY, BANKNIFTY, and FINNIFTY.
+    Fetches live LTP for PnL calculation.
+    """
+    if not engine or not broker:
+        return []
+    
+    indices = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
+    active_positions = []
+    
+    # Mapping for LTP fetching (Index instruments)
+    index_ids = {
+        "NIFTY": "13", 
+        "BANKNIFTY": "25", 
+        "FINNIFTY": "27"
+    } 
+    
+    for underlying in indices:
+        try:
+            state = engine._get_state(underlying)
+            if state and state.get('side') != 'NONE':
+                # Fetch LTP for the specific contract if symbol is present
+                symbol = state.get('symbol')
+                security_id = state.get('security_id')
+                entry_price = float(state.get('entry_price', 0))
+                qty = int(state.get('quantity', 0))
+                
+                # Fetch Live LTP
+                ltp = 0.0
+                if security_id:
+                    ltp = broker.get_ltp(security_id) or 0.0
+                
+                # Calculate PnL
+                # Note: This is an approximation if multiple lots/legs exist, 
+                # but valid for the single-leg strategy used here.
+                pnl_abs = (ltp - entry_price) * qty if ltp > 0 else 0.0
+                pnl_pct = ((ltp / entry_price) - 1) * 100 if entry_price > 0 and ltp > 0 else 0.0
+                
+                active_positions.append({
+                    "underlying": underlying,
+                    "symbol": symbol,
+                    "side": state.get('side'),
+                    "quantity": qty,
+                    "entry_price": entry_price,
+                    "ltp": ltp,
+                    "pnl_abs": round(pnl_abs, 2),
+                    "pnl_pct": round(pnl_pct, 2),
+                    "strike": state.get('strike'),
+                    "option_type": state.get('option_type'),
+                    "range_position": state.get('range_position', 'INSIDE')
+                })
+        except Exception as e:
+            logger.error(f"Error fetching position for {underlying}: {e}")
+            
+    return active_positions
+
 @app.route('/get-state', methods=['POST'])
 def get_state():
     """
@@ -285,89 +342,30 @@ def get_state():
     if not data or data.get('secret') != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     
-    underlying = data.get('underlying', 'NIFTY')
     try:
+        # Backward compatibility for single underlying requests
+        underlying = data.get('underlying', 'NIFTY')
         state = engine._get_state(underlying)
-        return jsonify({"status": "success", "state": state}), 200
+        
+        # New: Aggregate active positions for dashboard
+        active_positions = _get_active_positions()
+        
+        # New: Global Range Status for major indices
+        range_tracker = {}
+        for idx in ["NIFTY", "BANKNIFTY"]:
+            idx_state = engine._get_state(idx)
+            range_tracker[idx] = idx_state.get('range_position', 'INSIDE')
+
+        return jsonify({
+            "status": "success", 
+            "state": state,
+            "active_positions": active_positions,
+            "range_tracker": range_tracker
+        }), 200
     except Exception as e:
         logger.error(f"Get State Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/toggle-side', methods=['POST'])
-def toggle_side():
-    """
-    Manually toggle between CALL and PUT sides.
-    """
-    if not broker or not engine:
-        return jsonify({"status": "error", "message": "System not initialized"}), 503
-        
-    data = request.get_json(force=True, silent=True)
-    if not data or data.get('secret') != SECRET:
-        return jsonify({"status": "error", "message": "Unauthorized"}), 401
-    
-    underlying = data.get('underlying', 'NIFTY')
-    target_side = data.get('target_side') # 'CALL' or 'PUT'
-    
-    if target_side not in ['CALL', 'PUT']:
-        return jsonify({"status": "error", "message": "Invalid target_side"}), 400
-        
-    try:
-        # Convert side to signal_type for engine.process_signal
-        # CALL -> 'B' (Buy/Long), PUT -> 'S' (Sell/Short)
-        signal_type = 'B' if target_side == 'CALL' else 'S'
-        
-        # We need ticker price for opening position
-        # For manual toggle, we use standard 5m timeframe logic but triggered manually.
-        # We need to fetch LTP for current_price.
-        
-        # Resolve a dummy or real ticker for the underlying to get its price
-        # Or just use the last known price if the engine tracks it (it doesn't yet).
-        # RankingEngine._open_position needs leg_data with current_price.
-        
-        # Let's try to get LTP for the underlying if possible, or just pass a placeholder 
-        # normally provided by TradingView.
-        # Since we are manually triggering, we might need to fetch index LTP.
-        # But wait, broker.get_itm_contract takes spot_price.
-        
-        # For simplicity in manual mode, let's assume NIFTY and try to get its price.
-        # Or better, let the frontend send it? No, backend should handle it.
-        
-        # Let's just use a default or fetch if available.
-        spot_price = 0.0
-        # If we have a security ID for the index, we could fetch it.
-        # But index IDs vary. 
-        # Let's check broker_dhan for index LTP support.
-        
-        # Actually, RankingEngine.process_signal expects leg_data.
-        # Minimal leg_data: {'quantity': 1}
-        # _open_position will try to get_itm_contract(underlying, opt_type, spot)
-        # We need 'current_price' in leg_data or it defaults to 0.
-        
-        # Let's fetch index LTP if we can.
-        # Aliases for common indices to support manual trading labels
-        index_ids = {
-            "NIFTY": "13", 
-            "NIFTY_50": "13",
-            "NIFTY 50": "13",
-            "BANKNIFTY": "25", 
-            "FINNIFTY": "27"
-        } 
-        idx_id = index_ids.get(underlying.upper())
-        if idx_id:
-            # Note: For Index LTP, Dhan API v2 expects exchange_segment="IDX_I"
-            spot_price = broker.get_ltp(idx_id, exchange_segment="IDX_I") or 0.0
-            
-        leg_data = {
-            "underlying": underlying,
-            "quantity": data.get('quantity', 1),
-            "current_price": spot_price
-        }
-        
-        action = engine.process_signal(underlying, signal_type, 'regular', leg_data)
-        return jsonify({"status": "success", "action": action}), 200
-    except Exception as e:
-        logger.error(f"Toggle Side Error: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/activity-logs', methods=['POST', 'GET'])
 def get_activity_logs():
@@ -594,6 +592,37 @@ def set_conditional_orders():
         }), 200
     except Exception as e:
         logger.error(f"Set Conditional Orders Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/range-signal', methods=['POST'])
+def range_signal():
+    """
+    Update the status of the price relative to the Range Tracker.
+    Payload: { secret, underlying, status ('ABOVE'|'BELOW'|'INSIDE') }
+    """
+    if not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY')
+    position = data.get('position', 'INSIDE').upper()
+
+    try:
+        state = engine._get_state(underlying)
+        state['range_position'] = position
+        engine._set_state(underlying, state)
+
+        msg = f"Range Position for {underlying}: {position}"
+        logger.info(msg)
+        activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 🧭 {msg}")
+
+        return jsonify({"status": "success", "range_position": position}), 200
+    except Exception as e:
+        logger.error(f"Range Signal Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

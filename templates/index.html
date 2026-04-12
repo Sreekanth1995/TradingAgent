@@ -214,6 +214,128 @@
             color: var(--danger);
         }
 
+        .monitor-value.ABOVE { color: var(--success); }
+        .monitor-value.BELOW { color: var(--danger); }
+        .monitor-value.INSIDE { color: var(--text-secondary); }
+
+        /* POSITION CARDS */
+        #active-positions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .position-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: all 0.3s ease;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .position-card:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .position-card.profit { border-left: 4px solid var(--success); }
+        .position-card.loss   { border-left: 4px solid var(--danger); }
+
+        .pos-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pos-symbol {
+            font-size: 13px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 0.02em;
+        }
+
+        .pos-side-badge {
+            font-size: 9px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 900;
+            letter-spacing: 0.05em;
+        }
+
+        .pos-side-badge.CALL { background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.2); }
+        .pos-side-badge.PUT  { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
+
+        .pos-pnl-main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px dashed var(--glass-border);
+        }
+
+        .pos-pnl-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .pos-pnl-amt {
+            font-size: 28px;
+            font-weight: 800;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .pos-pnl-amt.profit { color: var(--success); text-shadow: 0 0 20px rgba(34, 197, 94, 0.4); }
+        .pos-pnl-amt.loss   { color: var(--danger); text-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+
+        .pos-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            font-size: 11px;
+        }
+
+        .pos-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .pos-stat label {
+            color: var(--text-secondary);
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .pos-stat span {
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .no-positions {
+            padding: 30px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-style: italic;
+            background: rgba(0,0,0,0.1);
+            border-radius: 12px;
+            border: 1px dashed var(--glass-border);
+        }
+
         .monitor-symbol {
             margin-top: 16px;
             padding-top: 16px;
@@ -647,25 +769,21 @@
         <div class="dashboard-grid">
             <!-- Left Column: Controls -->
             <div class="col-controls">
-                <section id="position-radar" class="monitor-card" aria-label="Position Status" role="status">
+                <section id="position-radar" class="monitor-card" aria-label="Active Positions" role="status">
                     <div class="monitor-header">
-                        <span class="monitor-label">Position Radar</span>
+                        <span class="monitor-label">Live Positions</span>
+                        <div id="range-tracker-summary" style="font-size: 10px; display: flex; gap: 10px;">
+                            <span id="range-NIFTY">NIFTY: --</span>
+                            <span id="range-BANKNIFTY">BNIFTY: --</span>
+                        </div>
                         <span id="badge-live" class="live-badge" aria-live="polite">● LIVE</span>
                     </div>
-                    <div class="monitor-grid">
-                        <div class="monitor-item">
-                            <label for="val-trend">Current Trend</label>
-                            <div id="val-trend" class="monitor-value" data-field="current-trend" aria-live="polite">IDLE
-                            </div>
-                        </div>
-                        <div class="monitor-item">
-                            <label for="val-qty">Open Quantity</label>
-                            <div id="val-qty" class="monitor-value" data-field="open-quantity" aria-live="polite">0
-                            </div>
-                        </div>
+                    
+                    <div id="active-positions-list">
+                        <div class="no-positions">No active positions currently detected</div>
                     </div>
-                    <div id="val-symbol" class="monitor-symbol" data-field="active-symbol">System Standby • No active
-                        orders</div>
+
+                    <div id="val-symbol" class="monitor-symbol" style="display:none"></div>
                 </section>
 
                 <section id="command-center" class="command-center" aria-label="NIFTY Trade Controls">
@@ -824,27 +942,74 @@
                 });
                 const data = await response.json();
                 if (data.status === 'success') {
-                    updateUI(data.state);
+                    updateUI(data);
                 }
             } catch (err) { console.error('State Sync Failed', err); }
         }
 
-        function updateUI(state) {
+        function renderPositionCard(pos) {
+            const isProfit = pos.pnl_abs >= 0;
+            const pnlClass = isProfit ? 'profit' : 'loss';
+            const sign = isProfit ? '+' : '';
+
+            return `
+                <div class="position-card ${pnlClass}">
+                    <div class="pos-header">
+                        <span class="pos-symbol">${pos.symbol || pos.underlying}</span>
+                        <span class="pos-side-badge ${pos.side}">${pos.side}</span>
+                    </div>
+                    <div class="pos-pnl-main">
+                        <span class="pos-pnl-label">Net PnL</span>
+                        <span class="pos-pnl-amt ${pnlClass}">${sign}${pos.pnl_abs}</span>
+                        <span style="font-size: 10px; color: ${isProfit ? 'var(--success)' : 'var(--danger)'}">${sign}${pos.pnl_pct}%</span>
+                    </div>
+                    <div class="pos-grid">
+                        <div class="pos-stat">
+                            <label>Quantity</label>
+                            <span>${pos.quantity}</span>
+                        </div>
+                        <div class="pos-stat">
+                            <label>Entry</label>
+                            <span>₹${pos.entry_price}</span>
+                        </div>
+                        <div class="pos-stat">
+                            <label>LTP</label>
+                            <span>₹${pos.ltp}</span>
+                        </div>
+                        <div class="pos-stat">
+                            <label>Range</label>
+                            <span class="monitor-value ${pos.range_position}">${pos.range_position}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateUI(data) {
+            const state = data.state || {};
+            const activePositions = data.active_positions || [];
+            const rangeTracker = data.range_tracker || {};
+
+            // 1. Update Positions List
+            const listEl = document.getElementById('active-positions-list');
+            if (activePositions.length > 0) {
+                listEl.innerHTML = activePositions.map(pos => renderPositionCard(pos)).join('');
+            } else {
+                listEl.innerHTML = '<div class="no-positions">No active positions currently detected</div>';
+            }
+
+            // 2. Update Range Tracker Summary (Header)
+            for (const [symbol, pos] of Object.entries(rangeTracker)) {
+                const el = document.getElementById(`range-${symbol}`);
+                if (el) {
+                    el.textContent = `${symbol}: ${pos}`;
+                    el.className = 'monitor-value ' + pos;
+                }
+            }
+
+            // 3. Update NIFTY status markers (Backward compatibility for badges/GTT)
             const trend = state.side || 'IDLE';
-            const qty = state.quantity || 0;
-            const symbol = state.symbol || 'System Standby • No active orders';
-
-            const trendEl = document.getElementById('val-trend');
-            trendEl.textContent = trend;
-            trendEl.className = 'monitor-value ' + (trend !== 'IDLE' ? trend : '');
-
-            document.getElementById('val-qty').textContent = qty;
-            document.getElementById('val-symbol').textContent = symbol;
-
-            // Live Status Badge
             document.getElementById('badge-live').style.display = trend !== 'IDLE' ? 'inline-block' : 'none';
-
-            // Active Position Labels
             document.getElementById('stat-CALL').style.display = trend === 'CALL' ? 'block' : 'none';
             document.getElementById('stat-PUT').style.display = trend === 'PUT' ? 'block' : 'none';
 
