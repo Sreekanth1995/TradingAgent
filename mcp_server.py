@@ -12,7 +12,8 @@ mcp = FastMCP("TradingAgent_AI_Bridge")
 
 # Configuration
 SECRET = os.getenv("WEBHOOK_SECRET")
-BASE_URL = os.getenv("TRADING_AGENT_URL", f"http://localhost:{os.getenv('PORT', '80')}")
+# Target points to Production VPS by default
+BASE_URL = os.getenv("TRADING_AGENT_URL", "http://65.20.83.74")
 
 async def call_api(endpoint: str, data: dict = None, method: str = "POST"):
     """Internal helper to communicate with the TradingAgent Flask server."""

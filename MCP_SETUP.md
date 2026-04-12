@@ -19,7 +19,7 @@ Add this to your `~/.git/claude_config.json` or your project-level config:
       "args": ["/Users/sreekanthmekala/Desktop/TradingAgent/mcp_server.py"],
       "env": {
         "WEBHOOK_SECRET": "121995",
-        "TRADING_AGENT_URL": "http://localhost:80",
+        "TRADING_AGENT_URL": "http://65.20.83.74",
         "PYTHONPATH": "/Users/sreekanthmekala/Desktop/TradingAgent"
       }
     }
