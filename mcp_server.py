@@ -1,0 +1,84 @@
+import os
+import httpx
+import json
+from mcp.server.fastmcp import FastMCP
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Initialize FastMCP Server
+mcp = FastMCP("TradingAgent_AI_Bridge")
+
+# Configuration
+SECRET = os.getenv("WEBHOOK_SECRET")
+BASE_URL = os.getenv("TRADING_AGENT_URL", f"http://localhost:{os.getenv('PORT', '80')}")
+
+async def call_api(endpoint: str, data: dict = None, method: str = "POST"):
+    """Internal helper to communicate with the TradingAgent Flask server."""
+    if data is None:
+        data = {}
+    data["secret"] = SECRET
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            if method == "POST":
+                response = await client.post(f"{BASE_URL}{endpoint}", json=data)
+            else:
+                response = await client.get(f"{BASE_URL}{endpoint}", params=data)
+            
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+@mcp.tool()
+async def get_trading_status(underlying: str = "NIFTY"):
+    """
+    Get the current trading status, including active positions, current trend, 
+    and NIFTY/BANKNIFTY range positions.
+    """
+    return await call_api("/get-state", {"underlying": underlying})
+
+@mcp.tool()
+async def place_manual_order(action: str, underlying: str = "NIFTY", quantity: int = 1):
+    """
+    Manually place a trade order (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL).
+    
+    Args:
+        action: The trade action (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL)
+        underlying: The symbol to trade (default: NIFTY)
+        quantity: Order quantity (default: 1 lot)
+    """
+    return await call_api("/ui-signal", {
+        "action": action, 
+        "underlying": underlying, 
+        "quantity": quantity
+    })
+
+@mcp.tool()
+async def update_price_levels(tp0_low: float = None, tp0_high: float = None):
+    """
+    Update the TP0 (Take Profit Zero) base range high and low levels.
+    """
+    return await call_api("/save-levels", {
+        "tp0_low": tp0_low,
+        "tp0_high": tp0_high
+    })
+
+@mcp.tool()
+async def get_performance_history():
+    """
+    View the most recent historical trades and performance metadata.
+    """
+    return await call_api("/get-history")
+
+@mcp.tool()
+async def get_activity_logs():
+    """
+    Retrieve recent system activity logs, signals, and ranking engine decisions.
+    """
+    return await call_api("/activity-logs")
+
+if __name__ == "__main__":
+    mcp.run()

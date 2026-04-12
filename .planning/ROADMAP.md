@@ -33,9 +33,16 @@ Goal: Display real-time summary of currently opened positions including PnL and 
 - [x] Integrated SL/Target simulation in mock broker.
 - [x] Integrated persistent trade history logs.
 
-### Phase 5: UI Refinement & Production Sanitation
+### Phase 5: UI Refinement & Production Sanitation [COMPLETED]
 Goal: Polish the dashboard layout and clean up production test data.
-- [ ] Move "Live Performance History" to sidebar (col-ai).
-- [ ] Implement production data reset.
-- [ ] Deploy and verify clean dashboard state.
+- [x] Move "Live Performance History" to sidebar.
+- [x] Implement production data reset.
+- [x] Remove Live bubble animation.
+
+### Phase 6: MCP Integration (AI-First Control)
+Goal: Expose TradingAgent as an MCP server for AI-driven monitoring and execution.
+- [ ] Add `mcp` dependency to `requirements.txt`.
+- [ ] Implement `mcp_server.py` with `get_status` and `execute_order` tools.
+- [ ] Create `claude_config.json` for AI tool integration.
+- [ ] Verify AI-to-Broker communication.
 **Depends on**: 3
