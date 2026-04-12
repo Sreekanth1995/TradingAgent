@@ -26,9 +26,16 @@ Goal: Visual monitoring and manual overrides.
 - [x] Integrated Range Tracker API & UI.
 **Depends on**: 1, 2
 
-### Phase 4: Positions Container
+### Phase 4: Positions Container [COMPLETED]
 Goal: Display real-time summary of currently opened positions including PnL and strike details on the dashboard.
-- [ ] Implement backend endpoint `/get-positions` or enhance `/get-state`.
-- [ ] Build a "Live Positions" container with real-time PnL tracking.
-- [ ] Add visual indicators for PnL (Profit/Loss color coding).
+- [x] Implement backend aggregation and `/get-state` integration.
+- [x] Build Live Positions container with PnL tracking.
+- [x] Integrated SL/Target simulation in mock broker.
+- [x] Integrated persistent trade history logs.
+
+### Phase 5: UI Refinement & Production Sanitation
+Goal: Polish the dashboard layout and clean up production test data.
+- [ ] Move "Live Performance History" to sidebar (col-ai).
+- [ ] Implement production data reset.
+- [ ] Deploy and verify clean dashboard state.
 **Depends on**: 3
