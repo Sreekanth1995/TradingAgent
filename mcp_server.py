@@ -58,14 +58,40 @@ async def place_manual_order(action: str, underlying: str = "NIFTY", quantity: i
     })
 
 @mcp.tool()
-async def update_price_levels(tp0_low: float = None, tp0_high: float = None):
+async def update_price_levels(levels: dict):
     """
-    Update the TP0 (Take Profit Zero) base range high and low levels.
+    Update the technical levels (e.g. TP0, TP1, resistance) for indicators.
+    Expected format: {"NIFTY": {"tp0_low": 24000, "tp0_high": 24100}, ...}
     """
-    return await call_api("/save-levels", {
-        "tp0_low": tp0_low,
-        "tp0_high": tp0_high
+    return await call_api("/set-levels", {
+        "levels": levels
     })
+
+@mcp.tool()
+async def set_target_stoploss(underlying: str, side: str, target_price: float, sl_price: float):
+    """
+    Set GTT (Good Till Triggered) conditional orders for Target and Stop Loss 
+    on an active position.
+    
+    Args:
+        underlying: The symbol (NIFTY, BANKNIFTY, FINNIFTY)
+        side: Position side (CALL or PUT)
+        target_price: The price level for target exit
+        sl_price: The price level for stop loss exit
+    """
+    return await call_api("/set-conditional-orders", {
+        "underlying": underlying,
+        "side": side,
+        "target_price": target_price,
+        "sl_price": sl_price
+    })
+
+@mcp.tool()
+async def cancel_target_stoploss(underlying: str = "NIFTY"):
+    """
+    Cancel all active GTT conditional orders for a given underlying.
+    """
+    return await call_api("/cancel-conditional-orders", {"underlying": underlying})
 
 @mcp.tool()
 async def get_performance_history():
