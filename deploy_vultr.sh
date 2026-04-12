@@ -48,6 +48,8 @@ rsync -avz --progress \
   --exclude='node_modules' \
   --exclude='venv' \
   --exclude='.env' \
+  --exclude='trade_history.json' \
+  --exclude='levels.json' \
   "$PROJECT_DIR/" $SERVER_USER@$SERVER_IP:$APP_DIR/
 
 # Step 4: Upload .env separately
