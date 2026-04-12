@@ -284,13 +284,6 @@ def _get_active_positions():
     indices = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
     active_positions = []
     
-    # Mapping for LTP fetching (Index instruments)
-    index_ids = {
-        "NIFTY": "13", 
-        "BANKNIFTY": "25", 
-        "FINNIFTY": "27"
-    } 
-    
     for underlying in indices:
         try:
             state = engine._get_state(underlying)
@@ -302,29 +295,44 @@ def _get_active_positions():
                 qty = int(state.get('quantity', 0))
                 
                 # Fetch Live LTP
-                ltp = 0.0
-                if security_id:
-                    ltp = broker.get_ltp(security_id) or 0.0
+                ltp = broker.get_ltp(security_id) if security_id else None
                 
-                # Calculate PnL
-                # Note: This is an approximation if multiple lots/legs exist, 
-                # but valid for the single-leg strategy used here.
-                pnl_abs = (ltp - entry_price) * qty if ltp > 0 else 0.0
-                pnl_pct = ((ltp / entry_price) - 1) * 100 if entry_price > 0 and ltp > 0 else 0.0
-                
-                active_positions.append({
-                    "underlying": underlying,
-                    "symbol": symbol,
-                    "side": state.get('side'),
-                    "quantity": qty,
-                    "entry_price": entry_price,
-                    "ltp": ltp,
-                    "pnl_abs": round(pnl_abs, 2),
-                    "pnl_pct": round(pnl_pct, 2),
-                    "strike": state.get('strike'),
-                    "option_type": state.get('option_type'),
-                    "range_position": state.get('range_position', 'INSIDE')
-                })
+                # Calculate PnL only if LTP was successfully fetched
+                if ltp is not None:
+                    ltp = float(ltp)
+                    pnl_abs = (ltp - entry_price) * qty
+                    pnl_pct = ((ltp / entry_price) - 1) * 100 if entry_price > 0 else 0.0
+                    
+                    active_positions.append({
+                        "underlying": underlying,
+                        "symbol": symbol,
+                        "side": state.get('side'),
+                        "quantity": qty,
+                        "entry_price": entry_price,
+                        "ltp": ltp,
+                        "pnl_abs": round(pnl_abs, 2),
+                        "pnl_pct": round(pnl_pct, 2),
+                        "strike": state.get('strike'),
+                        "option_type": state.get('option_type'),
+                        "range_position": state.get('range_position', 'INSIDE')
+                    })
+                else:
+                    # Fallback if LTP is missing: use last cached state if available 
+                    # but for now we just skip the PnL update to avoid showing 0.
+                    logger.warning(f"LTP unavailable for {symbol}, skipping PnL update.")
+                    active_positions.append({
+                        "underlying": underlying,
+                        "symbol": symbol,
+                        "side": state.get('side'),
+                        "quantity": qty,
+                        "entry_price": entry_price,
+                        "ltp": "---", # Visual indicator of stale price
+                        "pnl_abs": "---",
+                        "pnl_pct": "---",
+                        "strike": state.get('strike'),
+                        "option_type": state.get('option_type'),
+                        "range_position": state.get('range_position', 'INSIDE')
+                    })
         except Exception as e:
             logger.error(f"Error fetching position for {underlying}: {e}")
             
