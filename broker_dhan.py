@@ -98,14 +98,22 @@ class DhanClient:
 
         if self.client_id and self.access_token and DHAN_AVAILABLE:
             if self.dry_run:
-                logger.info("!!!! DRY RUN MODE ENABLED !!!! - No real orders will be placed, state will update normally.")
+                self.dhan = None
             else:
-                logger.info("Dhan Credentials found. Connected to DhanHQ.")
                 self.dhan = dhanhq(self.client_id, self.access_token)
         elif not DHAN_AVAILABLE:
             logger.warning("dhanhq library not found. Install with `pip install dhanhq`.")
         else:
             logger.warning("No Dhan credentials found. Running in SIMULATION mode.")
+
+    def get_index_id(self, symbol):
+        """Returns standard Dhan Security ID for indices."""
+        mapping = {
+            "NIFTY": "13",
+            "BANKNIFTY": "25",
+            "FINNIFTY": "27"
+        }
+        return mapping.get(symbol.upper())
 
     def _load_scrip_master(self):
         """
@@ -755,20 +763,18 @@ class DhanClient:
             return []
 
 
-    def place_conditional_order(self, sec_id, exchange_seg, quantity, operator, comparing_value, transaction_type="SELL", product_type="MARGIN"):
+    def place_conditional_order(self, sec_id, exchange_seg, quantity, operator, comparing_value, transaction_type="SELL", product_type="MARGIN", trigger_sec_id=None, user_note=None):
         """
         Places a Dhan Conditional Trigger Order (GTT-style).
-        When option LTP crosses `comparing_value` via `operator`, a SELL MARKET order fires.
-
-        operator: "CROSSING_UP" for target exit, "CROSSING_DOWN" for SL exit.
-        Returns: {"success": bool, "alert_id": str|None, "error": str|None}
+        If trigger_sec_id is provided, the alert triggers on THAT instrument (e.g. Index), 
+        but the order is placed for `sec_id` (e.g. Option).
         """
         # Ensure price is rounded to 0.05 tick
         comparing_value = self._round_to_tick(comparing_value)
 
         if self.dry_run:
             mock_id = f"DRY_{operator}_{comparing_value}"
-            logger.info(f"[DRY RUN] Conditional Order: {transaction_type} {operator} @ {comparing_value} secId={sec_id} Prod={product_type}")
+            logger.info(f"[DRY RUN] Conditional Order: {transaction_type} {operator} @ {comparing_value} secId={sec_id} TriggerId={trigger_sec_id or sec_id} Note={user_note}")
             return {"success": True, "alert_id": mock_id, "error": None}
 
         if not self.client_id or not self.access_token:
@@ -784,12 +790,17 @@ class DhanClient:
             'access-token': self.access_token,
             'client-id': self.client_id
         }
+        
+        # Use trigger_sec_id if provided, otherwise default to the order's sec_id
+        actual_trigger_id = str(trigger_sec_id) if trigger_sec_id else str(sec_id)
+
         payload = {
             "dhanClientId": self.client_id,
+            "userNote": user_note if user_note else "",
             "condition": {
                 "comparisonType": "LTP_WITH_VALUE",
                 "exchangeSegment": exchange_seg,
-                "securityId": str(sec_id),
+                "securityId": actual_trigger_id, 
                 "operator": operator,
                 "comparingValue": float(comparing_value),
                 "expDate": exp_date,
@@ -813,7 +824,7 @@ class DhanClient:
             if resp.status_code in [200, 201]:
                 data = resp.json()
                 alert_id = data.get('alertId') or (data.get('data') or {}).get('alertId')
-                logger.info(f"Conditional order placed: alertId={alert_id}, op={operator}, val={comparing_value}")
+                logger.info(f"Conditional order placed: alertId={alert_id}, op={operator}, val={comparing_value}, triggerSec={actual_trigger_id}")
                 return {"success": True, "alert_id": alert_id, "error": None}
             else:
                 logger.error(f"Conditional order failed: {resp.status_code} {resp.text}")
@@ -851,6 +862,73 @@ class DhanClient:
         except Exception as e:
             logger.error(f"Cancel conditional order exception: {e}")
             return {"success": False, "error": str(e)}
+
+    def modify_conditional_order(self, alert_id, quantity, comparing_value):
+        """
+        Modifies an existing Dhan Conditional Trigger Order (GTT).
+        Endpoint: PUT /alerts/orders/{alertId}
+        """
+        comparing_value = self._round_to_tick(comparing_value)
+
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Modifying Conditional Order {alert_id}: Qty={quantity}, Val={comparing_value}")
+            return {"success": True, "alert_id": alert_id, "error": None}
+
+        if not self.access_token:
+            return {"success": False, "error": "Missing access token"}
+
+        url = f"https://api.dhan.co/v2/alerts/orders/{alert_id}"
+        headers = {
+            'Content-Type': 'application/json',
+            'access-token': self.access_token,
+        }
+        
+        # Dhan API typically requires the FULL structure for PUT modification.
+        existing = self.get_conditional_order_details(alert_id)
+        if not existing:
+             return {"success": False, "error": "Could not fetch existing alert details for modification"}
+
+        payload = {
+            "dhanClientId": self.client_id,
+            "condition": existing.get("condition", {}),
+            "orders": existing.get("orders", [])
+        }
+
+        # Update values
+        if "condition" in payload:
+            payload["condition"]["comparingValue"] = float(comparing_value)
+        
+        if "orders" in payload and len(payload["orders"]) > 0:
+            payload["orders"][0]["quantity"] = int(quantity)
+
+        try:
+            resp = requests.put(url, headers=headers, json=payload, timeout=5)
+            if resp.status_code == 200:
+                logger.info(f"Conditional Order {alert_id} modified successfully.")
+                return {"success": True, "alert_id": alert_id, "error": None}
+            else:
+                logger.error(f"Modify Conditional Failed: {resp.status_code} {resp.text}")
+                return {"success": False, "error": resp.text}
+        except Exception as e:
+            logger.error(f"Modify Conditional Exception: {e}")
+            return {"success": False, "error": str(e)}
+
+    def get_conditional_order_details(self, alert_id):
+        """Fetches details for a specific alert."""
+        if self.dry_run: return {}
+        url = f"https://api.dhan.co/v2/alerts/orders/{alert_id}"
+        headers = {
+            'access-token': self.access_token,
+            'client-id': self.client_id
+        }
+        try:
+            resp = requests.get(url, headers=headers)
+            if resp.status_code == 200:
+                return resp.json().get('data', {})
+        except:
+            pass
+        return None
+
 
 
     def place_super_order(self, symbol, leg_data):

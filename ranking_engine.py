@@ -95,15 +95,65 @@ class RankingEngine:
         else:
             self.memory_store[key] = state
 
+    def store_pending_protection(self, order_id, metadata, ttl=86400):
+        """
+        Stores SL/Target levels for an order that hasn't filled yet.
+        metadata: { 'underlying': ..., 'sl_index': ..., 'target_index': ..., 'quantity': ... }
+        """
+        key = f"pending_prot:{order_id}"
+        if self.use_redis:
+            self.r.setex(key, ttl, json.dumps(metadata))
+        else:
+            self.memory_store[key] = metadata
+        logger.info(f"Stored pending protection for Order {order_id}: {metadata}")
+
+    def get_pending_protection(self, order_id):
+        """Retrieves and clears pending protection for an order id."""
+        key = f"pending_prot:{order_id}"
+        if self.use_redis:
+            val = self.r.get(key)
+            if val:
+                self.r.delete(key)
+                return json.loads(val)
+        else:
+            val = self.memory_store.get(key)
+            if val:
+                del self.memory_store[key]
+                return val
+        return None
+
     def _clear_state(self, underlying):
         """Clears the state and cancels associated conditional orders."""
         state = self._get_state(underlying)
         self._cancel_active_conditional_orders(underlying, state)
-        self._set_state(underlying, {'side': 'NONE'})
+        
+        # Reset state
+        new_state = {'side': 'NONE', 'last_signal': 'NONE'}
+        self._set_state(underlying, new_state)
+        logger.info(f"State cleared for {underlying}")
+
+    def handle_signal(self, signal_type, leg_data, mode='regular'):
+        """
+        Public entry point for signals.
+        Returns result dict containing 'status' and optionally 'order_id'.
+        """
+        underlying = leg_data.get('underlying', 'NIFTY')
+        res = self.process_signal(underlying, signal_type, mode, leg_data)
+        
+        # Extract orderId if available from the internal execution result
+        # Note: _finalize_signal_state might have it in 'entry_id'
+        state = self._get_state(underlying)
+        if res.get('status') == 'success':
+            res['order_id'] = state.get('entry_id')
+            
+        return res
 
     def _cancel_active_conditional_orders(self, underlying, state):
         """Cancels associated Dhan Alert triggers (GTT) if they exist in state."""
-        alert_keys = ('conditional_target_alert_id', 'conditional_sl_alert_id')
+        alert_keys = (
+            'conditional_target_alert_id', 'conditional_sl_alert_id',
+            'idx_target_alert_id', 'idx_sl_alert_id'
+        )
         for key in alert_keys:
             alert_id = state.get(key)
             if alert_id:

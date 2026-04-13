@@ -228,7 +228,7 @@ def webhook():
             logger.info(msg)
             activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 📡 {msg}")
 
-            # 3. Process with Ranking Engine (Index-Based)
+            # 4. Process with Ranking Engine (Index-Based)
             mode = leg.get('mode', data.get('mode', 'regular')).lower()
             final_signal = transaction_type # Direct external fallback
 
@@ -347,7 +347,11 @@ def _get_active_positions():
                         "pnl_pct": round(pnl_pct, 2),
                         "strike": state.get('strike'),
                         "option_type": state.get('option_type'),
-                        "range_position": state.get('range_position', 'INSIDE')
+                        "range_position": state.get('range_position', 'INSIDE'),
+                        "idx_target_level": state.get('idx_target_level'),
+                        "idx_sl_level": state.get('idx_sl_level'),
+                        "conditional_target_price": state.get('conditional_target_price'),
+                        "conditional_sl_price": state.get('conditional_sl_price')
                     })
                 else:
                     # Fallback if LTP is missing: use last cached state if available 
@@ -364,7 +368,11 @@ def _get_active_positions():
                         "pnl_pct": "---",
                         "strike": state.get('strike'),
                         "option_type": state.get('option_type'),
-                        "range_position": state.get('range_position', 'INSIDE')
+                        "range_position": state.get('range_position', 'INSIDE'),
+                        "idx_target_level": state.get('idx_target_level'),
+                        "idx_sl_level": state.get('idx_sl_level'),
+                        "conditional_target_price": state.get('conditional_target_price'),
+                        "conditional_sl_price": state.get('conditional_sl_price')
                     })
         except Exception as e:
             logger.error(f"Error fetching position for {underlying}: {e}")
@@ -391,6 +399,16 @@ def get_state():
         # New: Aggregate active positions for dashboard
         active_positions = _get_active_positions()
         
+        # Sector Mapping: Pair positions with UI cards
+        # We check if active_side matches a position's side
+        current_pnl = 0
+        active_pos_details = None
+        for pos in active_positions:
+            if pos.get('underlying') == underlying and pos.get('side') == state.get('side'):
+                active_pos_details = pos
+                current_pnl = pos.get('pnl_abs', 0)
+                break
+
         # New: Global Range Status for major indices
         range_tracker = {}
         for idx in ["NIFTY", "BANKNIFTY"]:
@@ -407,6 +425,7 @@ def get_state():
             "status": "success", 
             "state": state,
             "active_positions": active_positions,
+            "sector_details": active_pos_details, # For in-card P&L
             "range_tracker": range_tracker
         }), 200
     except Exception as e:
@@ -476,22 +495,46 @@ def ui_signal():
     try:
         # Fetch Index LTP for manual entries if needed
         spot_price = 0.0
-        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"}
-        idx_id = index_ids.get(underlying.upper())
+        idx_id = broker.get_index_id(underlying)
         if idx_id and signal_type in ['B', 'S']:
             spot_price = broker.get_ltp(idx_id, exchange_segment="IDX_I") or 0.0
             
         leg_data = {
             "underlying": underlying,
             "quantity": data.get('quantity', 1),
-            "current_price": spot_price
+            "current_price": spot_price,
+            "sl_price": data.get('sl_price'),
+            "target_price": data.get('target_price'),
+            "sl_index": data.get('sl_index'),
+            "target_index": data.get('target_index')
         }
         
-        # Trigger processing (Default to regular mode for manual override)
-        result = engine.process_signal(underlying, signal_type, 'regular', leg_data)
-        logger.info(f"UI Signal: {action} processed for {underlying} -> {result.get('action')}")
+        # Mandatory Validation for Manual Entries (AC 6)
+        if signal_type == 'B':
+            if not leg_data.get('sl_index') or not leg_data.get('target_index'):
+                return jsonify({"status": "error", "message": "Manual BUY requires Index Stop Loss and Target levels"}), 400
+                
+            if float(leg_data['sl_index']) >= spot_price:
+                 return jsonify({"status": "error", "message": f"Stop Loss Index ({leg_data['sl_index']}) must be less than current Index price ({spot_price})"}), 400
+
+        # Execute Order
+        res = engine.handle_signal(signal_type, leg_data)
         
-        return jsonify({"status": "success", "result": result}), 200
+        # Acceptance Criteria: Defer GTT placement until order is TRADED (Fill-Triggered)
+        if res.get('status') == 'success' and signal_type == 'B' and leg_data.get('sl_index') and leg_data.get('target_index'):
+            order_id = res.get('order_id')
+            if order_id:
+                logger.info(f"Deferring GTT placement for Order {order_id} until fill confirmation.")
+                pending_meta = {
+                    "underlying": underlying,
+                    "target_level": leg_data['target_index'],
+                    "sl_level": leg_data['sl_index'],
+                    "quantity": leg_data['quantity']
+                }
+                engine.store_pending_protection(order_id, pending_meta)
+                res['gtt_status'] = {"status": "pending", "message": "Queued for fill trigger"}
+            
+        return jsonify(res), 200
     except Exception as e:
         logger.error(f"UI Signal Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -562,11 +605,102 @@ def volume_alert():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-@app.route('/set-conditional-orders', methods=['POST'])
-def set_conditional_orders():
+@app.route('/dhan-postback', methods=['POST'])
+def dhan_postback():
     """
-    Creates Dhan Conditional Trigger orders (GTT) for Target and SL on an open position.
-    Payload: { secret, underlying, side ('CALL'|'PUT'), target_price, sl_price }
+    Catch-all endpoint for Dhan Postback notifications.
+    Suggested URL: http://65.20.83.74/dhan-postback?secret=YOUR_WEBHOOK_SECRET
+    """
+    try:
+        # Validate secret from URL query params
+        income_secret = request.args.get('secret')
+        if income_secret != SECRET:
+            logger.warning(f"Unauthorized Postback attempt with secret: {income_secret}")
+            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+            
+        data = request.get_json(force=True, silent=True)
+        if not data:
+            return jsonify({"status": "error", "message": "No data received"}), 400
+            
+        # Acceptance Criteria 6: Extract userNote (SL ID) from payload
+        user_note = data.get('userNote') or (data.get('data') or {}).get('userNote')
+        alert_id = str(data.get('alertId') or (data.get('data') or {}).get('alertId'))
+        order_status = data.get('orderStatus')
+        order_id = data.get('orderId')
+        
+        # --- Handle Order Fill (TRADED) status ---
+        if order_status == "TRADED" and order_id:
+            logger.info(f"Order {order_id} TRADED. Checking for pending protection triggers.")
+            pending = engine.get_pending_protection(order_id)
+            if pending:
+                logger.info(f"Triggering GTT placement for filled order {order_id} ({pending['underlying']})")
+                gtt_res = _set_conditional_index_orders_internal(
+                    underlying=pending['underlying'],
+                    target_level=pending['target_level'],
+                    sl_level=pending['sl_level'],
+                    quantity=pending['quantity']
+                )
+                logger.info(f"Fill-Triggered GTT Result: {gtt_res}")
+            return jsonify({"status": "success", "source": "order_fill"}), 200
+
+        if not alert_id or alert_id == "None":
+            return jsonify({"status": "ignored", "message": "No alertId found"}), 200
+
+        logger.info(f"Dhan Postback received. alertId: {alert_id}, userNote: {user_note}")
+        
+        # If user_note contains a SL ID, use it directly for stateless modification
+        if user_note and user_note.startswith("GTT_"): # Assuming our IDs look like this or digits
+             sl_alert_id = user_note
+             logger.info(f"Stateless SL Modification triggered via userNote: {sl_alert_id}")
+             # We need to find which underlying this belongs to for quantity/security_id
+             # Fallback to state search for metadata, but use user_note ID
+        
+        # Identify the position this alert belongs to
+        indices = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
+        target_found = False
+        
+        for underlying in indices:
+            state = engine._get_state(underlying)
+            # Match either alertId in state OR check if userNote matches the stored SL ID
+            is_target_hit = (state.get('idx_target_alert_id') == alert_id)
+            
+            if is_target_hit:
+                logger.info(f"Target Alert Hit for {underlying}! Triggering SL modification.")
+                # Acceptance Criteria 6: Use SL ID from user_note if available
+                sl_alert_id = user_note if (user_note and len(user_note) > 5) else state.get('idx_sl_alert_id')
+                
+                if sl_alert_id:
+                    idx_id = broker.get_index_id(underlying)
+                    current_idx_ltp = broker.get_ltp(idx_id, exchange_segment="IDX_I")
+                    
+                    if current_idx_ltp:
+                        # Acceptance Criteria 6: Update SL with Target Price (Market force)
+                        res = broker.modify_conditional_order(
+                            alert_id=sl_alert_id,
+                            quantity=state.get('quantity', 1) * broker.lot_map.get(str(state.get('security_id')), 1),
+                            comparing_value=current_idx_ltp
+                        )
+                        logger.info(f"SL Modification result for {underlying} using ID {sl_alert_id}: {res}")
+                
+                state['idx_target_alert_id'] = None
+                engine._set_state(underlying, state)
+                target_found = True
+                break
+        
+        if not target_found:
+             logger.debug(f"AlertId {alert_id} not mapped to any active target.")
+
+        return jsonify({"status": "success"}), 200
+
+    except Exception as e:
+        logger.error(f"Dhan Postback Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/conditional-index-order', methods=['POST'])
+def set_conditional_index_orders():
+    """
+    Creates Dhan Conditional Trigger orders (GTT) based on INDEX LEVELS.
     """
     if not broker or not engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
@@ -575,88 +709,140 @@ def set_conditional_orders():
     if not data or data.get('secret') != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
-    underlying = data.get('underlying', 'NIFTY')
-    side = data.get('side', '').upper()
-    target_price = data.get('target_price')
-    sl_price = data.get('sl_price')
+    underlying = data.get('underlying', 'NIFTY').upper()
+    target_level = data.get('target_level')
+    sl_level = data.get('sl_level')
+    quantity = data.get('quantity') # Lots
 
-    if side not in ['CALL', 'PUT']:
-        return jsonify({"status": "error", "message": "side must be CALL or PUT"}), 400
-    if not target_price or not sl_price:
-        return jsonify({"status": "error", "message": "target_price and sl_price are required"}), 400
-    if float(sl_price) >= float(target_price):
-        return jsonify({"status": "error", "message": "sl_price must be less than target_price"}), 400
+    if not target_level or not sl_level:
+        return jsonify({"status": "error", "message": "target_level and sl_level are required"}), 400
 
+    try:
+        res = _set_conditional_index_orders_internal(underlying, target_level, sl_level, quantity)
+        if res.get('status') == 'success':
+            return jsonify(res), 200
+        else:
+            return jsonify(res), 500
+    except Exception as e:
+        logger.error(f"Error in conditional-index-order: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+def _set_conditional_index_orders_internal(underlying, target_level, sl_level, quantity=None):
+    """
+    Internal helper to place SL and Target GTTs.
+    Follows AC 5: Saves SL ID in Target's userNote.
+    """
     try:
         state = engine._get_state(underlying)
         if state.get('side', 'NONE') == 'NONE':
-            return jsonify({"status": "error", "message": "No open position — open a position first"}), 400
+            return {"status": "error", "message": "No open position to protect"}
 
-        sec_id = state.get('security_id')
-        symbol = state.get('symbol', underlying)
-        quantity = int(state.get('quantity', 1))
-
-        if not sec_id:
-            return jsonify({"status": "error", "message": "No security_id in state; position may not be broker-placed"}), 400
-
-        # Convert lots → actual quantity using lot map
-        lot_size = broker.lot_map.get(str(sec_id), 1)
-        actual_qty = quantity * lot_size
-
-        # Resolve product type: default to MARGIN as used in RankingEngine square-offs
-        product_type = state.get('product_type', 'MARGIN')
+        opt_sec_id = state.get('security_id')
+        qty = int(quantity or state.get('quantity', 1))
+        idx_sec_id = broker.get_index_id(underlying)
         
-        # Determine transaction side: Strategy is Long CE/PE, so Exit is always SELL
-        # If we ever support Shorting, this would need to be BUY for PE/CE shorts.
-        tx_type = "SELL"
+        if not idx_sec_id or not opt_sec_id:
+            return {"status": "error", "message": "Could not resolve Index or Option security IDs"}
 
-        # Cancel any pre-existing conditional orders for this position
-        for key in ('conditional_target_alert_id', 'conditional_sl_alert_id'):
+        lot_size = broker.lot_map.get(str(opt_sec_id), 1)
+        actual_qty = qty * lot_size
+        side = state.get('side') # CALL or PUT
+        
+        if side == 'CALL':
+            tgt_op, sl_op = "CROSSING_UP", "CROSSING_DOWN"
+        else:
+            tgt_op, sl_op = "CROSSING_DOWN", "CROSSING_UP"
+
+        # Cleanup existing GTTs
+        for key in ('idx_target_alert_id', 'idx_sl_alert_id'):
             existing = state.get(key)
-            if existing:
-                broker.cancel_conditional_order(existing)
+            if existing: broker.cancel_conditional_order(existing)
 
-        # Target: SELL when LTP crosses UP above target_price
-        tgt_result = broker.place_conditional_order(
-            sec_id=sec_id,
+        # Acceptance Criteria 4 & 5: Place SL GTT FIRST to get its ID
+        sl_res = broker.place_conditional_order(
+            sec_id=opt_sec_id,
             exchange_seg="NSE_FNO",
             quantity=actual_qty,
-            operator="CROSSING_UP",
-            comparing_value=float(target_price),
-            transaction_type=tx_type,
-            product_type=product_type
+            operator=sl_op,
+            comparing_value=float(sl_level),
+            transaction_type="SELL",
+            product_type="MARGIN",
+            trigger_sec_id=idx_sec_id
         )
-
-        # SL: SELL when LTP crosses DOWN below sl_price
-        sl_result = broker.place_conditional_order(
-            sec_id=sec_id,
-            exchange_seg="NSE_FNO",
-            quantity=actual_qty,
-            operator="CROSSING_DOWN",
-            comparing_value=float(sl_price),
-            transaction_type=tx_type,
-            product_type=product_type
+        if not sl_res.get('success'):
+            return {"status": "error", "message": f"SL GTT failed: {sl_res.get('error')}"}
+        
+        sl_alert_id = sl_res.get('alert_id')
+        
+        # Acceptance Criteria 5: Place Target Dummy GTT with SL ID in userNote
+        tgt_res = broker.place_conditional_order(
+            sec_id="11006", # LiquidBees
+            exchange_seg="NSE_EQ",
+            quantity=1,
+            operator=tgt_op,
+            comparing_value=float(target_level),
+            transaction_type="BUY",
+            product_type="CNC",
+            trigger_sec_id=idx_sec_id,
+            user_note=sl_alert_id # Statelss mapping
         )
+        
+        if not tgt_res.get('success'):
+            # Rollback SL if target fails
+            broker.cancel_conditional_order(sl_alert_id)
+            return {"status": "error", "message": f"Target GTT failed: {tgt_res.get('error')}. SL leg cancelled."}
 
-        # Persist alert IDs in state
-        state['conditional_target_alert_id'] = tgt_result.get('alert_id')
-        state['conditional_sl_alert_id'] = sl_result.get('alert_id')
-        state['conditional_target_price'] = float(target_price)
-        state['conditional_sl_price'] = float(sl_price)
+        state['idx_target_alert_id'] = tgt_res.get('alert_id')
+        state['idx_sl_alert_id'] = sl_alert_id
         engine._set_state(underlying, state)
 
-        msg = f"GTT orders set for {symbol}: Target={target_price}, SL={sl_price}"
-        logger.info(msg)
-        activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 🎯 {msg}")
+        return {
+            "status": "success", 
+            "message": "Index GTTs placed successfully",
+            "sl_id": sl_alert_id,
+            "target_id": tgt_res.get('alert_id')
+        }
+    except Exception as e:
+        logger.error(f"Internal GTT Placement Error: {e}")
+        return {"status": "error", "message": str(e)}
 
-        return jsonify({
-            "status": "success",
-            "symbol": symbol,
-            "target_alert_id": tgt_result.get('alert_id'),
-            "sl_alert_id": sl_result.get('alert_id'),
-            "target_error": tgt_result.get('error'),
-            "sl_error": sl_result.get('error')
-        }), 200
+
+
+@app.route('/super-order', methods=['POST'])
+def set_super_order():
+    """
+    Places a Premium-based Super Order (Bracket).
+    """
+    if not broker or not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    underlying = data.get('underlying', 'NIFTY').upper()
+    side = data.get('side', 'CALL').upper() # CALL or PUT
+    target = data.get('target_price')
+    sl = data.get('sl_price')
+    quantity = data.get('quantity', 1)
+
+    if not target or not sl:
+         return jsonify({"status": "error", "message": "Premium Target and SL are required for Super Orders"}), 400
+
+    try:
+        # Resolve ITM Option and place Super Order via engine logic
+        leg_data = {
+            "underlying": underlying,
+            "quantity": int(quantity),
+            "sl_price": float(sl),
+            "target_price": float(target),
+            "force_super": True
+        }
+        result = engine.process_signal(underlying, 'B' if side == 'CALL' else 'S', 'regular', leg_data)
+        return jsonify({"status": "success", "result": result}), 200
+    except Exception as e:
+        logger.error(f"Super Order Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
     except Exception as e:
         logger.error(f"Set Conditional Orders Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500

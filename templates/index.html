@@ -188,9 +188,17 @@
             color: var(--danger);
         }
 
-        .monitor-value.ABOVE { color: var(--success); }
-        .monitor-value.BELOW { color: var(--danger); }
-        .monitor-value.INSIDE { color: var(--text-secondary); }
+        .monitor-value.ABOVE {
+            color: var(--success);
+        }
+
+        .monitor-value.BELOW {
+            color: var(--danger);
+        }
+
+        .monitor-value.INSIDE {
+            color: var(--text-secondary);
+        }
 
         /* POSITION CARDS */
         #active-positions-list {
@@ -213,8 +221,15 @@
         }
 
         @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .position-card:hover {
@@ -222,8 +237,13 @@
             border-color: rgba(255, 255, 255, 0.2);
         }
 
-        .position-card.profit { border-left: 4px solid var(--success); }
-        .position-card.loss   { border-left: 4px solid var(--danger); }
+        .position-card.profit {
+            border-left: 4px solid var(--success);
+        }
+
+        .position-card.loss {
+            border-left: 4px solid var(--danger);
+        }
 
         .pos-header {
             display: flex;
@@ -246,8 +266,17 @@
             letter-spacing: 0.05em;
         }
 
-        .pos-side-badge.CALL { background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.2); }
-        .pos-side-badge.PUT  { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
+        .pos-side-badge.CALL {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .pos-side-badge.PUT {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
 
         .pos-pnl-main {
             display: flex;
@@ -271,8 +300,15 @@
             font-family: 'Outfit', sans-serif;
         }
 
-        .pos-pnl-amt.profit { color: var(--success); text-shadow: 0 0 20px rgba(34, 197, 94, 0.4); }
-        .pos-pnl-amt.loss   { color: var(--danger); text-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+        .pos-pnl-amt.profit {
+            color: var(--success);
+            text-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+        }
+
+        .pos-pnl-amt.loss {
+            color: var(--danger);
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+        }
 
         .pos-grid {
             display: grid;
@@ -305,7 +341,7 @@
             color: var(--text-secondary);
             font-size: 12px;
             font-style: italic;
-            background: rgba(0,0,0,0.1);
+            background: rgba(0, 0, 0, 0.1);
             border-radius: 12px;
             border: 1px dashed var(--glass-border);
         }
@@ -345,7 +381,9 @@
             transition: all 0.2s;
         }
 
-        .history-card:hover { background: rgba(255, 255, 255, 0.06); }
+        .history-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
 
         .hist-header {
             display: flex;
@@ -354,10 +392,21 @@
             margin-bottom: 8px;
         }
 
-        .hist-symbol { font-weight: 700; color: #fff; }
-        .hist-time { font-size: 10px; color: var(--text-secondary); }
+        .hist-symbol {
+            font-weight: 700;
+            color: #fff;
+        }
 
-        .hist-badges { display: flex; gap: 6px; }
+        .hist-time {
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .hist-badges {
+            display: flex;
+            gap: 6px;
+        }
+
         .badge {
             padding: 2px 8px;
             border-radius: 6px;
@@ -365,10 +414,26 @@
             font-weight: 700;
             text-transform: uppercase;
         }
-        .badge-target { background: rgba(34, 197, 94, 0.15); color: var(--success); }
-        .badge-sl     { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
-        .badge-call   { background: rgba(0, 242, 254, 0.1); color: var(--accent); }
-        .badge-put    { background: rgba(255, 170, 0, 0.1); color: orange; }
+
+        .badge-target {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+        }
+
+        .badge-sl {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
+        .badge-call {
+            background: rgba(0, 242, 254, 0.1);
+            color: var(--accent);
+        }
+
+        .badge-put {
+            background: rgba(255, 170, 0, 0.1);
+            color: orange;
+        }
 
         .hist-grid {
             display: grid;
@@ -376,14 +441,39 @@
             gap: 8px;
         }
 
-        .hist-stats { display: flex; flex-direction: column; gap: 2px; }
-        .hist-stats label { font-size: 9px; color: var(--text-secondary); text-transform: uppercase; }
-        .hist-stats span { font-weight: 700; color: #fff; }
+        .hist-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
 
-        .hist-pnl { text-align: right; }
-        .pnl-val { font-size: 14px; font-weight: 800; }
-        .pnl-val.profit { color: var(--success); }
-        .pnl-val.loss   { color: var(--danger); }
+        .hist-stats label {
+            font-size: 9px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .hist-stats span {
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .hist-pnl {
+            text-align: right;
+        }
+
+        .pnl-val {
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .pnl-val.profit {
+            color: var(--success);
+        }
+
+        .pnl-val.loss {
+            color: var(--danger);
+        }
 
         /* COMMAND SECTORS */
         .command-center {
@@ -463,6 +553,77 @@
         .btn-exit:hover {
             background: rgba(255, 255, 255, 0.1);
             transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.1;
+            filter: grayscale(1);
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .btn-modify-gtt {
+            background: rgba(0, 242, 254, 0.05);
+            color: var(--accent);
+            border: 1px dashed var(--accent-glow);
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: none; /* Only show when needed */
+        }
+
+        .btn-modify-gtt:enabled {
+            border-style: solid;
+            background: rgba(0, 242, 254, 0.15);
+        }
+
+        /* IN-CARD P&L DISPLAY */
+        .sector-pnl-overlay {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 10px;
+            display: none; /* Show when position active */
+            border: 1px solid var(--glass-border);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .sector-pnl-main {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .pnl-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .pnl-value-large {
+            font-size: 32px;
+            font-weight: 800;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .sector-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 11px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 9px;
         }
 
         /* BUBBLE INDICATOR */
@@ -727,8 +888,13 @@
             font-weight: 700;
         }
 
-        .cond-label.target { color: var(--success); }
-        .cond-label.sl     { color: var(--danger);  }
+        .cond-label.target {
+            color: var(--success);
+        }
+
+        .cond-label.sl {
+            color: var(--danger);
+        }
 
         .cond-input {
             background: rgba(0, 0, 0, 0.5);
@@ -741,7 +907,10 @@
             text-align: center;
         }
 
-        .cond-input:focus { outline: none; border-color: var(--accent); }
+        .cond-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
 
         .cond-btn-row {
             display: grid;
@@ -762,7 +931,10 @@
             transition: all 0.2s;
         }
 
-        .cond-set-btn:hover { background: var(--accent); color: #000; }
+        .cond-set-btn:hover {
+            background: var(--accent);
+            color: #000;
+        }
 
         .cond-cancel-btn {
             background: rgba(239, 68, 68, 0.08);
@@ -776,7 +948,10 @@
             transition: all 0.2s;
         }
 
-        .cond-cancel-btn:hover { background: var(--danger); color: #fff; }
+        .cond-cancel-btn:hover {
+            background: var(--danger);
+            color: #fff;
+        }
 
         .cond-status {
             margin-top: 6px;
@@ -794,6 +969,10 @@
             <div>
                 <h1>Trading Agent</h1>
                 <p>NIFTY Live Control Hub v2.0</p>
+                <div id="range-tracker-summary" style="font-size: 10px; display: flex; gap: 10px; margin-top: 8px;">
+                    <span id="range-NIFTY" class="monitor-label">NIFTY: --</span>
+                    <span id="range-BANKNIFTY" class="monitor-label">BNIFTY: --</span>
+                </div>
             </div>
             <button id="btn-connect-dhan" class="connect-btn" onclick="authConnect()"
                 aria-label="Connect Dhan broker account" data-action="connect-dhan">Connect Dhan</button>
@@ -808,22 +987,6 @@
         <div class="dashboard-grid">
             <!-- Left Column: Controls -->
             <div class="col-controls">
-                <section id="position-radar" class="monitor-card" aria-label="Active Positions" role="status">
-                    <div class="monitor-header">
-                        <span class="monitor-label">Live Positions</span>
-                        <div id="range-tracker-summary" style="font-size: 10px; display: flex; gap: 10px;">
-                            <span id="range-NIFTY">NIFTY: --</span>
-                            <span id="range-BANKNIFTY">BNIFTY: --</span>
-                        </div>
-                    </div>
-                    
-                    <div id="active-positions-list">
-                        <div class="no-positions">No active positions currently detected</div>
-                    </div>
-
-                    <div id="val-symbol" class="monitor-symbol" style="display:none"></div>
-                </section>
-
                 <section id="command-center" class="command-center" aria-label="NIFTY Trade Controls">
                     <!-- CALL SECTOR -->
                     <div id="sector-call" class="command-sector" data-sector="CALL" aria-label="NIFTY CALL CE Controls">
@@ -835,26 +998,42 @@
                                 <button id="btn-buy-call" class="btn btn-buy-call"
                                     onclick="agentAPI.sendUIAction('CALL')" data-action="buy-call"
                                     aria-label="Buy NIFTY Call option">BUY CALL</button>
+                                
+                                <div id="pnl-CALL" class="sector-pnl-overlay">
+                                    <div class="sector-pnl-main">
+                                        <div class="pnl-label">NIFTY CALL CE PnL</div>
+                                        <div id="pnl-amt-CALL" class="pnl-value-large">+₹0</div>
+                                        <div id="pnl-pct-CALL" style="font-size: 12px;">+0%</div>
+                                    </div>
+                                    <div class="sector-stats">
+                                        <div class="stat-item"><span class="stat-label">Entry</span><span id="entry-CALL">--</span></div>
+                                        <div class="stat-item"><span class="stat-label">LTP</span><span id="ltp-CALL">--</span></div>
+                                        <div class="stat-item"><span class="stat-label">Qty</span><span id="qty-CALL">--</span></div>
+                                        <div class="stat-item"><span class="stat-label">Symbol</span><span id="sym-CALL" style="font-size: 8px;">--</span></div>
+                                    </div>
+                                </div>
                             </div>
                             <button id="btn-exit-call" class="btn btn-exit" onclick="agentAPI.sendUIAction('EXIT_CALL')"
                                 data-action="exit-call" aria-label="Exit NIFTY Call position">EXIT</button>
                         </div>
                         <!-- Conditional Orders: CALL -->
                         <div class="cond-panel">
-                            <div class="cond-panel-title">Conditional Exit (GTT)</div>
+                            <div class="cond-panel-title">Index Conditional GTT</div>
                             <div class="cond-row">
                                 <span class="cond-label target">Target</span>
-                                <input type="number" id="call-target" class="cond-input" placeholder="Price" step="0.5" aria-label="Call target price">
-                                <span style="font-size:10px;color:var(--text-secondary)">LTP crosses UP</span>
+                                <input type="number" id="call-target" class="cond-input" placeholder="Price" step="0.5"
+                                    aria-label="Call target price">
+                                <span style="font-size:10px;color:var(--text-secondary)">UP</span>
                             </div>
                             <div class="cond-row">
                                 <span class="cond-label sl">SL</span>
-                                <input type="number" id="call-sl" class="cond-input" placeholder="Price" step="0.5" aria-label="Call stop loss price">
-                                <span style="font-size:10px;color:var(--text-secondary)">LTP crosses DOWN</span>
+                                <input type="number" id="call-sl" class="cond-input" placeholder="Price" step="0.5"
+                                    aria-label="Call stop loss price">
+                                <span style="font-size:10px;color:var(--text-secondary)">DOWN</span>
                             </div>
                             <div class="cond-btn-row">
-                                <button class="cond-set-btn" onclick="setConditionalOrders('CALL')">Set GTT</button>
-                                <button class="cond-cancel-btn" onclick="cancelConditionalOrders('CALL')">Cancel GTT</button>
+                                <button id="btn-set-call" class="cond-set-btn" onclick="setConditionalOrders('CALL')">Apply GTT</button>
+                                <button id="btn-modify-call" class="btn-modify-gtt" onclick="setConditionalOrders('CALL', {modify: true})">Modify GTT</button>
                             </div>
                             <div id="cond-status-call" class="cond-status"></div>
                         </div>
@@ -869,26 +1048,42 @@
                                     PUT POSITION ACTIVE</div>
                                 <button id="btn-buy-put" class="btn btn-buy-put" onclick="agentAPI.sendUIAction('PUT')"
                                     data-action="buy-put" aria-label="Buy NIFTY Put option">BUY PUT</button>
+                                
+                                <div id="pnl-PUT" class="sector-pnl-overlay">
+                                    <div class="sector-pnl-main">
+                                        <div class="pnl-label">NIFTY PUT PE PnL</div>
+                                        <div id="pnl-amt-PUT" class="pnl-value-large">+₹0</div>
+                                        <div id="pnl-pct-PUT" style="font-size: 12px;">+0%</div>
+                                    </div>
+                                    <div class="sector-stats">
+                                        <div class="stat-item"><span class="stat-label">Entry</span><span id="entry-PUT">--</span></div>
+                                        <div class="stat-item"><span class="stat-label">LTP</span><span id="ltp-PUT">--</span></div>
+                                        <div class="stat-item"><span class="stat-label">Qty</span><span id="qty-PUT">--</span></div>
+                                        <div class="stat-item"><span class="stat-label">Symbol</span><span id="sym-PUT" style="font-size: 8px;">--</span></div>
+                                    </div>
+                                </div>
                             </div>
                             <button id="btn-exit-put" class="btn btn-exit" onclick="agentAPI.sendUIAction('EXIT_PUT')"
                                 data-action="exit-put" aria-label="Exit NIFTY Put position">EXIT</button>
                         </div>
                         <!-- Conditional Orders: PUT -->
                         <div class="cond-panel">
-                            <div class="cond-panel-title">Conditional Exit (GTT)</div>
+                            <div class="cond-panel-title">Index Conditional GTT</div>
                             <div class="cond-row">
                                 <span class="cond-label target">Target</span>
-                                <input type="number" id="put-target" class="cond-input" placeholder="Price" step="0.5" aria-label="Put target price">
-                                <span style="font-size:10px;color:var(--text-secondary)">LTP crosses UP</span>
+                                <input type="number" id="put-target" class="cond-input" placeholder="Price" step="0.5"
+                                    aria-label="Put target price">
+                                <span style="font-size:10px;color:var(--text-secondary)">UP</span>
                             </div>
                             <div class="cond-row">
                                 <span class="cond-label sl">SL</span>
-                                <input type="number" id="put-sl" class="cond-input" placeholder="Price" step="0.5" aria-label="Put stop loss price">
-                                <span style="font-size:10px;color:var(--text-secondary)">LTP crosses DOWN</span>
+                                <input type="number" id="put-sl" class="cond-input" placeholder="Price" step="0.5"
+                                    aria-label="Put stop loss price">
+                                <span style="font-size:10px;color:var(--text-secondary)">DOWN</span>
                             </div>
                             <div class="cond-btn-row">
-                                <button class="cond-set-btn" onclick="setConditionalOrders('PUT')">Set GTT</button>
-                                <button class="cond-cancel-btn" onclick="cancelConditionalOrders('PUT')">Cancel GTT</button>
+                                <button id="btn-set-put" class="cond-set-btn" onclick="setConditionalOrders('PUT')">Apply GTT</button>
+                                <button id="btn-modify-put" class="btn-modify-gtt" onclick="setConditionalOrders('PUT', {modify: true})">Modify GTT</button>
                             </div>
                             <div id="cond-status-put" class="cond-status"></div>
                         </div>
@@ -926,13 +1121,16 @@
 
                 <!-- ACTIVITY FEED -->
                 <section class="side-card">
-                    <div class="side-card-title form-group" style="margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                    <div class="side-card-title form-group"
+                        style="margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
                         System Activity Feed
-                        <button class="settings-btn" style="padding: 2px 8px; font-size: 0.8rem; background: var(--border-color);" 
+                        <button class="settings-btn"
+                            style="padding: 2px 8px; font-size: 0.8rem; background: var(--border-color);"
                             onclick="refreshAILogs()">↻</button>
                     </div>
                     <div id="ai-logs" class="ai-log-list" style="font-family: monospace; font-size: 0.85rem;">
-                        <div class="ai-log-item" style="color: var(--text-secondary); text-align: center;">No activity yet.</div>
+                        <div class="ai-log-item" style="color: var(--text-secondary); text-align: center;">No activity
+                            yet.</div>
                     </div>
                 </section>
 
@@ -1039,6 +1237,22 @@
                             <span class="monitor-value ${pos.range_position}">${pos.range_position}</span>
                         </div>
                     </div>
+                    ${pos.idx_target_level ? `
+                    <div class="cond-panel" style="margin-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 8px;">
+                        <div class="cond-panel-title">Index GTT Active</div>
+                        <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                            <span style="color:var(--success)">TGT: ${pos.idx_target_level}</span>
+                            <span style="color:var(--danger)">SL: ${pos.idx_sl_level}</span>
+                        </div>
+                    </div>` : ''}
+                    ${pos.conditional_target_price ? `
+                    <div class="cond-panel" style="margin-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 8px;">
+                        <div class="cond-panel-title">Premium GTT Active</div>
+                        <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                            <span style="color:var(--success)">TGT: ₹${pos.conditional_target_price}</span>
+                            <span style="color:var(--danger)">SL: ₹${pos.conditional_sl_price}</span>
+                        </div>
+                    </div>` : ''}
                 </div>
             `;
         }
@@ -1085,47 +1299,145 @@
 
         function updateUI(data) {
             const state = data.state || {};
-            const activePositions = data.active_positions || [];
+            const sector = data.sector_details || null;
             const rangeTracker = data.range_tracker || {};
 
-            // 1. Update Positions List
-            const listEl = document.getElementById('active-positions-list');
-            if (activePositions.length > 0) {
-                listEl.innerHTML = activePositions.map(pos => renderPositionCard(pos)).join('');
-            } else {
-                listEl.innerHTML = '<div class="no-positions">No active positions currently detected</div>';
-            }
+            // 1. Determine Activity Status
+            const activeSide = state.side || 'NONE';
+            const callActive = (activeSide === 'CALL');
+            const putActive = (activeSide === 'PUT');
 
-            // 2. Update Range Tracker Summary (Header)
+            // 2. Update Buttons & Labels
+            document.getElementById('btn-buy-call').disabled = callActive;
+            document.getElementById('btn-exit-call').disabled = !callActive;
+            document.getElementById('btn-set-call').disabled = !callActive;
+            document.getElementById('stat-CALL').style.display = callActive ? 'block' : 'none';
+
+            document.getElementById('btn-buy-put').disabled = putActive;
+            document.getElementById('btn-exit-put').disabled = !putActive;
+            document.getElementById('btn-set-put').disabled = !putActive;
+            document.getElementById('stat-PUT').style.display = putActive ? 'block' : 'none';
+
+            // 3. Update In-Card P&L for Active Sector
+            const sectors = ['CALL', 'PUT'];
+            sectors.forEach(s => {
+                const pnlEl = document.getElementById(`pnl-${s}`);
+                const buyEl = document.getElementById(`btn-buy-${s.toLowerCase()}`);
+                
+                if ((s === 'CALL' && callActive) || (s === 'PUT' && putActive)) {
+                    if (sector) {
+                        pnlEl.style.display = 'block';
+                        buyEl.style.display = 'none';
+                        const isProfit = sector.pnl_abs >= 0;
+                        const sign = isProfit ? '+' : '';
+                        const amtEl = document.getElementById(`pnl-amt-${s}`);
+                        amtEl.textContent = `${sign}₹${sector.pnl_abs}`;
+                        amtEl.style.color = isProfit ? 'var(--success)' : 'var(--danger)';
+                        document.getElementById(`pnl-pct-${s}`).textContent = `${sign}${sector.pnl_pct}%`;
+                        document.getElementById(`pnl-pct-${s}`).style.color = isProfit ? 'var(--success)' : 'var(--danger)';
+                        
+                        document.getElementById(`entry-${s}`).textContent = `₹${sector.entry_price}`;
+                        document.getElementById(`ltp-${s}`).textContent = `₹${sector.ltp}`;
+                        document.getElementById(`qty-${s}`).textContent = sector.quantity;
+                        document.getElementById(`sym-${s}`).textContent = sector.symbol;
+                    }
+                } else {
+                    pnlEl.style.display = 'none';
+                    buyEl.style.display = 'block';
+                }
+            });
+
+            // 4. Update Range Tracker Summary (Header)
             for (const [symbol, pos] of Object.entries(rangeTracker)) {
                 const el = document.getElementById(`range-${symbol}`);
                 if (el) {
                     el.textContent = `${symbol}: ${pos}`;
-                    el.className = 'monitor-value ' + pos;
+                    el.className = 'monitor-label ' + pos;
                 }
             }
 
-            // 3. Update NIFTY status markers (Backward compatibility for badges/GTT)
-            const trend = state.side || 'IDLE';
-            document.getElementById('stat-CALL').style.display = trend === 'CALL' ? 'block' : 'none';
-            document.getElementById('stat-PUT').style.display = trend === 'PUT' ? 'block' : 'none';
+            // 5. Sync GTT inputs with current state if they match or are active
+            const activePrefix = activeSide === 'PUT' ? 'put' : 'call';
+            if (state.idx_target_level) {
+                const tInp = document.getElementById(`${activePrefix}-target`);
+                const sInp = document.getElementById(`${activePrefix}-sl`);
+                const stEl = document.getElementById(`cond-status-${activePrefix}`);
+                const modBtn = document.getElementById(`btn-modify-${activePrefix}`);
 
-            // Restore GTT prices from state if set
-            if (state.conditional_target_price) {
-                const prefix = trend === 'PUT' ? 'put' : 'call';
-                const tEl = document.getElementById(`${prefix}-target`);
-                const sEl = document.getElementById(`${prefix}-sl`);
-                const stEl = document.getElementById(`cond-status-${prefix}`);
-                if (tEl && !tEl.value) tEl.value = state.conditional_target_price;
-                if (sEl && !sEl.value) sEl.value = state.conditional_sl_price;
-                if (stEl && !stEl.textContent)
-                    stEl.textContent = `✅ GTT active — T:${state.conditional_target_price}  SL:${state.conditional_sl_price}`;
+                if (tInp && !tInp.getAttribute('data-active')) {
+                    tInp.value = state.idx_target_level;
+                    tInp.setAttribute('data-active', state.idx_target_level);
+                }
+                if (sInp && !sInp.getAttribute('data-active')) {
+                    sInp.value = state.idx_sl_level;
+                    sInp.setAttribute('data-active', state.idx_sl_level);
+                }
+                stEl.textContent = `✅ Index GTT — T:${state.idx_target_level} SL:${state.idx_sl_level}`;
+                
+                // Hide Apply, check for Modify
+                document.getElementById(`btn-set-${activePrefix}`).style.display = 'none';
+                
+                // Detection: Show Modify button if inputs changed
+                const currentT = parseFloat(tInp.value);
+                const currentS = parseFloat(sInp.value);
+                if (currentT !== state.idx_target_level || currentS !== state.idx_sl_level) {
+                    modBtn.style.display = 'block';
+                    modBtn.disabled = false;
+                } else {
+                    modBtn.style.display = 'none';
+                }
+            } else {
+                // No GTT active
+                ['call', 'put'].forEach(p => {
+                    const stEl = document.getElementById(`cond-status-${p}`);
+                    if (stEl) stEl.textContent = '';
+                    const setBtn = document.getElementById(`btn-set-${p}`);
+                    if (setBtn) setBtn.style.display = 'block';
+                    const modBtn = document.getElementById(`btn-modify-${p}`);
+                    if (modBtn) modBtn.style.display = 'none';
+                });
             }
         }
 
         async function sendUIAction(action, skipConfirm = false) {
             const secret = document.getElementById('secret').value.trim();
             if (!secret) return notify('⚠️ Webhook secret required', 'error');
+
+            const isBuy = (action === 'CALL' || action === 'PUT');
+            if (isBuy) {
+                const prefix = action.toLowerCase();
+                const target = document.getElementById(`${prefix}-target`).value;
+                const sl = document.getElementById(`${prefix}-sl`).value;
+                if (!target || !sl) {
+                    return notify('⚠️ AC 6: Index SL and Target are MANDATORY to Buy', 'error');
+                }
+                
+                const body = { 
+                    secret, 
+                    underlying: 'NIFTY', 
+                    action: action, 
+                    quantity: 1,
+                    target_index: parseFloat(target),
+                    sl_index: parseFloat(sl)
+                };
+                
+                if (!skipConfirm && !confirm(`Buy NIFTY ${action} with SL:${sl} / TGT:${target}?`)) return;
+                
+                notify(`🚀 Sending Signal: BUY ${action}...`, 'success');
+                try {
+                    const response = await fetch('/ui-signal', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        notify(`✅ Order Placed: ${action}`, 'success');
+                        refreshState();
+                    } else notify(`❌ Failed: ${result.message}`, 'error');
+                } catch (e) { notify('❌ Network Error', 'error'); }
+                return;
+            }
 
             if (!skipConfirm && !confirm(`Trigger ${action} for NIFTY?`)) return;
 
@@ -1292,21 +1604,21 @@
             try {
                 const res = await fetch('/activity-logs', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ secret })
                 });
                 const data = await res.json();
-                
+
                 const container = document.getElementById('ai-logs');
                 if (data.status === 'success' && data.logs && data.logs.length > 0) {
                     container.innerHTML = '';
                     data.logs.forEach(log => {
                         const div = document.createElement('div');
                         div.className = 'ai-log-item';
-                        if(log.includes('🛑')) div.style.color = 'var(--danger)';
-                        else if(log.includes('✅')) div.style.color = 'var(--success)';
-                        else if(log.includes('❌')) div.style.color = 'var(--danger)';
-                        else if(log.includes('🧠')) div.style.color = 'var(--accent)';
+                        if (log.includes('🛑')) div.style.color = 'var(--danger)';
+                        else if (log.includes('✅')) div.style.color = 'var(--success)';
+                        else if (log.includes('❌')) div.style.color = 'var(--danger)';
+                        else if (log.includes('🧠')) div.style.color = 'var(--accent)';
                         div.innerText = log;
                         container.appendChild(div);
                     });
@@ -1321,23 +1633,29 @@
 
             const prefix = side === 'CALL' ? 'call' : 'put';
             const target = opts.target_price ?? parseFloat(document.getElementById(`${prefix}-target`).value);
-            const sl     = opts.sl_price    ?? parseFloat(document.getElementById(`${prefix}-sl`).value);
+            const sl = opts.sl_price ?? parseFloat(document.getElementById(`${prefix}-sl`).value);
             const statusEl = document.getElementById(`cond-status-${prefix}`);
 
             if (!target || !sl) return notify('Enter both Target and SL prices', 'error');
-            if (sl >= target) return notify('SL must be below Target', 'error');
+            if (sl >= target && side === 'CALL') return notify('SL must be below Target', 'error');
 
-            statusEl.textContent = 'Setting GTT orders...';
+            statusEl.textContent = opts.modify ? 'Modifying GTT...' : 'Setting GTT orders...';
             try {
-                const resp = await fetch('/set-conditional-orders', {
+                const resp = await fetch('/conditional-index-order', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret, underlying: 'NIFTY', side, target_price: target, sl_price: sl })
+                    body: JSON.stringify({ secret, underlying: 'NIFTY', target_level: target, sl_level: sl })
                 });
                 const data = await resp.json();
                 if (data.status === 'success') {
-                    statusEl.textContent = `✅ GTT set — Target: ${target}  SL: ${sl}`;
-                    notify(`✅ GTT orders set for ${side}: T=${target} SL=${sl}`, 'success');
+                    // Reset detection state
+                    document.getElementById(`${prefix}-target`).setAttribute('data-active', target);
+                    document.getElementById(`${prefix}-sl`).setAttribute('data-active', sl);
+                    document.getElementById(`btn-modify-${prefix}`).style.display = 'none';
+                    
+                    statusEl.textContent = `✅ GTT ${opts.modify ? 'Modified' : 'Set'} — T:${target} SL:${sl}`;
+                    notify(`✅ GTT orders updated for ${side}`, 'success');
+                    refreshState();
                 } else {
                     statusEl.textContent = `❌ ${data.message}`;
                     notify(`❌ ${data.message}`, 'error');
@@ -1366,7 +1684,10 @@
                 if (data.status === 'success') {
                     statusEl.textContent = 'GTT orders cancelled';
                     document.getElementById(`${prefix}-target`).value = '';
+                    document.getElementById(`${prefix}-target`).removeAttribute('data-active');
                     document.getElementById(`${prefix}-sl`).value = '';
+                    document.getElementById(`${prefix}-sl`).removeAttribute('data-active');
+                    document.getElementById(`btn-modify-${prefix}`).style.display = 'none';
                     notify(`GTT orders cancelled for ${side}`, 'success');
                 } else {
                     statusEl.textContent = `❌ ${data.message}`;
@@ -1411,6 +1732,27 @@
             setConditionalOrders: (side, opts) => setConditionalOrders(side, opts),
             cancelConditionalOrders: (side) => cancelConditionalOrders(side)
         };
+
+        // --- INPUT MONITORING ---
+        ['call-target', 'call-sl', 'put-target', 'put-sl'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', () => {
+                   const prefix = id.split('-')[0];
+                   const modBtn = document.getElementById(`btn-modify-${prefix}`);
+                   const target = document.getElementById(`${prefix}-target`);
+                   const sl = document.getElementById(`${prefix}-sl`);
+                   
+                   const tActive = parseFloat(target.getAttribute('data-active'));
+                   const sActive = parseFloat(sl.getAttribute('data-active'));
+                   
+                   if (tActive && sActive) {
+                       const changed = (parseFloat(target.value) !== tActive || parseFloat(sl.value) !== sActive);
+                       modBtn.style.display = changed ? 'block' : 'none';
+                   }
+                });
+            }
+        });
     </script>
 </body>
 

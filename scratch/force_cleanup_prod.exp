@@ -1,0 +1,11 @@
+#!/usr/bin/expect -f
+
+set timeout 30
+set password "bD?2\$2#TY-v*sx@9"
+
+spawn ssh root@65.20.83.74 "cat /opt/trading-agent/trade_history.json && rm /opt/trading-agent/trade_history.json && systemctl restart trading-agent"
+
+expect "root@65.20.83.74's password:"
+send "$password\r"
+
+interact

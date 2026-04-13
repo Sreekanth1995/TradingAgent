@@ -42,19 +42,31 @@ async def get_trading_status(underlying: str = "NIFTY"):
     return await call_api("/get-state", {"underlying": underlying})
 
 @mcp.tool()
-async def place_manual_order(action: str, underlying: str = "NIFTY", quantity: int = 1):
+async def place_manual_order(action: str, underlying: str = "NIFTY", quantity: int = 1, sl_price: float = None, target_price: float = None, sl_index: float = None, target_index: float = None):
     """
     Manually place a trade order (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL).
+    SL and Target are mandatory for CALL/PUT.
+    
+    Acceptance Criteria 1: Passing sl_index and target_index will automatically 
+    attach Index-based GTT protection to the new position.
     
     Args:
         action: The trade action (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL)
-        underlying: The symbol to trade (default: NIFTY)
+        underlying: The symbol to trade (NIFTY, BANKNIFTY)
         quantity: Order quantity (default: 1 lot)
+        sl_price: Optional Premium SL (Legacy)
+        target_price: Optional Premium Target (Legacy)
+        sl_index: [REQUIRED] Index SL level (e.g., 23430). Must be < entry for BUY.
+        target_index: [REQUIRED] Index Target level (e.g., 23550).
     """
     return await call_api("/ui-signal", {
         "action": action, 
         "underlying": underlying, 
-        "quantity": quantity
+        "quantity": quantity,
+        "sl_price": sl_price,
+        "target_price": target_price,
+        "sl_index": sl_index,
+        "target_index": target_index
     })
 
 @mcp.tool()
@@ -68,22 +80,62 @@ async def update_price_levels(levels: dict):
     })
 
 @mcp.tool()
-async def set_target_stoploss(underlying: str, side: str, target_price: float, sl_price: float):
+async def set_premium_gtt_levels(underlying: str, side: str, target_price: float, sl_price: float):
     """
-    Set GTT (Good Till Triggered) conditional orders for Target and Stop Loss 
-    on an active position.
+    Set or update Premium-based GTT levels (Target/SL) for an active position.
     
     Args:
         underlying: The symbol (NIFTY, BANKNIFTY, FINNIFTY)
         side: Position side (CALL or PUT)
-        target_price: The price level for target exit
-        sl_price: The price level for stop loss exit
+        target_price: [REQUIRED] The premium price level for target exit
+        sl_price: [REQUIRED] The premium price level for stop loss exit
     """
-    return await call_api("/set-conditional-orders", {
+    # Note: Using the updated endpoint if available, or fallback to existing
+    return await call_api("/conditional-index-order" if False else "/set-conditional-orders", {
         "underlying": underlying,
         "side": side,
         "target_price": target_price,
         "sl_price": sl_price
+    })
+
+@mcp.tool()
+async def set_index_gtt_levels(underlying: str, target_level: float, sl_level: float, quantity: int = None):
+    """
+    Set or update Index-level GTT triggers for an active NIFTY/BANKNIFTY position.
+    Triggers SELL on Option when Index crosses specified level.
+    
+    Args:
+        underlying: Symbol (NIFTY, BANKNIFTY)
+        target_level: [REQUIRED] Index level for target exit (e.g., 23550)
+        sl_level: [REQUIRED] Index level for stop loss exit (e.g., 23430)
+        quantity: Optional lot quantity (defaults to active position size)
+    """
+    return await call_api("/conditional-index-order", {
+        "underlying": underlying,
+        "target_level": target_level,
+        "sl_level": sl_level,
+        "quantity": quantity
+    })
+
+@mcp.tool()
+async def place_super_order(underlying: str, side: str, target_price: float, sl_price: float, quantity: int = 1):
+    """
+    Places a Premium-based Super Order (Bracket Order).
+    The broker handles SL/Target natively as legs of the entry order.
+    
+    Args:
+        underlying: Symbol (NIFTY, BANKNIFTY)
+        side: CALL or PUT
+        target_price: [REQUIRED] Premium target (e.g., 240)
+        sl_price: [REQUIRED] Premium SL (e.g., 140)
+        quantity: Lot size
+    """
+    return await call_api("/super-order", {
+        "underlying": underlying,
+        "side": side,
+        "target_price": target_price,
+        "sl_price": sl_price,
+        "quantity": quantity
     })
 
 @mcp.tool()
