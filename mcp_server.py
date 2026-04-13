@@ -46,10 +46,13 @@ async def get_trading_status(underlying: str = "NIFTY"):
     return await call_api("/get-state", {"underlying": underlying})
 
 @mcp.tool()
-async def place_manual_order(action: str, underlying: str = "NIFTY", quantity: int = 1, sl_price: float = None, target_price: float = None, sl_index: float = None, target_index: float = None):
+async def place_conditional_order(action: str, underlying: str = "NIFTY", quantity: int = 1, sl_price: float = None, target_price: float = None, sl_index: float = None, target_index: float = None):
     """
     Manually place a trade order (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL).
     SL and Target are mandatory for CALL/PUT.
+    
+    Acceptance Criteria 1: Passing sl_index and target_index will automatically 
+    attach Index-based GTT protection to the new position.
     
     Args:
         action: The trade action (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL)
@@ -57,8 +60,8 @@ async def place_manual_order(action: str, underlying: str = "NIFTY", quantity: i
         quantity: Order quantity (default: 1 lot)
         sl_price: Optional Premium SL (Legacy)
         target_price: Optional Premium Target (Legacy)
-        sl_index: Optional Index SL level
-        target_index: Optional Index Target level
+        sl_index: [REQUIRED] Index SL level (e.g., 23430). Must be < entry for BUY.
+        target_index: [REQUIRED] Index Target level (e.g., 23550).
     """
     return await call_api("/ui-signal", {
         "action": action, 
@@ -68,25 +71,6 @@ async def place_manual_order(action: str, underlying: str = "NIFTY", quantity: i
         "target_price": target_price,
         "sl_index": sl_index,
         "target_index": target_index
-    })
-
-@mcp.tool()
-async def set_premium_gtt_levels(underlying: str, side: str, target_price: float, sl_price: float):
-    """
-    Set or update Premium-based GTT levels (Target/SL) for an active position.
-    
-    Args:
-        underlying: The symbol (NIFTY, BANKNIFTY, FINNIFTY)
-        side: Position side (CALL or PUT)
-        target_price: [REQUIRED] The premium price level for target exit
-        sl_price: [REQUIRED] The premium price level for stop loss exit
-    """
-    # Note: Using the updated endpoint if available, or fallback to existing
-    return await call_api("/conditional-index-order" if False else "/set-conditional-orders", {
-        "underlying": underlying,
-        "side": side,
-        "target_price": target_price,
-        "sl_price": sl_price
     })
 
 @mcp.tool()
@@ -105,27 +89,6 @@ async def modify_index_gtt_levels(underlying: str, target_level: float, sl_level
         "underlying": underlying,
         "target_level": target_level,
         "sl_level": sl_level,
-        "quantity": quantity
-    })
-
-@mcp.tool()
-async def place_conditional_order(action: str, underlying: str = "NIFTY", sl_index: float = None, target_index: float = None, quantity: int = 1):
-    """
-    Place a NIFTY/BANKNIFTY trade order with index-level conditional SL and Target in one call.
-    Sends CALL or PUT entry along with index-level GTT triggers to the broker.
-
-    Args:
-        action: Trade direction — CALL or PUT
-        underlying: Symbol (NIFTY, BANKNIFTY)
-        sl_index: [REQUIRED] NIFTY index level for Stop Loss exit (e.g., 23430)
-        target_index: [REQUIRED] NIFTY index level for Target exit (e.g., 23550)
-        quantity: Lot size (default: 1)
-    """
-    return await call_api("/ui-signal", {
-        "action": action,
-        "underlying": underlying,
-        "sl_index": sl_index,
-        "target_index": target_index,
         "quantity": quantity
     })
 
@@ -165,7 +128,6 @@ async def modify_super_order(underlying: str, target_price: float, sl_price: flo
         "target_price": target_price,
         "sl_price": sl_price
     })
-
 
 @mcp.tool()
 async def cancel_target_stoploss(underlying: str = "NIFTY"):
