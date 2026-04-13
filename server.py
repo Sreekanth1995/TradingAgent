@@ -821,7 +821,8 @@ def set_super_order():
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     
     underlying = data.get('underlying', 'NIFTY').upper()
-    side = data.get('side', 'CALL').upper() # CALL or PUT
+    option = data.get('option')
+    side = data.get('side', 'CALL').upper() if not option else ''
     target = data.get('target_price')
     sl = data.get('sl_price')
     quantity = data.get('quantity', 1)
@@ -838,13 +839,14 @@ def set_super_order():
             "target_price": float(target),
             "force_super": True
         }
-        result = engine.process_signal(underlying, 'B' if side == 'CALL' else 'S', 'regular', leg_data)
+        if option:
+            leg_data["option_symbol"] = option
+            
+        signal_dir = 'B' if 'CE' in option else 'S' if option else ('B' if side == 'CALL' else 'S')
+        result = engine.process_signal(underlying, signal_dir, 'regular', leg_data)
         return jsonify({"status": "success", "result": result}), 200
     except Exception as e:
         logger.error(f"Super Order Error: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-    except Exception as e:
-        logger.error(f"Set Conditional Orders Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

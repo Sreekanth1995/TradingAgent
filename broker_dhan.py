@@ -80,6 +80,7 @@ class DhanClient:
         self.dhan = None
         self.scrip_map = {} # (symbol, strike, opt_type, expiry_date) -> security_id
         self.lot_map = {}   # security_id -> lot_size (int)
+        self.exact_symbol_map = {} # tradingSymbol -> dict of details
 
         
         # Load Scrip Master in background thread to prevent Railway startup timeout
@@ -177,6 +178,18 @@ class DhanClient:
                         except:
                             self.lot_map[sec_id] = 1
                             
+                        # Store exact trading symbol for explicit option strings
+                        trading_sym = row.get('SEM_TRADING_SYMBOL', '').strip()
+                        if trading_sym:
+                            self.exact_symbol_map[trading_sym] = {
+                                "security_id": sec_id,
+                                "strike": strike,
+                                "expiry": expiry_raw,
+                                "symbol": trading_sym,
+                                "opt_type": opt_type,
+                                "underlying": sym
+                            }
+                            
                         count += 1
             
             # --- Identify Expiry Days for Indices ---
@@ -267,6 +280,10 @@ class DhanClient:
         except Exception as e:
             logger.error(f"Error in ITM Selection: {e}")
             return None
+
+    def get_security_info_by_symbol(self, exact_symbol):
+        """Returns the dictionary mapping for an exact option string (e.g. NIFTY24DEC22500CE)."""
+        return self.exact_symbol_map.get(exact_symbol.strip().upper())
 
     def _get_security_id(self, symbol, strike, opt_type, expiry):
         """

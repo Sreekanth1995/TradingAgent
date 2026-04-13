@@ -46,7 +46,7 @@ async def get_trading_status(underlying: str = "NIFTY"):
     return await call_api("/get-state", {"underlying": underlying})
 
 @mcp.tool()
-async def place_manual_order(action: str, underlying: str = "NIFTY", quantity: int = 1, sl_price: float = None, target_price: float = None, sl_index: float = None, target_index: float = None):
+async def place_conditional_order(action: str, underlying: str = "NIFTY", quantity: int = 1, sl_price: float = None, target_price: float = None, sl_index: float = None, target_index: float = None):
     """
     Manually place a trade order (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL).
     SL and Target are mandatory for CALL/PUT.
@@ -122,21 +122,21 @@ async def set_index_gtt_levels(underlying: str, target_level: float, sl_level: f
     })
 
 @mcp.tool()
-async def place_super_order(underlying: str, side: str, target_price: float, sl_price: float, quantity: int = 1):
+async def place_super_order(underlying: str, option: str, target_price: float, sl_price: float, quantity: int = 1):
     """
     Places a Premium-based Super Order (Bracket Order).
     The broker handles SL/Target natively as legs of the entry order.
     
     Args:
         underlying: Symbol (NIFTY, BANKNIFTY)
-        side: CALL or PUT
+        option: The direct exact option symbol to trade (e.g. NIFTY24APR22500CE)
         target_price: [REQUIRED] Premium target (e.g., 240)
         sl_price: [REQUIRED] Premium SL (e.g., 140)
         quantity: Lot size
     """
     return await call_api("/super-order", {
         "underlying": underlying,
-        "side": side,
+        "option": option,
         "target_price": target_price,
         "sl_price": sl_price,
         "quantity": quantity

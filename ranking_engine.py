@@ -384,9 +384,27 @@ class RankingEngine:
             logger.error(f"Cannot execute strategy for {underlying}: Index LTP failed.")
             return {"underlying": underlying, "action": "FAILED_INDEX_LTP", "time": now_ist.strftime('%H:%M:%S')}
 
-        # 2. Resolve ITM CE and PE targets
-        itm_ce = self.broker.get_itm_contract(underlying, 'CE', spot_price)
-        itm_pe = self.broker.get_itm_contract(underlying, 'PE', spot_price)
+        # 2. Resolve target contract
+        exact_option = leg_data.get('option_symbol')
+        itm_ce = None
+        itm_pe = None
+        
+        if exact_option:
+            info = self.broker.get_security_info_by_symbol(exact_option)
+            if not info:
+                logger.error(f"Cannot resolve explicit option {exact_option} for {underlying}")
+                return {"underlying": underlying, "action": "FAILED_EXPLICIT_OPTION", "time": now_ist.strftime('%H:%M:%S')}
+            # Mock the itm dictionary structure used downstream
+            if info['opt_type'] == 'CE':
+                itm_ce = info
+                # Need an opposing PE for the symmetric logic to not break
+                itm_pe = self.broker.get_itm_contract(underlying, 'PE', spot_price)
+            else:
+                itm_pe = info
+                itm_ce = self.broker.get_itm_contract(underlying, 'CE', spot_price)
+        else:
+            itm_ce = self.broker.get_itm_contract(underlying, 'CE', spot_price)
+            itm_pe = self.broker.get_itm_contract(underlying, 'PE', spot_price)
         
         if not itm_ce or not itm_pe:
             logger.error(f"Failed to resolve ITM contracts for {underlying}")
