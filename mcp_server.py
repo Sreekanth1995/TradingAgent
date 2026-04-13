@@ -109,6 +109,27 @@ async def modify_index_gtt_levels(underlying: str, target_level: float, sl_level
     })
 
 @mcp.tool()
+async def place_conditional_order(action: str, underlying: str = "NIFTY", sl_index: float = None, target_index: float = None, quantity: int = 1):
+    """
+    Place a NIFTY/BANKNIFTY trade order with index-level conditional SL and Target in one call.
+    Sends CALL or PUT entry along with index-level GTT triggers to the broker.
+
+    Args:
+        action: Trade direction — CALL or PUT
+        underlying: Symbol (NIFTY, BANKNIFTY)
+        sl_index: [REQUIRED] NIFTY index level for Stop Loss exit (e.g., 23430)
+        target_index: [REQUIRED] NIFTY index level for Target exit (e.g., 23550)
+        quantity: Lot size (default: 1)
+    """
+    return await call_api("/ui-signal", {
+        "action": action,
+        "underlying": underlying,
+        "sl_index": sl_index,
+        "target_index": target_index,
+        "quantity": quantity
+    })
+
+@mcp.tool()
 async def place_super_order(underlying: str, option: str, target_price: float, sl_price: float, quantity: int = 1):
     """
     Places a Premium-based Super Order (Bracket Order).
@@ -130,9 +151,9 @@ async def place_super_order(underlying: str, option: str, target_price: float, s
     })
 
 @mcp.tool()
-async def update_super_order(underlying: str, target_price: float, sl_price: float):
+async def modify_super_order(underlying: str, target_price: float, sl_price: float):
     """
-    Updates the target and sl legs of an active Premium-based Super Order.
+    Updates the target and sl legs of an active Premium-based Super Order natively.
     
     Args:
         underlying: Symbol (NIFTY, BANKNIFTY)
@@ -144,6 +165,7 @@ async def update_super_order(underlying: str, target_price: float, sl_price: flo
         "target_price": target_price,
         "sl_price": sl_price
     })
+
 
 @mcp.tool()
 async def cancel_target_stoploss(underlying: str = "NIFTY"):
