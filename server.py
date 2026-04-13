@@ -29,7 +29,7 @@ activity_logs = deque(maxlen=50)
 
 # Initialize Components with graceful error handling
 broker = None
-engine = None
+super_order_engine = None
 conditional_engine = None
 init_error = None
 
@@ -45,7 +45,7 @@ try:
         broker = DhanClient()
         logger.info("🔗 Running in LIVE API MODE - Using broker_dhan.py")
         
-    engine = SuperOrderEngine(broker)
+    super_order_engine = SuperOrderEngine(broker)
     conditional_engine = ConditionalOrderEngine(broker)
     logger.info("✅ System Initialized Successfully")
 except Exception as e:
@@ -136,9 +136,9 @@ def health():
     Health check endpoint for Railway and monitoring.
     """
     status = {
-        "status": "healthy" if broker and engine else "degraded",
+        "status": "healthy" if broker and super_order_engine else "degraded",
         "broker_initialized": broker is not None,
-        "engine_initialized": engine is not None,
+        "engine_initialized": super_order_engine is not None,
         "error": init_error
     }
     return jsonify(status), 200
@@ -156,7 +156,7 @@ def webhook():
     Endpoint to receive TradingView Alerts.
     """
     # Check if components are initialized
-    if not broker or not engine:
+    if not broker or not super_order_engine:
         logger.error("Webhook called but system not initialized")
         return jsonify({
             "status": "error", 
@@ -210,7 +210,7 @@ def webhook():
             transaction_type = leg.get('transactionType')
             
             # Fetch feeling from state (which is populated by /feeling API)
-            state = engine._get_state(underlying)
+            state = super_order_engine._get_state(underlying)
             feeling = state.get('feeling', '').upper()
             
             # Apply Feeling API Logic
@@ -235,7 +235,7 @@ def webhook():
             mode = leg.get('mode', data.get('mode', 'regular')).lower()
             final_signal = transaction_type # Direct external fallback
 
-            action = engine.process_signal(underlying, final_signal, mode, leg)
+            action = super_order_engine.process_signal(underlying, final_signal, mode, leg)
             results.append(action)
             
             # Check for Logic Failures
@@ -258,7 +258,7 @@ def manual_exit():
     """
     Emergency Exit: Close all positions and reset ranks manually.
     """
-    if not broker or not engine:
+    if not broker or not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
         
     data = request.get_json(force=True, silent=True)
@@ -266,7 +266,7 @@ def manual_exit():
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     
     try:
-        engine.manual_exit_all()
+        super_order_engine.manual_exit_all()
         return jsonify({"status": "success", "message": "All positions closed and ranks reset successfully."}), 200
     except Exception as e:
         logger.error(f"Manual Exit Error: {e}")
@@ -278,7 +278,7 @@ def update_feeling():
     Endpoint to receive feeling logic (e.g. BUY/SELL market mood) on higher timeframes.
     This limits TradingView webhook usage by storing state instead of multi-conditional alerts.
     """
-    if not engine:
+    if not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
         
     try:
@@ -296,9 +296,9 @@ def update_feeling():
             
             feeling = leg.get('feeling', '').strip().upper()
             if feeling in ['BUY', 'SELL']:
-                state = engine._get_state(symbol)
+                state = super_order_engine._get_state(symbol)
                 state['feeling'] = feeling
-                engine._set_state(symbol, state)
+                super_order_engine._set_state(symbol, state)
                 updated.append({"symbol": symbol, "feeling": feeling})
                 msg = f"Updated Feeling State for {symbol}: {feeling}"
                 logger.info(msg)
@@ -314,7 +314,7 @@ def _get_active_positions():
     Aggregates active positions across NIFTY, BANKNIFTY, and FINNIFTY.
     Fetches live LTP for PnL calculation.
     """
-    if not engine or not broker:
+    if not super_order_engine or not broker:
         return []
     
     indices = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
@@ -322,7 +322,7 @@ def _get_active_positions():
     
     for underlying in indices:
         try:
-            state = engine._get_state(underlying)
+            state = super_order_engine._get_state(underlying)
             if state and state.get('side') != 'NONE':
                 # Fetch LTP for the specific contract if symbol is present
                 symbol = state.get('symbol')
@@ -387,7 +387,7 @@ def get_state():
     """
     Get current state (side and last_signal) for a given underlying.
     """
-    if not engine:
+    if not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
         
     data = request.get_json(force=True, silent=True)
@@ -397,7 +397,7 @@ def get_state():
     try:
         # Backward compatibility for single underlying requests
         underlying = data.get('underlying', 'NIFTY')
-        state = engine._get_state(underlying)
+        state = super_order_engine._get_state(underlying)
         
         # New: Aggregate active positions for dashboard
         active_positions = _get_active_positions()
@@ -417,14 +417,14 @@ def get_state():
         # we must immediately rip down Conditional Index bounds to prevent naked short interlocking.
         if state.get('side') in ['CALL', 'PUT'] and not active_pos_details:
             logger.warning(f"Reconciliation: Broker shows no active position for {underlying}, but state says {state.get('side')}. Cleaning up...")
-            engine._cancel_active_conditional_orders(underlying, state)
-            engine._clear_state(underlying)
-            state = engine._get_state(underlying) # refresh the variable for UI response
+            super_order_engine._cancel_active_conditional_orders(underlying, state)
+            super_order_engine._clear_state(underlying)
+            state = super_order_engine._get_state(underlying) # refresh the variable for UI response
 
         # New: Global Range Status for major indices
         range_tracker = {}
         for idx in ["NIFTY", "BANKNIFTY"]:
-            idx_state = engine._get_state(idx)
+            idx_state = super_order_engine._get_state(idx)
             range_tracker[idx] = idx_state.get('range_position', 'INSIDE')
 
         # NEW: Capture any newly completed trades from mock broker
@@ -483,7 +483,7 @@ def ui_signal():
     """
     Programmatic/AI entry point for manual UI signals.
     """
-    if not broker or not engine:
+    if not broker or not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
         
     data = request.get_json(force=True, silent=True)
@@ -530,7 +530,7 @@ def ui_signal():
                  return jsonify({"status": "error", "message": f"Stop Loss Index ({leg_data['sl_index']}) must be less than current Index price ({spot_price})"}), 400
 
         # Execute Order
-        res = engine.handle_signal(signal_type, leg_data)
+        res = super_order_engine.handle_signal(signal_type, leg_data)
         
         # Acceptance Criteria: Defer GTT placement until order is TRADED (Fill-Triggered)
         if res.get('status') == 'success' and signal_type == 'B' and leg_data.get('sl_index') and leg_data.get('target_index'):
@@ -557,7 +557,7 @@ def level_hit():
     Dedicated endpoint for level crossings.
     Triggers the SL trailing logic (LEVEL_CROSS signal).
     """
-    if not broker or not engine:
+    if not broker or not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
         
     data = request.get_json(force=True, silent=True)
@@ -574,13 +574,13 @@ def level_hit():
             for leg in legs:
                 underlying = leg.get('symbol') or leg.get('underlying') or leg.get('ticker') or 'NIFTY'
                 leg_mode = leg.get('mode', mode).lower()
-                action = engine.process_signal(underlying, 'LEVEL_CROSS', leg_mode, leg)
+                action = super_order_engine.process_signal(underlying, 'LEVEL_CROSS', leg_mode, leg)
                 results.append(action)
         else:
             # Fallback for simple payload: {"secret": "...", "underlying": "NIFTY"}
             underlying = data.get('underlying') or data.get('ticker') or 'NIFTY'
             leg_data = data
-            action = engine.process_signal(underlying, 'LEVEL_CROSS', mode, leg_data)
+            action = super_order_engine.process_signal(underlying, 'LEVEL_CROSS', mode, leg_data)
             results.append(action)
             
         return jsonify({"status": "success", "actions": results}), 200
@@ -594,7 +594,7 @@ def volume_alert():
     Endpoint triggered when NIFTY crosses daily volume.
     Activates Scalping Mode for 5 minutes and runs AI Analysis.
     """
-    if not broker or not engine:
+    if not broker or not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
         
     data = request.get_json(force=True, silent=True)
@@ -603,7 +603,7 @@ def volume_alert():
     
     try:
         # Always activate scalping mode
-        engine.activate_scalping_mode(5)
+        super_order_engine.activate_scalping_mode(5)
         
         results = []
         
@@ -652,7 +652,7 @@ def set_conditional_index_orders():
     """
     Creates Dhan Conditional Trigger orders (GTT) based on INDEX LEVELS.
     """
-    if not broker or not engine:
+    if not broker or not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
 
     data = request.get_json(force=True, silent=True)
@@ -684,7 +684,7 @@ def set_super_order():
     """
     Places a Premium-based Super Order (Bracket).
     """
-    if not broker or not engine:
+    if not broker or not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
 
     data = request.get_json(force=True, silent=True)
@@ -702,7 +702,7 @@ def set_super_order():
          return jsonify({"status": "error", "message": "Premium Target and SL are required for Super Orders"}), 400
 
     try:
-        # Resolve ITM Option and place Super Order via engine logic
+        # Resolve ITM Option and place Super Order via super_order_engine logic
         leg_data = {
             "underlying": underlying,
             "quantity": int(quantity),
@@ -714,7 +714,7 @@ def set_super_order():
             leg_data["option_symbol"] = option
             
         signal_dir = 'B' if 'CE' in option else 'S' if option else ('B' if side == 'CALL' else 'S')
-        result = engine.process_signal(underlying, signal_dir, 'regular', leg_data)
+        result = super_order_engine.process_signal(underlying, signal_dir, 'regular', leg_data)
         return jsonify({"status": "success", "result": result}), 200
     except Exception as e:
         logger.error(f"Super Order Error: {e}")
@@ -726,7 +726,7 @@ def update_super_order():
     Updates the target and sl legs of an active Premium-based Super Order.
     Payload: { secret, underlying, target_price, sl_price }
     """
-    if not broker or not engine:
+    if not broker or not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
 
     data = request.get_json(force=True, silent=True)
@@ -741,7 +741,7 @@ def update_super_order():
          return jsonify({"status": "error", "message": "At least one of target_price or sl_price is required"}), 400
 
     try:
-        state = engine._get_state(underlying)
+        state = super_order_engine._get_state(underlying)
         if not state or not state.get('is_super_order'):
             return jsonify({"status": "error", "message": "No active Super Order found for underlying"}), 400
             
@@ -774,7 +774,7 @@ def range_signal():
     Update the status of the price relative to the Range Tracker.
     Payload: { secret, underlying, status ('ABOVE'|'BELOW'|'INSIDE') }
     """
-    if not engine:
+    if not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
 
     data = request.get_json(force=True, silent=True)
@@ -785,10 +785,10 @@ def range_signal():
     position = data.get('position', 'INSIDE').upper()
 
     try:
-        state = engine._get_state(underlying)
+        state = super_order_engine._get_state(underlying)
         state['range_position'] = position
         state['range_timestamp'] = datetime.now().isoformat()
-        engine._set_state(underlying, state)
+        super_order_engine._set_state(underlying, state)
 
         msg = f"Range Position for {underlying}: {position}"
         logger.info(msg)
@@ -806,7 +806,7 @@ def cancel_conditional_orders():
     Cancels active GTT conditional orders for a position.
     Payload: { secret, underlying }
     """
-    if not broker or not engine:
+    if not broker or not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
 
     data = request.get_json(force=True, silent=True)
@@ -815,7 +815,7 @@ def cancel_conditional_orders():
 
     underlying = data.get('underlying', 'NIFTY')
     try:
-        state = engine._get_state(underlying)
+        state = super_order_engine._get_state(underlying)
         tgt_id = state.get('conditional_target_alert_id')
         sl_id = state.get('conditional_sl_alert_id')
 
@@ -828,7 +828,7 @@ def cancel_conditional_orders():
         for key in ('conditional_target_alert_id', 'conditional_sl_alert_id',
                     'conditional_target_price', 'conditional_sl_price'):
             state.pop(key, None)
-        engine._set_state(underlying, state)
+        super_order_engine._set_state(underlying, state)
 
         msg = f"GTT orders cancelled for {underlying}"
         activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ {msg}")

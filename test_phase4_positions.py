@@ -11,14 +11,14 @@ def client():
 
 def test_get_active_positions_empty():
     """Verify that no positions are returned when engine state is NONE."""
-    with patch('server.engine') as mock_engine:
+    with patch('server.super_order_engine') as mock_engine:
         mock_engine._get_state.return_value = {'side': 'NONE'}
         positions = _get_active_positions()
         assert positions == []
 
 def test_get_active_positions_with_data():
     """Verify that active positions are correctly aggregated and PnL is calculated."""
-    with patch('server.engine') as mock_engine, \
+    with patch('server.super_order_engine') as mock_engine, \
          patch('server.broker') as mock_broker:
         
         # Mock engine state for NIFTY
@@ -45,7 +45,7 @@ def test_get_active_positions_with_data():
 
 def test_get_active_positions_missing_ltp():
     """Verify that '---' is returned when LTP is missing."""
-    with patch('server.engine') as mock_engine, \
+    with patch('server.super_order_engine') as mock_engine, \
          patch('server.broker') as mock_broker:
         
         # Only NIFTY has a position

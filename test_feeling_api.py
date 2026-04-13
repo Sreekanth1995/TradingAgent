@@ -36,7 +36,7 @@ class TestFeelingAPI(unittest.TestCase):
         app.config['TESTING'] = True
         
         import server
-        server.engine = self.mock_engine_instance
+        server.super_order_engine = self.mock_engine_instance
         server.broker = MagicMock()
         server.SECRET = '60pgS'
 
