@@ -95,33 +95,6 @@ class SuperOrderEngine:
         else:
             self.memory_store[key] = state
 
-    def store_pending_protection(self, order_id, metadata, ttl=86400):
-        """
-        Stores SL/Target levels for an order that hasn't filled yet.
-        metadata: { 'underlying': ..., 'sl_index': ..., 'target_index': ..., 'quantity': ... }
-        """
-        key = f"pending_prot:{order_id}"
-        if self.use_redis:
-            self.r.setex(key, ttl, json.dumps(metadata))
-        else:
-            self.memory_store[key] = metadata
-        logger.info(f"Stored pending protection for Order {order_id}: {metadata}")
-
-    def get_pending_protection(self, order_id):
-        """Retrieves and clears pending protection for an order id."""
-        key = f"pending_prot:{order_id}"
-        if self.use_redis:
-            val = self.r.get(key)
-            if val:
-                self.r.delete(key)
-                return json.loads(val)
-        else:
-            val = self.memory_store.get(key)
-            if val:
-                del self.memory_store[key]
-                return val
-        return None
-
     def _clear_state(self, underlying):
         """Clears the state and cancels associated conditional orders."""
         state = self._get_state(underlying)

@@ -1,0 +1,252 @@
+import os
+import logging
+import json
+import time
+
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
+
+class ConditionalOrderEngine:
+    """
+    Manages GTT (Good Till Triggered) and Alert-based Conditional Orders 
+    for Index levels and Premium bounds.
+    """
+    def __init__(self, broker=None, is_dry_run=False, redis_client=None):
+        self.broker = broker
+        self.is_dry_run = is_dry_run
+        self.redis = redis_client
+        self.use_redis = False
+        self.memory_store = {}
+
+        if REDIS_AVAILABLE:
+            redis_url = os.getenv("REDIS_URL")
+            try:
+                if redis_url:
+                    self.r = redis.from_url(redis_url, decode_responses=True)
+                else:
+                    redis_host = os.getenv("REDIS_HOST", "localhost")
+                    redis_port = int(os.getenv("REDIS_PORT", 6379))
+                    self.r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+                
+                self.r.ping()
+                logger.info("✅ ConditionalOrderEngine: Connected to Redis successfully")
+                self.use_redis = True
+            except Exception as e:
+                logger.warning(f"ConditionalOrderEngine: Redis connection failed ({e}). Using in-memory storage.")
+        else:
+            logger.warning("ConditionalOrderEngine: Redis library not installed. Using in-memory storage.")
+
+    # --- State Management ---
+    def _get_state(self, underlying):
+        key = f"state:{underlying}"
+        if self.use_redis:
+            val = self.r.get(key)
+            return json.loads(val) if val else {'side': 'NONE', 'last_signal': 'NONE'}
+        else:
+            return self.memory_store.get(key, {'side': 'NONE', 'last_signal': 'NONE'})
+
+    def _set_state(self, underlying, state):
+        key = f"state:{underlying}"
+        if self.use_redis:
+            self.r.set(key, json.dumps(state))
+        else:
+            self.memory_store[key] = state
+
+    # --- Pending Protection Helpers ---
+    def store_pending_protection(self, order_id, metadata, ttl=86400):
+        """
+        Stores SL/Target levels for an order that hasn't filled yet.
+        """
+        key = f"pending_prot:{order_id}"
+        if self.use_redis:
+            self.r.setex(key, ttl, json.dumps(metadata))
+        else:
+            self.memory_store[key] = metadata
+        logger.info(f"Stored pending Protection for Order {order_id}: {metadata}")
+
+    def get_pending_protection(self, order_id):
+        """Retrieves and clears pending protection."""
+        key = f"pending_prot:{order_id}"
+        if self.use_redis:
+            val = self.r.get(key)
+            if val:
+                self.r.delete(key)
+                return json.loads(val)
+        else:
+            val = self.memory_store.get(key)
+            if val:
+                del self.memory_store[key]
+                return val
+        return None
+
+    def cancel_active_conditional_orders(self, underlying, state=None):
+        """Cancels associated Dhan Alert triggers (GTT) if they exist in state."""
+        if state is None:
+            state = self._get_state(underlying)
+            
+        alert_keys = (
+            'conditional_target_alert_id', 'conditional_sl_alert_id',
+            'idx_target_alert_id', 'idx_sl_alert_id'
+        )
+        for key in alert_keys:
+            alert_id = state.get(key)
+            if alert_id:
+                logger.info(f"Cleanup: Cancelling conditional order {alert_id} for {underlying}")
+                self.broker.cancel_conditional_order(alert_id)
+                state[key] = None
+                
+        self._set_state(underlying, state)
+
+    # --- Core Logic ---
+    def set_index_boundaries(self, underlying, target_level, sl_level, quantity=None):
+        """
+        Places SL and Target GTT index bounds.
+        """
+        try:
+            state = self._get_state(underlying)
+            if state.get('side', 'NONE') == 'NONE':
+                return {"status": "error", "message": "No open position to protect"}
+
+            opt_sec_id = state.get('security_id')
+            qty = int(quantity or state.get('quantity', 1))
+            idx_sec_id = self.broker.get_index_id(underlying)
+            
+            if not idx_sec_id or not opt_sec_id:
+                return {"status": "error", "message": "Could not resolve Index or Option security IDs"}
+
+            lot_size = self.broker.lot_map.get(str(opt_sec_id), 1)
+            actual_qty = qty * lot_size
+            side = state.get('side') # CALL or PUT
+            
+            if side == 'CALL':
+                tgt_op, sl_op = "CROSSING_UP", "CROSSING_DOWN"
+            else:
+                tgt_op, sl_op = "CROSSING_DOWN", "CROSSING_UP"
+
+            # Cleanup existing GTTs
+            self.cancel_active_conditional_orders(underlying, state)
+
+            # Place SL GTT FIRST to get its ID
+            sl_res = self.broker.place_conditional_order(
+                sec_id=opt_sec_id,
+                exchange_seg="NSE_FNO",
+                quantity=actual_qty,
+                operator=sl_op,
+                comparing_value=float(sl_level),
+                transaction_type="SELL",
+                product_type="MARGIN",
+                trigger_sec_id=idx_sec_id
+            )
+            
+            if not sl_res.get('success'):
+                return {"status": "error", "message": f"SL GTT failed: {sl_res.get('error')}"}
+            
+            sl_alert_id = sl_res.get('alert_id')
+            
+            # Place Target Dummy GTT with SL ID in userNote
+            tgt_res = self.broker.place_conditional_order(
+                sec_id="11006", # LiquidBees
+                exchange_seg="NSE_EQ",
+                quantity=1,
+                operator=tgt_op,
+                comparing_value=float(target_level),
+                transaction_type="BUY",
+                product_type="CNC",
+                trigger_sec_id=idx_sec_id,
+                user_note=sl_alert_id # Stateless mapping
+            )
+            
+            if not tgt_res.get('success'):
+                # Rollback SL if target fails
+                self.broker.cancel_conditional_order(sl_alert_id)
+                return {"status": "error", "message": f"Target GTT failed: {tgt_res.get('error')}. SL leg cancelled."}
+
+            state['idx_target_alert_id'] = tgt_res.get('alert_id')
+            state['idx_sl_alert_id'] = sl_alert_id
+            self._set_state(underlying, state)
+
+            return {
+                "status": "success", 
+                "message": "Index GTTs placed successfully",
+                "sl_id": sl_alert_id,
+                "target_id": tgt_res.get('alert_id')
+            }
+        except Exception as e:
+            logger.error(f"Internal GTT Placement Error: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def handle_postback(self, data):
+        """
+        Handles Dhan Postback notifications specifically related to Condition Alerts.
+        """
+        try:
+            user_note = data.get('userNote') or (data.get('data') or {}).get('userNote')
+            alert_id = str(data.get('alertId') or (data.get('data') or {}).get('alertId'))
+            order_status = data.get('orderStatus')
+            order_id = data.get('orderId')
+            
+            # 1. Handle Order Fill (TRADED) status mapping for Entry
+            if order_status == "TRADED" and order_id:
+                logger.info(f"Order {order_id} TRADED. Checking for pending conditional triggers.")
+                pending = self.get_pending_protection(order_id)
+                if pending:
+                    logger.info(f"Triggering GTT placement for filled order {order_id} ({pending['underlying']})")
+                    gtt_res = self.set_index_boundaries(
+                        underlying=pending['underlying'],
+                        target_level=pending['target_level'],
+                        sl_level=pending['sl_level'],
+                        quantity=pending['quantity']
+                    )
+                    logger.info(f"Fill-Triggered GTT Result: {gtt_res}")
+                return {"status": "success", "source": "order_fill"}
+
+            if not alert_id or alert_id == "None":
+                return {"status": "ignored", "message": "No alertId found"}
+
+            logger.info(f"Dhan Postback received. alertId: {alert_id}, userNote: {user_note}")
+            
+            # Identify which instrument this belongs to
+            indices = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
+            target_found = False
+            
+            for underlying in indices:
+                state = self._get_state(underlying)
+                # Match target alert ID
+                is_target_hit = (state.get('idx_target_alert_id') == alert_id)
+                
+                if is_target_hit:
+                    logger.info(f"Target Alert Hit for {underlying}! Triggering SL modification.")
+                    # Use SL ID from user_note if available (stateless) or dictionary state fallback
+                    sl_alert_id = user_note if (user_note and len(user_note) > 5) else state.get('idx_sl_alert_id')
+                    
+                    if sl_alert_id:
+                        idx_id = self.broker.get_index_id(underlying)
+                        current_idx_ltp = self.broker.get_ltp(idx_id, exchange_segment="IDX_I")
+                        
+                        if current_idx_ltp:
+                            # Update SL dynamically tracking market movements
+                            res = self.broker.modify_conditional_order(
+                                alert_id=sl_alert_id,
+                                quantity=state.get('quantity', 1) * self.broker.lot_map.get(str(state.get('security_id')), 1),
+                                comparing_value=current_idx_ltp
+                            )
+                            logger.info(f"SL Modification result for {underlying} using ID {sl_alert_id}: {res}")
+                    
+                    state['idx_target_alert_id'] = None
+                    self._set_state(underlying, state)
+                    target_found = True
+                    break
+            
+            if not target_found:
+                 logger.debug(f"AlertId {alert_id} not mapped to any active target.")
+
+            return {"status": "success"}
+
+        except Exception as e:
+            logger.error(f"Dhan Conditional Postback Error: {e}")
+            return {"status": "error", "message": str(e)}

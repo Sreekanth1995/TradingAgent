@@ -5,6 +5,7 @@ import logging
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from super_order_engine import SuperOrderEngine
+from conditional_order_engine import ConditionalOrderEngine
 from broker_dhan import DhanClient
 from collections import deque
 from datetime import datetime
@@ -29,6 +30,7 @@ activity_logs = deque(maxlen=50)
 # Initialize Components with graceful error handling
 broker = None
 engine = None
+conditional_engine = None
 init_error = None
 
 USE_MOCK = os.getenv("USE_MOCK_API", "false").lower() == "true"
@@ -44,6 +46,7 @@ try:
         logger.info("🔗 Running in LIVE API MODE - Using broker_dhan.py")
         
     engine = SuperOrderEngine(broker)
+    conditional_engine = ConditionalOrderEngine(broker)
     logger.info("✅ System Initialized Successfully")
 except Exception as e:
     init_error = str(e)
@@ -540,7 +543,7 @@ def ui_signal():
                     "sl_level": leg_data['sl_index'],
                     "quantity": leg_data['quantity']
                 }
-                engine.store_pending_protection(order_id, pending_meta)
+                conditional_engine.store_pending_protection(order_id, pending_meta)
                 res['gtt_status'] = {"status": "pending", "message": "Queued for fill trigger"}
             
         return jsonify(res), 200
@@ -631,75 +634,13 @@ def dhan_postback():
         if not data:
             return jsonify({"status": "error", "message": "No data received"}), 400
             
-        # Acceptance Criteria 6: Extract userNote (SL ID) from payload
-        user_note = data.get('userNote') or (data.get('data') or {}).get('userNote')
-        alert_id = str(data.get('alertId') or (data.get('data') or {}).get('alertId'))
-        order_status = data.get('orderStatus')
-        order_id = data.get('orderId')
         
-        # --- Handle Order Fill (TRADED) status ---
-        if order_status == "TRADED" and order_id:
-            logger.info(f"Order {order_id} TRADED. Checking for pending protection triggers.")
-            pending = engine.get_pending_protection(order_id)
-            if pending:
-                logger.info(f"Triggering GTT placement for filled order {order_id} ({pending['underlying']})")
-                gtt_res = _set_conditional_index_orders_internal(
-                    underlying=pending['underlying'],
-                    target_level=pending['target_level'],
-                    sl_level=pending['sl_level'],
-                    quantity=pending['quantity']
-                )
-                logger.info(f"Fill-Triggered GTT Result: {gtt_res}")
-            return jsonify({"status": "success", "source": "order_fill"}), 200
-
-        if not alert_id or alert_id == "None":
-            return jsonify({"status": "ignored", "message": "No alertId found"}), 200
-
-        logger.info(f"Dhan Postback received. alertId: {alert_id}, userNote: {user_note}")
-        
-        # If user_note contains a SL ID, use it directly for stateless modification
-        if user_note and user_note.startswith("GTT_"): # Assuming our IDs look like this or digits
-             sl_alert_id = user_note
-             logger.info(f"Stateless SL Modification triggered via userNote: {sl_alert_id}")
-             # We need to find which underlying this belongs to for quantity/security_id
-             # Fallback to state search for metadata, but use user_note ID
-        
-        # Identify the position this alert belongs to
-        indices = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
-        target_found = False
-        
-        for underlying in indices:
-            state = engine._get_state(underlying)
-            # Match either alertId in state OR check if userNote matches the stored SL ID
-            is_target_hit = (state.get('idx_target_alert_id') == alert_id)
-            
-            if is_target_hit:
-                logger.info(f"Target Alert Hit for {underlying}! Triggering SL modification.")
-                # Acceptance Criteria 6: Use SL ID from user_note if available
-                sl_alert_id = user_note if (user_note and len(user_note) > 5) else state.get('idx_sl_alert_id')
-                
-                if sl_alert_id:
-                    idx_id = broker.get_index_id(underlying)
-                    current_idx_ltp = broker.get_ltp(idx_id, exchange_segment="IDX_I")
-                    
-                    if current_idx_ltp:
-                        # Acceptance Criteria 6: Update SL with Target Price (Market force)
-                        res = broker.modify_conditional_order(
-                            alert_id=sl_alert_id,
-                            quantity=state.get('quantity', 1) * broker.lot_map.get(str(state.get('security_id')), 1),
-                            comparing_value=current_idx_ltp
-                        )
-                        logger.info(f"SL Modification result for {underlying} using ID {sl_alert_id}: {res}")
-                
-                state['idx_target_alert_id'] = None
-                engine._set_state(underlying, state)
-                target_found = True
-                break
-        
-        if not target_found:
-             logger.debug(f"AlertId {alert_id} not mapped to any active target.")
-
-        return jsonify({"status": "success"}), 200
+        # Execute Dedicated Condition Order Engine parsing
+        res = conditional_engine.handle_postback(data)
+        if res.get('status') == 'success':
+            return jsonify({"status": "success", "message": res.get('message', 'Processed')}), 200
+        else:
+            return jsonify(res), 200
 
     except Exception as e:
         logger.error(f"Dhan Postback Error: {e}")
@@ -727,7 +668,7 @@ def set_conditional_index_orders():
         return jsonify({"status": "error", "message": "target_level and sl_level are required"}), 400
 
     try:
-        res = _set_conditional_index_orders_internal(underlying, target_level, sl_level, quantity)
+        res = conditional_engine.set_index_boundaries(underlying, target_level, sl_level, quantity)
         if res.get('status') == 'success':
             return jsonify(res), 200
         else:
@@ -735,85 +676,6 @@ def set_conditional_index_orders():
     except Exception as e:
         logger.error(f"Error in conditional-index-order: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
-def _set_conditional_index_orders_internal(underlying, target_level, sl_level, quantity=None):
-    """
-    Internal helper to place SL and Target GTTs.
-    Follows AC 5: Saves SL ID in Target's userNote.
-    """
-    try:
-        state = engine._get_state(underlying)
-        if state.get('side', 'NONE') == 'NONE':
-            return {"status": "error", "message": "No open position to protect"}
-
-        opt_sec_id = state.get('security_id')
-        qty = int(quantity or state.get('quantity', 1))
-        idx_sec_id = broker.get_index_id(underlying)
-        
-        if not idx_sec_id or not opt_sec_id:
-            return {"status": "error", "message": "Could not resolve Index or Option security IDs"}
-
-        lot_size = broker.lot_map.get(str(opt_sec_id), 1)
-        actual_qty = qty * lot_size
-        side = state.get('side') # CALL or PUT
-        
-        if side == 'CALL':
-            tgt_op, sl_op = "CROSSING_UP", "CROSSING_DOWN"
-        else:
-            tgt_op, sl_op = "CROSSING_DOWN", "CROSSING_UP"
-
-        # Cleanup existing GTTs
-        for key in ('idx_target_alert_id', 'idx_sl_alert_id'):
-            existing = state.get(key)
-            if existing: broker.cancel_conditional_order(existing)
-
-        # Acceptance Criteria 4 & 5: Place SL GTT FIRST to get its ID
-        sl_res = broker.place_conditional_order(
-            sec_id=opt_sec_id,
-            exchange_seg="NSE_FNO",
-            quantity=actual_qty,
-            operator=sl_op,
-            comparing_value=float(sl_level),
-            transaction_type="SELL",
-            product_type="MARGIN",
-            trigger_sec_id=idx_sec_id
-        )
-        if not sl_res.get('success'):
-            return {"status": "error", "message": f"SL GTT failed: {sl_res.get('error')}"}
-        
-        sl_alert_id = sl_res.get('alert_id')
-        
-        # Acceptance Criteria 5: Place Target Dummy GTT with SL ID in userNote
-        tgt_res = broker.place_conditional_order(
-            sec_id="11006", # LiquidBees
-            exchange_seg="NSE_EQ",
-            quantity=1,
-            operator=tgt_op,
-            comparing_value=float(target_level),
-            transaction_type="BUY",
-            product_type="CNC",
-            trigger_sec_id=idx_sec_id,
-            user_note=sl_alert_id # Statelss mapping
-        )
-        
-        if not tgt_res.get('success'):
-            # Rollback SL if target fails
-            broker.cancel_conditional_order(sl_alert_id)
-            return {"status": "error", "message": f"Target GTT failed: {tgt_res.get('error')}. SL leg cancelled."}
-
-        state['idx_target_alert_id'] = tgt_res.get('alert_id')
-        state['idx_sl_alert_id'] = sl_alert_id
-        engine._set_state(underlying, state)
-
-        return {
-            "status": "success", 
-            "message": "Index GTTs placed successfully",
-            "sl_id": sl_alert_id,
-            "target_id": tgt_res.get('alert_id')
-        }
-    except Exception as e:
-        logger.error(f"Internal GTT Placement Error: {e}")
-        return {"status": "error", "message": str(e)}
 
 
 
