@@ -483,7 +483,7 @@ def ui_signal():
     """
     Programmatic/AI entry point for manual UI signals.
     """
-    if not broker or not super_order_engine:
+    if not broker or not conditional_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
         
     data = request.get_json(force=True, silent=True)
@@ -529,8 +529,8 @@ def ui_signal():
             if float(leg_data['sl_index']) >= spot_price:
                  return jsonify({"status": "error", "message": f"Stop Loss Index ({leg_data['sl_index']}) must be less than current Index price ({spot_price})"}), 400
 
-        # Execute Order
-        res = super_order_engine.handle_signal(signal_type, leg_data)
+        # Execute Order via Conditional Engine
+        res = conditional_engine.handle_signal(signal_type, leg_data)
         
         # Acceptance Criteria: Defer GTT placement until order is TRADED (Fill-Triggered)
         if res.get('status') == 'success' and signal_type == 'B' and leg_data.get('sl_index') and leg_data.get('target_index'):

@@ -43,7 +43,7 @@ class ConditionalOrderEngine:
 
     # --- State Management ---
     def _get_state(self, underlying):
-        key = f"state:{underlying}"
+        key = f"cond_state:{underlying}"
         if self.use_redis:
             val = self.r.get(key)
             return json.loads(val) if val else {'side': 'NONE', 'last_signal': 'NONE'}
@@ -51,7 +51,7 @@ class ConditionalOrderEngine:
             return self.memory_store.get(key, {'side': 'NONE', 'last_signal': 'NONE'})
 
     def _set_state(self, underlying, state):
-        key = f"state:{underlying}"
+        key = f"cond_state:{underlying}"
         if self.use_redis:
             self.r.set(key, json.dumps(state))
         else:
@@ -101,6 +101,88 @@ class ConditionalOrderEngine:
                 state[key] = None
                 
         self._set_state(underlying, state)
+
+    def _clear_state(self, underlying):
+        """Wipes the conditional state cleanly after exit."""
+        state = self._get_state(underlying)
+        self.cancel_active_conditional_orders(underlying, state)
+        new_state = {'side': 'NONE', 'last_signal': 'NONE'}
+        self._set_state(underlying, new_state)
+
+    def handle_signal(self, signal_type, leg_data):
+        """
+        Independent entry/exit logic for Conditional Engine.
+        Places basic entry orders without Super Order brackets.
+        """
+        underlying = leg_data.get('underlying', 'NIFTY')
+        state = self._get_state(underlying)
+        
+        # Resolve Index Price
+        spot_price = float(leg_data.get('current_price', 0.0))
+        idx_id = self.broker.get_index_id(underlying)
+        if spot_price <= 0 and idx_id:
+            spot_price = self.broker.get_ltp(idx_id, exchange_segment="IDX_I") or 0.0
+            
+        if signal_type in ['B', 'S']:
+            side = 'CALL' if signal_type == 'B' else 'PUT'
+            opt_type = 'CE' if side == 'CALL' else 'PE'
+            
+            itm = self.broker.get_itm_contract(underlying, opt_type, spot_price)
+            if not itm:
+                return {"status": "error", "message": f"Failed to resolve ITM for {underlying} {side}"}
+                
+            symbol = itm['symbol']
+            sec_id = itm['security_id']
+            qty = leg_data.get('quantity', 1)
+            
+            order_payload = itm.copy()
+            order_payload.update({
+                'quantity': qty,
+                'order_type': 'MARKET',
+                'price': 0.0
+            })
+            
+            logger.info(f"Conditional Engine: Placing Naked Entry for {symbol}")
+            resp = self.broker.place_buy_order(symbol, order_payload)
+            if resp.get('success') or resp.get('order_id'):
+                state.update({
+                    'side': side,
+                    'symbol': symbol,
+                    'security_id': sec_id,
+                    'entry_id': resp.get('order_id'),
+                    'quantity': qty,
+                    'last_signal': signal_type
+                })
+                self._set_state(underlying, state)
+                return {"status": "success", "order_id": resp.get('order_id'), "symbol": symbol, "action": "OPENED_CONDITIONAL"}
+            return {"status": "error", "message": f"Entry failed: {resp.get('error')}"}
+            
+        elif signal_type in ['LONG_EXIT', 'SHORT_EXIT']:
+            target_side = 'CALL' if signal_type == 'LONG_EXIT' else 'PUT'
+            if state.get('side') == target_side:
+                logger.info(f"Conditional Engine: Exiting {target_side} for {underlying}")
+                sec_id = state.get('security_id')
+                if sec_id:
+                    # Clean up conditional orders immediately
+                    self.cancel_active_conditional_orders(underlying, state)
+                    
+                    # Ensure position is sold
+                    sym = state.get('symbol')
+                    qty_lots = state.get('quantity', 1)
+                    
+                    order_payload = {
+                        'security_id': sec_id,
+                        'quantity': qty_lots,
+                        'transaction_type': 'SELL',
+                        'order_type': 'MARKET',
+                        'product_type': 'MARGIN'
+                    }
+                    self.broker.place_order(sym, order_payload)
+                self._clear_state(underlying)
+                return {"status": "success", "action": f"CLOSED_CONDITIONAL_{target_side}"}
+            return {"status": "error", "message": "No matching position to exist"}
+            
+        return {"status": "error", "message": "Unsupported signal type"}
 
     # --- Core Logic ---
     def set_index_boundaries(self, underlying, target_level, sl_level, quantity=None):
