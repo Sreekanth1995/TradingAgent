@@ -911,7 +911,10 @@ class RankingEngine:
                 logger.error(f"Market Square-off FAILED for {symbol}: {resp.get('error')}")
                 # We still clear state to avoid stuck loops, but log the error
         
-        # 3. Clear state
+        # 3. Clear Conditional Orders to prevent interlocking
+        self._cancel_active_conditional_orders(underlying, state)
+        
+        # 4. Clear state
         self._clear_state(underlying)
         return {"action": "EXIT_MARKET", "symbol": symbol, "quantity": qty}
 

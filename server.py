@@ -409,6 +409,15 @@ def get_state():
                 current_pnl = pos.get('pnl_abs', 0)
                 break
 
+        # NEW: Background Interlock Reconciliation
+        # If state claims a position is active, but it vanished from active_positions (meaning Broker executed a Native exiting leg like SL/Target),
+        # we must immediately rip down Conditional Index bounds to prevent naked short interlocking.
+        if state.get('side') in ['CALL', 'PUT'] and not active_pos_details:
+            logger.warning(f"Reconciliation: Broker shows no active position for {underlying}, but state says {state.get('side')}. Cleaning up...")
+            engine._cancel_active_conditional_orders(underlying, state)
+            engine._clear_state(underlying)
+            state = engine._get_state(underlying) # refresh the variable for UI response
+
         # New: Global Range Status for major indices
         range_tracker = {}
         for idx in ["NIFTY", "BANKNIFTY"]:
@@ -847,6 +856,53 @@ def set_super_order():
         return jsonify({"status": "success", "result": result}), 200
     except Exception as e:
         logger.error(f"Super Order Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/update-super-order', methods=['POST'])
+def update_super_order():
+    """
+    Updates the target and sl legs of an active Premium-based Super Order.
+    Payload: { secret, underlying, target_price, sl_price }
+    """
+    if not broker or not engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    underlying = data.get('underlying', 'NIFTY').upper()
+    target = data.get('target_price')
+    sl = data.get('sl_price')
+
+    if not target and not sl:
+         return jsonify({"status": "error", "message": "At least one of target_price or sl_price is required"}), 400
+
+    try:
+        state = engine._get_state(underlying)
+        if not state or not state.get('is_super_order'):
+            return jsonify({"status": "error", "message": "No active Super Order found for underlying"}), 400
+            
+        entry_id = state.get('entry_id')
+        if not entry_id:
+            return jsonify({"status": "error", "message": "No entry ID found in state"}), 400
+            
+        # Update Target
+        target_res = {"success": True}
+        if target:
+            # We assume modify_super_target_leg accepts parent order id which internally modifies target leg
+            broker.modify_super_target_leg(entry_id, float(target))
+            target_res["modified"] = True
+            
+        # Update SL
+        sl_res = {"success": True}
+        if sl:
+            broker.modify_super_sl_leg(entry_id, float(sl), 1.0)
+            sl_res["modified"] = True
+            
+        return jsonify({"status": "success", "target_update": target_res, "sl_update": sl_res}), 200
+    except Exception as e:
+        logger.error(f"Update Super Order Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
