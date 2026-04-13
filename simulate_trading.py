@@ -5,7 +5,7 @@ import re
 import os
 from datetime import datetime
 import pytz
-from ranking_engine import RankingEngine
+from super_order_engine import SuperOrderEngine
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -70,7 +70,7 @@ def simulate():
     broker = MockBroker()
     # Disable Redis for simulation
     os.environ["REDIS_HOST"] = "" 
-    engine = RankingEngine(broker)
+    engine = SuperOrderEngine(broker)
     
     # Regex from server.py
     ticker_pattern = re.compile(r"([A-Z]+)(\d{2})(\d{2})(\d{2})([CP])(\d+)")

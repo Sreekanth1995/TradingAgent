@@ -80,7 +80,7 @@ class BacktestEngine:
                 scalping_until = now.timestamp() + (5 * 60)
                 continue
             
-            # RankingEngine._is_scalping_active logic
+            # SuperOrderEngine._is_scalping_active logic
             # Window checks
             h, m = now.hour, now.minute
             in_window1 = (h == 9 and m >= 20) or (h == 10 and m <= 35)
@@ -92,7 +92,7 @@ class BacktestEngine:
             is_scalping_active = is_volume_scalping or is_standard_scalping
 
             
-            # 2. Check Timeframe Eligibility (ranking_engine.py logic)
+            # 2. Check Timeframe Eligibility (super_order_engine.py logic)
             if alert['timeframe'] == 1 and not is_scalping_active:
                 continue
             if alert['timeframe'] == 5 and is_scalping_active:

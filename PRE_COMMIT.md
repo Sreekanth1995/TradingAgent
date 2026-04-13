@@ -18,10 +18,10 @@ If you prefer to run checks manually:
 
 ```bash
 # 1. Syntax check
-python3 -m py_compile broker_dhan.py ranking_engine.py server.py
+python3 -m py_compile broker_dhan.py super_order_engine.py server.py
 
 # 2. Import check
-python3 -c "import broker_dhan; import ranking_engine; import server"
+python3 -c "import broker_dhan; import super_order_engine; import server"
 
 # 3. Run tests
 python3 verify_strategy.py

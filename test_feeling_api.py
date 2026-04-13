@@ -7,7 +7,7 @@ mock_state = {}
 
 class TestFeelingAPI(unittest.TestCase):
     @patch('server.DhanClient')
-    @patch('server.RankingEngine')
+    @patch('server.SuperOrderEngine')
     def setUp(self, mock_engine, mock_dhan):
         # Reset state before each test
         global mock_state

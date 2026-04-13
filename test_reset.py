@@ -1,7 +1,7 @@
 import logging
 import datetime
 import pytz
-from ranking_engine import RankingEngine
+from super_order_engine import SuperOrderEngine
 from broker_dhan import DhanClient
 
 # Setup logging
@@ -15,7 +15,7 @@ def test_daily_reset():
     
     # Setup
     broker = DhanClient()
-    engine = RankingEngine(broker)
+    engine = SuperOrderEngine(broker)
     
     # Mock Data
     symbol = "NIFTY"

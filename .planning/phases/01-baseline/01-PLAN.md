@@ -3,7 +3,7 @@
 Goal: Deliver the core trading strategy with at-market entry and "Smart" limit exit logic.
 
 ## Tasks
-- [x] Update `RankingEngine` with market entry and 55/20/10 logic.
+- [x] Update `SuperOrderEngine` with market entry and 55/20/10 logic.
 - [x] Refine Smart Exit (+5/-5 offsets).
 - [x] Remove time-based scalping windows.
 - [x] Fix unit tests (`test_super_order_smart_exit_refined.py`, `test_percentage_calculations.py`).

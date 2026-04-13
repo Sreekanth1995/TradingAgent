@@ -2,7 +2,7 @@ import logging
 import datetime
 import pytz
 from unittest.mock import MagicMock
-from ranking_engine import RankingEngine
+from super_order_engine import SuperOrderEngine
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -23,7 +23,7 @@ def test_manual_zone_logic():
     }
     broker.place_buy_order.return_value = {"success": True, "order_id": "mock_id"}
     
-    engine = RankingEngine(broker)
+    engine = SuperOrderEngine(broker)
     engine.timeframe_weights = {1: 1, 2: 1, 3: 1, 5: 1}
     
     # Mock Data

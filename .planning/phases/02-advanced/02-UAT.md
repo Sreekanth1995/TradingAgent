@@ -15,13 +15,13 @@ Goal: Implement targeted exit signals and dynamic trailing stop loss adjustments
 
 ## Verification Logs
 ```text
-INFO:ranking_engine:Directional Exit (CALL) triggered for NIFTY. Performing Market Square-off.
-INFO:ranking_engine:Market Square-off successful for N_CE
+INFO:super_order_engine:Directional Exit (CALL) triggered for NIFTY. Performing Market Square-off.
+INFO:super_order_engine:Market Square-off successful for N_CE
 ...
-INFO:ranking_engine:⚡ 1m SIGNAL DETECTED: Using Scalping Mode for NIFTY
-INFO:ranking_engine:Attempting Native Super Order for N_CE. EntryLimit=0, SL=80.0, TGT=155.0, Trailing=5.0
+INFO:super_order_engine:⚡ 1m SIGNAL DETECTED: Using Scalping Mode for NIFTY
+INFO:super_order_engine:Attempting Native Super Order for N_CE. EntryLimit=0, SL=80.0, TGT=155.0, Trailing=5.0
 ...
-INFO:ranking_engine:Strategy: Modifying opposite CE so1 -> TGT:105.0, SL:95.0
+INFO:super_order_engine:Strategy: Modifying opposite CE so1 -> TGT:105.0, SL:95.0
 ```
 
 ## Conclusion

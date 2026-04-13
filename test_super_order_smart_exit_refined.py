@@ -7,7 +7,7 @@ import os
 # Add current directory to path
 sys.path.append(os.getcwd())
 
-from ranking_engine import RankingEngine
+from super_order_engine import SuperOrderEngine
 
 # Configure logging to see output during tests
 logging.basicConfig(level=logging.INFO)
@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 class TestSuperOrderSmartExitRefined(unittest.TestCase):
     def setUp(self):
         self.mock_broker = MagicMock()
-        self.engine = RankingEngine(self.mock_broker)
+        self.engine = SuperOrderEngine(self.mock_broker)
         
     def test_smart_exit_super_order_modifies_each_leg_by_type(self):
         """

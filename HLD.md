@@ -9,7 +9,7 @@ The system follows a modular architecture consisting of a listener, a logic engi
 ```mermaid
 graph TD
     TV["TradingView Alerts"] -->|Webhook (JSON)| WebServer["Flask Web Server (server.py)"]
-    WebServer -->|Signal Data| RE["Ranking Engine (ranking_engine.py)"]
+    WebServer -->|Signal Data| RE["Ranking Engine (super_order_engine.py)"]
     
     subgraph Logic & State
         RE <-->|Stateful Ranks & Side| Redis["Redis Store"]
@@ -35,7 +35,7 @@ graph TD
   - Routes signal legs (CE/PE) to the Ranking Engine.
   - Provides an Admin Dashboard for monitoring and manual token updates.
 
-### 3.2 Ranking Engine (`ranking_engine.py`)
+### 3.2 Ranking Engine (`super_order_engine.py`)
 - **Role**: The decision-making core.
 - **Key Mechanics**:
   - **Sequential Trading**: Ensures only one trend (CALL or PUT) is active at a time.

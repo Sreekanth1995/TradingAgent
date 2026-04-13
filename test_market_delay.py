@@ -2,19 +2,19 @@ import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime
 import pytz
-from ranking_engine import RankingEngine
+from super_order_engine import SuperOrderEngine
 
 IST = pytz.timezone('Asia/Kolkata')
 
 class TestMarketDelay(unittest.TestCase):
     def setUp(self):
         self.broker = MagicMock()
-        self.engine = RankingEngine(self.broker)
+        self.engine = SuperOrderEngine(self.broker)
         # Disable Redis for tests
         self.engine.use_redis = False
         self.engine.memory_store = {}
 
-    @patch('ranking_engine.datetime')
+    @patch('super_order_engine.datetime')
     def test_market_delay_active(self, mock_datetime):
         # 09:20 AM IST - Should be ignored
         mock_now = datetime(2026, 2, 6, 9, 20, 0, tzinfo=IST)
@@ -27,7 +27,7 @@ class TestMarketDelay(unittest.TestCase):
         self.assertEqual(result["action"], "SKIPPED_MARKET_OPEN_DELAY")
         self.broker.get_itm_contract.assert_not_called()
 
-    @patch('ranking_engine.datetime')
+    @patch('super_order_engine.datetime')
     def test_market_delay_passed(self, mock_datetime):
         # 09:26 AM IST - Should be processed
         mock_now = datetime(2026, 2, 6, 9, 26, 0, tzinfo=IST)
@@ -50,7 +50,7 @@ class TestMarketDelay(unittest.TestCase):
         self.assertEqual(result["action"], "OPENED_CALL")
         self.broker.get_itm_contract.assert_called()
 
-    @patch('ranking_engine.datetime')
+    @patch('super_order_engine.datetime')
     def test_pre_market_hours(self, mock_datetime):
         # 09:10 AM IST - Should be processed by the engine? 
         # Actually our logic says: if market_start <= now < delay_end: skip.

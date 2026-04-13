@@ -9,15 +9,15 @@ import pytz
 # Add current directory to path
 sys.path.append(os.getcwd())
 
-from ranking_engine import RankingEngine, IST
+from super_order_engine import SuperOrderEngine, IST
 
 class TestScalpingMode(unittest.TestCase):
     def setUp(self):
         self.mock_broker = MagicMock()
-        self.engine = RankingEngine(self.mock_broker)
+        self.engine = SuperOrderEngine(self.mock_broker)
         self.engine.use_redis = False # Test in memory
         
-    @patch('ranking_engine.datetime')
+    @patch('super_order_engine.datetime')
     def test_scalping_mode_logic(self, mock_datetime):
         """
         Verify all conditions for Scalping Mode activation and signal processing.

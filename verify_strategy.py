@@ -1,7 +1,7 @@
 import logging
 import unittest
 from unittest.mock import MagicMock
-from ranking_engine import RankingEngine
+from super_order_engine import SuperOrderEngine
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 class TestDirectSignalStrategy(unittest.TestCase):
     def setUp(self):
         self.broker = MagicMock()
-        self.engine = RankingEngine(self.broker)
+        self.engine = SuperOrderEngine(self.broker)
         # Force in-memory for test
         self.engine.use_redis = False 
         self.engine.memory_store = {}

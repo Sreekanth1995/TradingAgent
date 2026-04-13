@@ -22,7 +22,7 @@
 - **Result**: [PASS] `modify_super_target_leg` called with `LTP + 5`.
 
 ### TC-04: Method Alignment
-- **Goal**: Ensure `RankingEngine` calls the correct `broker_dhan` methods.
+- **Goal**: Ensure `SuperOrderEngine` calls the correct `broker_dhan` methods.
 - **Verification**: All unit tests passing with new method names.
 - **Result**: [PASS] Consolidated method interface.
 

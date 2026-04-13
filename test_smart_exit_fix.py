@@ -7,7 +7,7 @@ import os
 # Add current directory to path
 sys.path.append(os.getcwd())
 
-from ranking_engine import RankingEngine
+from super_order_engine import SuperOrderEngine
 from broker_dhan import DhanClient
 
 # Configure logging to see output during tests
@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 class TestSmartExitFix(unittest.TestCase):
     def setUp(self):
         self.mock_broker = MagicMock()
-        self.engine = RankingEngine(self.mock_broker)
+        self.engine = SuperOrderEngine(self.mock_broker)
         # Mock IST for consistency
         self.engine.IST = MagicMock()
         

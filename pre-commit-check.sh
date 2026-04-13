@@ -10,14 +10,14 @@ echo ""
 # 1. Python Syntax Check
 echo "1️⃣  Checking Python Syntax..."
 python3 -m py_compile broker_dhan.py
-python3 -m py_compile ranking_engine.py
+python3 -m py_compile super_order_engine.py
 python3 -m py_compile server.py
 echo "✅ Syntax check passed"
 echo ""
 
 # 2. Import Check (try importing modules)
 echo "2️⃣  Checking Imports..."
-python3 -c "import broker_dhan; import ranking_engine; import server" 2>&1 | grep -v "Redis connection failed" || true
+python3 -c "import broker_dhan; import super_order_engine; import server" 2>&1 | grep -v "Redis connection failed" || true
 echo "✅ Import check passed"
 echo ""
 

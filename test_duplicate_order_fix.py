@@ -6,12 +6,12 @@ import os
 # Add current directory to path
 sys.path.append(os.getcwd())
 
-from ranking_engine import RankingEngine
+from super_order_engine import SuperOrderEngine
 
 class TestDuplicateOrderFix(unittest.TestCase):
     def setUp(self):
         self.mock_broker = MagicMock()
-        self.engine = RankingEngine(self.mock_broker)
+        self.engine = SuperOrderEngine(self.mock_broker)
         
     def test_duplicate_order_modification_with_different_strike(self):
         """

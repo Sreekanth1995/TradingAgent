@@ -3,7 +3,7 @@
 **Reviewed Files**:
 - `mcp_server.py`
 - `server.py`
-- `ranking_engine.py`
+- `super_order_engine.py`
 
 ## Overview
 The user requested a code review specifically targeting the MCP tool definitions for order placement:
@@ -11,7 +11,7 @@ The user requested a code review specifically targeting the MCP tool definitions
 2. `place_super_order` currently relies on `side` ('CALL' or 'PUT') and delegating exact option selection to the engine's ITM automatic resolver. The agent needs precision to supply the direct `option` symbol.
 
 ## Severity Classification
-- **[High] Architecture / Data flow**: The backend `ranking_engine._execute_signal()` explicitly overrides and assumes ITM contract calculation (`itm_ce`, `itm_pe`), preventing any explicit option symbol from passing through natively.
+- **[High] Architecture / Data flow**: The backend `super_order_engine._execute_signal()` explicitly overrides and assumes ITM contract calculation (`itm_ce`, `itm_pe`), preventing any explicit option symbol from passing through natively.
 - **[Medium] Code Quality (Dead Code)**: Found a duplicated `except Exception as e:` block at `server.py` line ~846 causing unreachable code syntax shadowing.
 - **[Low] Naming Mismatch**: The MCP tool `place_manual_order` should correctly be identified as `place_conditional_order`.
 
@@ -26,7 +26,7 @@ The user requested a code review specifically targeting the MCP tool definitions
 - **Recommendation**: 
   - Change `mcp_server.py: place_super_order` to accept `option: str`.
   - Pass the exact symbol through `/super-order` -> `engine.process_signal` under `leg_data['option_symbol']`.
-  - Update `ranking_engine.py: _execute_signal` to check if `leg_data['option_symbol']` is provided. If so, bypass `get_itm_contract` and lookup the exact symbol in the broker's map to construct the item.
+  - Update `super_order_engine.py: _execute_signal` to check if `leg_data['option_symbol']` is provided. If so, bypass `get_itm_contract` and lookup the exact symbol in the broker's map to construct the item.
 
 ### 3. Syntax Ghosting in `server.py`
 - **Current state**: `server.py` has a redundant, shadowed exception block inside `/super-order`:

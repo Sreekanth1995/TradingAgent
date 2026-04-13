@@ -14,7 +14,7 @@ Establish the core strategy with market entry and smart "Maker" exit logic.
 - Reversal signals trigger a "Smart Exit" where existing legs are modified to capture fills at slightly better than LTP.
 
 ## Modified Files
-- `ranking_engine.py`: Core strategy implementation.
+- `super_order_engine.py`: Core strategy implementation.
 - `HLD.md`: Architecture update.
 - `README.md`: User-facing documentation update.
 - `test_super_order_smart_exit_refined.py`: Unit tests fix.

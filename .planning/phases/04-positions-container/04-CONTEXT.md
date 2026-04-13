@@ -6,7 +6,7 @@ Implement a dynamic "Live Positions" dashboard container that replaces the stati
 ## Technical Architecture
 - **Backend**: `server.py` aggregates positions from all major indices.
 - **Frontend**: `index.html` uses Glassmorphism-styled cards to display live PnL and LTP.
-- **State**: Positions are derived from the broker (Mock or Dhan) and synced via `RankingEngine`.
+- **State**: Positions are derived from the broker (Mock or Dhan) and synced via `SuperOrderEngine`.
 
 ## Implementation Details
 - `_get_active_positions()`: Helper in `server.py` to fetch, calculate, and format position data.

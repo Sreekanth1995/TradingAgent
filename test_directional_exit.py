@@ -1,7 +1,7 @@
 import logging
 import json
 from unittest.mock import MagicMock, patch
-from ranking_engine import RankingEngine
+from super_order_engine import SuperOrderEngine
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -56,7 +56,7 @@ def test_directional_exit():
     ]
     broker.get_super_orders.return_value = mock_legs
     
-    engine = RankingEngine(broker)
+    engine = SuperOrderEngine(broker)
     underlying = "NIFTY"
     leg_data = {"underlying": "NIFTY", "current_price": 25050}
 

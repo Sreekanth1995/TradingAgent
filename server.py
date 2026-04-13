@@ -4,7 +4,7 @@ import json
 import logging
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
-from ranking_engine import RankingEngine
+from super_order_engine import SuperOrderEngine
 from broker_dhan import DhanClient
 from collections import deque
 from datetime import datetime
@@ -43,7 +43,7 @@ try:
         broker = DhanClient()
         logger.info("🔗 Running in LIVE API MODE - Using broker_dhan.py")
         
-    engine = RankingEngine(broker)
+    engine = SuperOrderEngine(broker)
     logger.info("✅ System Initialized Successfully")
 except Exception as e:
     init_error = str(e)

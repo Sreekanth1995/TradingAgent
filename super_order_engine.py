@@ -20,14 +20,14 @@ MARKET_VOLATILITY_DELAY_MINS = 10
 
 logger = logging.getLogger(__name__)
 
-class RankingEngine:
+class SuperOrderEngine:
     """
     Direct Signal Trading Engine.
     Handles BUY/SELL signals to manage simulated bracket orders (Entry + SL + Target).
     """
     def __init__(self, broker=None, is_dry_run=False, redis_client=None, activity_logs=None):
         """
-        Initializes the RankingEngine with a broker and state storage.
+        Initializes the SuperOrderEngine with a broker and state storage.
         
         Args:
             broker: The broker client instance (e.g., DhanClient).
@@ -71,12 +71,12 @@ class RankingEngine:
                     self.r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
                 
                 self.r.ping()
-                logger.info("✅ RankingEngine: Connected to Redis successfully")
+                logger.info("✅ SuperOrderEngine: Connected to Redis successfully")
                 self.use_redis = True
             except Exception as e:
-                logger.warning(f"RankingEngine: Redis connection failed ({e}). Using in-memory storage.")
+                logger.warning(f"SuperOrderEngine: Redis connection failed ({e}). Using in-memory storage.")
         else:
-            logger.warning("RankingEngine: Redis library not installed. Using in-memory storage.")
+            logger.warning("SuperOrderEngine: Redis library not installed. Using in-memory storage.")
 
     # --- State Management ---
     def _get_state(self, underlying):

@@ -44,7 +44,7 @@ If a signal reverses (e.g., LONG -> SHORT) while a position is active:
 
 ## 7. Low Level Design & Architecture
 
-### A. Component Logic (`ranking_engine.py`)
+### A. Component Logic (`super_order_engine.py`)
 The system operates as a **State Machine** driven by incoming signals:
 1.  **Input**: Webhook Signal (`BUY` / `SELL`, Symbol `NIFTY`).
 2.  **State Check**: Reads current state (`CALL`, `PUT`, or `NONE`) from Storage.
