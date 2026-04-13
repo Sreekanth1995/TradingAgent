@@ -12,3 +12,6 @@
 - [x] Phase 8: Improve Dashboard UI and Position Management
     - **Goal**: State-aware dashboard with integrated P&L and GTT cleanup.
     - **Depends on**: Phase 7
+- [ ] Phase 9: Optimize MCP Token Usage (Chart Timestamp Caching)
+    - **Goal**: Cache range-signal timestamps and expose via MCP to avoid redundant chart processing by Claude.
+    - **Depends on**: Phase 6

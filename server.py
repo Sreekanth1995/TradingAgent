@@ -867,6 +867,7 @@ def range_signal():
     try:
         state = engine._get_state(underlying)
         state['range_position'] = position
+        state['range_timestamp'] = datetime.now().isoformat()
         engine._set_state(underlying, state)
 
         msg = f"Range Position for {underlying}: {position}"

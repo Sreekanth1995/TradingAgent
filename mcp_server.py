@@ -38,6 +38,10 @@ async def get_trading_status(underlying: str = "NIFTY"):
     """
     Get the current trading status, including active positions, current trend, 
     and NIFTY/BANKNIFTY range positions.
+    
+    IMPORTANT: The state object contains a `range_timestamp`. This timestamp points
+    to the exact time the price changed direction. You must compare this timestamp with
+    your previously cached timestamp. ONLY read the chart again if this timestamp has changed.
     """
     return await call_api("/get-state", {"underlying": underlying})
 
