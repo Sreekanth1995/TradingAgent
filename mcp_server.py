@@ -46,6 +46,16 @@ async def get_trading_status(underlying: str = "NIFTY"):
     return await call_api("/get-state", {"underlying": underlying})
 
 @mcp.tool()
+async def get_ltp(instrument: str = "NIFTY"):
+    """
+    Fetch the current Last Traded Price (LTP) for a specific index or security ID.
+    
+    Args:
+        instrument: Symbol name (NIFTY, BANKNIFTY) or Security ID (e.g., 100).
+    """
+    return await call_api("/get-ltp", {"instrument": instrument})
+
+@mcp.tool()
 async def place_conditional_order(action: str, underlying: str = "NIFTY", quantity: int = 1, sl_price: float = None, target_price: float = None, sl_index: float = None, target_index: float = None):
     """
     Manually place a trade order (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL).
@@ -135,6 +145,38 @@ async def cancel_target_stoploss(underlying: str = "NIFTY"):
     Cancel all active GTT conditional orders for a given underlying.
     """
     return await call_api("/cancel-conditional-orders", {"underlying": underlying})
+
+@mcp.tool()
+async def get_fund_limits():
+    """
+    Retrieve the current available fund limits from Dhan.
+    Returns availableBalance, utilizedAmount, and withdrawableBalance.
+    """
+    # Note: Using POST internal proxy to manage SECRET safely
+    return await call_api("/fundlimit", method="POST")
+
+@mcp.tool()
+async def get_margin_requirement(security_id: str, exchange_segment: str, transaction_type: str, quantity: int, price: float = 0.0, product_type: str = "INTRADAY"):
+    """
+    Calculate the margin required for a specific order before placement.
+    
+    Args:
+        security_id: Dhan Security ID (e.g., '13' for NIFTY)
+        exchange_segment: NSE_FNO, NSE_EQ, etc.
+        transaction_type: BUY or SELL
+        quantity: Order quantity
+        price: Limit price (0 or missing for MARKET)
+        product_type: INTRADAY, MARGIN, CNC, etc. (Default: INTRADAY)
+    """
+    payload = {
+        "security_id": security_id,
+        "exchange_segment": exchange_segment,
+        "transaction_type": transaction_type,
+        "quantity": quantity,
+        "price": price,
+        "product_type": product_type
+    }
+    return await call_api("/margincalculator", data=payload)
 
 @mcp.tool()
 async def get_performance_history():

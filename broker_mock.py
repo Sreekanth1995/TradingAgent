@@ -29,6 +29,15 @@ class MockDhanClient:
         self.scrip_loaded = True
         self.dry_run = False # Irrelevant in mock mode but kept for compatibility
 
+    def get_index_id(self, symbol):
+        """Returns standard Dhan Security ID for indices."""
+        mapping = {
+            "NIFTY": "13",
+            "BANKNIFTY": "25",
+            "FINNIFTY": "27"
+        }
+        return mapping.get(symbol.upper())
+
     def get_ltp(self, security_id, exchange_segment=None):
         """Returns a jittery price for any security ID and checks for SL/Target hits."""
         sid = str(security_id)
@@ -232,3 +241,45 @@ class MockDhanClient:
 
     def is_expiry_day(self, underlying):
         return False
+
+    def get_fund_limits(self):
+        """Mock fund limits."""
+        return {
+            "status": "success",
+            "data": {
+                "availabelBalance": 100000.0,
+                "utilizedAmount": 5000.0,
+                "withdrawableBalance": 95000.0
+            }
+        }
+
+    def margin_calculator(self, order_data):
+        """Mock margin calculator."""
+        # Simple estimate: 50% of price * qty if price > 0, else 5000 per lot
+        price = float(order_data.get('price', 0))
+        qty = int(order_data.get('quantity', 1))
+        
+        if price > 0:
+            margin = price * qty * 0.5
+        else:
+            margin = qty * 4500.0 # Standard mock margin
+            
+        return {
+            "status": "success",
+            "data": {
+                "totalMarginRequired": round(margin, 2),
+                "brokerage": 20.0,
+                "leverage": "1x"
+            }
+        }
+
+    def get_multi_margin_calculator(self, orders_list):
+        """Mock multi-order margin calculation."""
+        total = sum(int(o.get('quantity', 1)) * 4200.0 for o in orders_list)
+        return {
+            "status": "success",
+            "data": {
+                "totalMarginRequired": round(total, 2),
+                "orderCount": len(orders_list)
+            }
+        }

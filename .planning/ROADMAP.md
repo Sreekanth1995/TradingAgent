@@ -12,6 +12,9 @@
 - [x] Phase 8: Improve Dashboard UI and Position Management
     - **Goal**: State-aware dashboard with integrated P&L and GTT cleanup.
     - **Depends on**: Phase 7
-- [ ] Phase 9: Optimize MCP Token Usage (Chart Timestamp Caching)
-    - **Goal**: Cache range-signal timestamps and expose via MCP to avoid redundant chart processing by Claude.
+- [x] Phase 9: Targeted LTP Exposure Tool
+    - **Goal**: Implement dedicated /get-ltp endpoint and MCP tool for targeted price checks.
+    - **Depends on**: Phase 6
+- [x] Phase 10: Implement Margin and Fund APIs
+    - **Goal**: Implement Dhan margin calculation and fund limit retrieval endpoints and expose them to Claude via MCP.
     - **Depends on**: Phase 6

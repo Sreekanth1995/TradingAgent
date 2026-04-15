@@ -567,6 +567,105 @@ class DhanClient:
             logger.error(f"LTP Exception: {e}")
             return None
 
+    def get_fund_limits(self):
+        """
+        Retrieves available fund limits from Dhan.
+        Useful for checking available balance before placement.
+        """
+        if self.dry_run:
+            return {"status": "success", "data": {"availabelBalance": 50000.00}}
+        
+        if self.dhan:
+            try:
+                resp = self.dhan.get_fund_limits()
+                if resp.get('status') == 'success':
+                    return resp
+                elif resp.get('errorCode') == 'DH-901' or 'Unauthorized' in str(resp):
+                    logger.warning("Get Fund Limits: 401 Unauthorized. Syncing token...")
+                    if self._sync_token_from_redis():
+                        return self.dhan.get_fund_limits()
+                else:
+                    logger.error(f"Failed to fetch fund limits: {resp}")
+                    return {"status": "error", "message": resp.get('remarks')}
+            except Exception as e:
+                logger.error(f"Exception fetching fund limits: {e}")
+                return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "Broker not initialized"}
+
+    def margin_calculator(self, order_data):
+        """
+        Calculates margin required for a specific order.
+        order_data: { security_id, exchange_segment, transaction_type, quantity, product_type, price }
+        """
+        if self.dry_run:
+            # Simple mock calculation: 5000 per lot (quantity)
+            qty = int(order_data.get('quantity', 1))
+            return {"status": "success", "data": {"totalMarginRequired": qty * 5000.0}}
+            
+        if self.dhan:
+            try:
+                # Default productType to INTRADAY if not specified
+                if 'productType' not in order_data:
+                    order_data['productType'] = 'INTRADAY'
+                    
+                resp = self.dhan.margin_calculator(order_data)
+                if resp.get('status') == 'success':
+                    return resp
+                elif resp.get('errorCode') == 'DH-901' or 'Unauthorized' in str(resp):
+                    logger.warning("Margin Calculator: 401 Unauthorized. Syncing token...")
+                    if self._sync_token_from_redis():
+                        return self.dhan.margin_calculator(order_data)
+                else:
+                    return {"status": "error", "message": resp.get('remarks')}
+            except Exception as e:
+                logger.error(f"Exception in margin calculator: {e}")
+                return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "Broker not initialized"}
+
+    def get_multi_margin_calculator(self, orders_list):
+        """
+        Calculates margin for multiple orders using the Dhan v2 multi endpoint.
+        """
+        if self.dry_run:
+            total = sum(int(o.get('quantity', 1)) * 4500.0 for o in orders_list)
+            return {"status": "success", "data": {"totalMarginRequired": total}}
+
+        if not self.access_token:
+             return {"status": "error", "message": "Missing info"}
+
+        url = "https://api.dhan.co/v2/margincalculator/multi"
+        headers = {
+            'Content-Type': 'application/json',
+            'access-token': self.access_token
+        }
+        
+        # Ensure all orders have dhanClientId and default INTRADAY
+        payload = []
+        for o in orders_list:
+             item = o.copy()
+             item['dhanClientId'] = self.client_id
+             if 'productType' not in item:
+                 item['productType'] = 'INTRADAY'
+             payload.append(item)
+
+        try:
+            resp = requests.post(url, headers=headers, json=payload)
+            if resp.status_code == 200:
+                return resp.json()
+            elif resp.status_code == 401:
+                logger.warning("Multi Margin: 401 Unauthorized. Syncing...")
+                if self._sync_token_from_redis():
+                    headers['access-token'] = self.access_token
+                    resp = requests.post(url, headers=headers, json=payload)
+                    if resp.status_code == 200:
+                        return resp.json()
+                return {"status": "error", "message": "Auth failed"}
+            else:
+                return {"status": "error", "message": resp.text}
+        except Exception as e:
+            logger.error(f"Multi Margin Exception: {e}")
+            return {"status": "error", "message": str(e)}
+
     def get_positions(self):
         """
         Fetches current positions from Dhan.

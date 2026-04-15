@@ -444,6 +444,107 @@ def get_state():
         logger.error(f"Get State Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/get-ltp', methods=['POST'])
+def get_ltp():
+    """
+    Get current Last Traded Price (LTP) for a specific instrument.
+    Payload: { "secret": "...", "instrument": "NIFTY" | "BANKNIFTY" | "FINNIFTY" | "1234" }
+    """
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+        
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    instrument = data.get('instrument', 'NIFTY').upper()
+    try:
+        # 1. Check if it's a known index symbol
+        idx_id = broker.get_index_id(instrument)
+        if idx_id:
+            # Use Index segment for Dhan
+            ltp = broker.get_ltp(idx_id, exchange_segment="IDX_I")
+        else:
+            # 2. Assume it's a security ID or exact symbol
+            ltp = broker.get_ltp(instrument)
+            
+        if ltp is not None:
+            return jsonify({"status": "success", "instrument": instrument, "ltp": float(ltp)}), 200
+        else:
+            return jsonify({"status": "error", "message": f"Could not fetch LTP for {instrument}"}), 404
+    except Exception as e:
+        logger.error(f"Get LTP Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+        
+@app.route('/fundlimit', methods=['POST', 'GET'])
+def fund_limit():
+    """
+    Retrieve available fund limits (availableBalance).
+    """
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+    
+    # Support both GET and POST (for secret)
+    if request.method == 'POST':
+        data = request.get_json(force=True, silent=True)
+        if not data or data.get('secret') != SECRET:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    else:
+        sec = request.args.get('secret')
+        if sec != SECRET:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    try:
+        res = broker.get_fund_limits()
+        return jsonify(res), 200
+    except Exception as e:
+        logger.error(f"Fund Limit Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/margincalculator', methods=['POST'])
+def margin_calculator():
+    """
+    Calculate margin for a single order.
+    Payload: { secret, security_id, exchange_segment, transaction_type, quantity, product_type, price }
+    """
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+    
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    try:
+        # Extract order data (remove secret)
+        order_data = data.copy()
+        order_data.pop('secret', None)
+        res = broker.margin_calculator(order_data)
+        return jsonify(res), 200
+    except Exception as e:
+        logger.error(f"Margin Calc Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/margincalculator/multi', methods=['POST'])
+def margin_calculator_multi():
+    """
+    Calculate margin for multiple orders.
+    Payload: { secret, orders: [...] }
+    """
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+    
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    orders = data.get('orders', [])
+    try:
+        res = broker.get_multi_margin_calculator(orders)
+        return jsonify(res), 200
+    except Exception as e:
+        logger.error(f"Multi Margin Calc Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/get-history', methods=['POST'])
 def get_history():
     """
