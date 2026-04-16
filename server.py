@@ -24,8 +24,33 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
-# Live Activity Feed using deque (Thread-safe memory buffer)
+# Activity Logs (In-memory fallback + Redis persistence)
+from collections import deque
 activity_logs = deque(maxlen=50)
+
+def _add_activity_log(msg, prefix=""):
+    """
+    Appends a log entry to the in-memory deque and persists it to Redis if available.
+    """
+    timestamp = datetime.now().strftime('%H:%M:%S')
+    full_msg = f"[{timestamp}] {prefix}{msg}"
+    
+    # Update memory fallback
+    activity_logs.appendleft(full_msg)
+    
+    # Persist to Redis via engines if possible
+    try:
+        r = None
+        if super_order_engine and super_order_engine.use_redis:
+            r = super_order_engine.r
+        elif conditional_engine and conditional_engine.use_redis:
+            r = conditional_engine.r
+            
+        if r:
+            r.lpush("activity_logs", full_msg)
+            r.ltrim("activity_logs", 0, 49) # Keep last 50
+    except Exception as e:
+        logger.error(f"Failed to persist activity log to Redis: {e}")
 
 # Initialize Components with graceful error handling
 broker = None
@@ -217,19 +242,19 @@ def webhook():
             if feeling == 'BUY' and transaction_type == 'S':
                 msg = f"Ignored 'S' signal for {underlying} on {timeframe}m due to state feeling '{feeling}'"
                 logger.info(msg)
-                activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 🛑 {msg}")
+                _add_activity_log(msg, "🛑 ")
                 results.append({"action": "IGNORED_DUE_TO_FEELING", "reason": f"State feeling is {feeling}, ignored S signal"})
                 continue
             if feeling == 'SELL' and transaction_type == 'B':
                 msg = f"Ignored 'B' signal for {underlying} on {timeframe}m due to state feeling '{feeling}'"
                 logger.info(msg)
-                activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 🛑 {msg}")
+                _add_activity_log(msg, "🛑 ")
                 results.append({"action": "IGNORED_DUE_TO_FEELING", "reason": f"State feeling is {feeling}, ignored B signal"})
                 continue
                 
             msg = f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe"
             logger.info(msg)
-            activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 📡 {msg}")
+            _add_activity_log(msg, "📡 ")
 
             # 4. Process with Ranking Engine (Index-Based)
             mode = leg.get('mode', data.get('mode', 'regular')).lower()
@@ -302,7 +327,7 @@ def update_feeling():
                 updated.append({"symbol": symbol, "feeling": feeling})
                 msg = f"Updated Feeling State for {symbol}: {feeling}"
                 logger.info(msg)
-                activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 🧠 {msg}")
+                _add_activity_log(msg, "🧠 ")
                 
         return jsonify({"status": "success", "updated": updated}), 200
     except Exception as e:
@@ -586,6 +611,22 @@ def get_activity_logs():
     if data and data.get('secret') and data.get('secret') != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     
+    # Try fetching from Redis first
+    try:
+        r = None
+        if super_order_engine and super_order_engine.use_redis:
+            r = super_order_engine.r
+        elif conditional_engine and conditional_engine.use_redis:
+            r = conditional_engine.r
+            
+        if r:
+            logs = r.lrange("activity_logs", 0, 49)
+            if logs:
+                return jsonify({"status": "success", "logs": logs}), 200
+    except Exception as e:
+        logger.error(f"Error fetching logs from Redis: {e}")
+
+    # Fallback to in-memory deque
     return jsonify({"status": "success", "logs": list(activity_logs)}), 200
 
 @app.route('/ui-signal', methods=['POST'])
@@ -908,7 +949,7 @@ def range_signal():
 
         msg = f"Range Position for {underlying}: {position}"
         logger.info(msg)
-        activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] 🧭 {msg}")
+        _add_activity_log(msg, "🧭 ")
 
         return jsonify({"status": "success", "range_position": position}), 200
     except Exception as e:
@@ -947,7 +988,7 @@ def cancel_conditional_orders():
         super_order_engine._set_state(underlying, state)
 
         msg = f"GTT orders cancelled for {underlying}"
-        activity_logs.appendleft(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ {msg}")
+        _add_activity_log(msg, "❌ ")
 
         return jsonify({"status": "success", "cancelled": results}), 200
     except Exception as e:
