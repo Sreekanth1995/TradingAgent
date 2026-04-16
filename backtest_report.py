@@ -10,17 +10,10 @@ logger = logging.getLogger(__name__)
 
 IST = pytz.timezone('Asia/Kolkata')
 
-# Strategy Configs (Adapted for Spot Points simulation)
+# Strategy Configs
 CONFIGS = {
-    "NORMAL": {"target": 50, "sl": 20, "trailing": 15},
-    "SCALPING": {"target": 20, "sl": 20, "trailing": 5}
+    "NORMAL": {"target": 50, "sl": 20, "trailing": 15}
 }
-
-# Expiry Days Simulation (Simplified for Backtest)
-# NIFTY Expiry is usually Thursday. 
-# February 2026: Feb 5, 12, 19, 26 are Thursdays.
-EXPIRY_DAYS = ["2026-02-05", "2026-02-12", "2026-02-19", "2026-02-26"]
-
 
 class BacktestEngine:
     def __init__(self, csv_path):
@@ -48,7 +41,6 @@ class BacktestEngine:
                         "type": payload['order_legs'][0]['transactionType'] # 'B' or 'S'
                     })
                 except Exception as e:
-                    # logger.warning(f"Skipping row due to error: {e}")
                     pass
         
         # Sort by time
@@ -63,53 +55,24 @@ class BacktestEngine:
             self.daily_pnl[date] = self.simulate_day(date, day_alerts)
 
     def simulate_day(self, date, day_alerts):
-        scalping_until = None
-        active_trade = None # {type, entry_price, target, sl, timeframe}
+        active_trade = None # {type, entry_price, target, sl}
         day_points = 0
         trade_count = 0
         wins = 0
-        
-        is_expiry_day = date in EXPIRY_DAYS
         
         for alert in day_alerts:
             now = alert['time']
             current_price = alert['price']
             
-            # 1. Update Scalping Mode
-            if alert['name'] == "Daily Volume":
-                scalping_until = now.timestamp() + (5 * 60)
+            # 1. Market Open Volatility Check (9:15 - 9:25 IST)
+            if now.hour == 9 and 15 <= now.minute < 25:
                 continue
-            
-            # SuperOrderEngine._is_scalping_active logic
-            # Window checks
-            h, m = now.hour, now.minute
-            in_window1 = (h == 9 and m >= 20) or (h == 10 and m <= 35)
-            in_window2 = (h == 14 and m >= 45) or (h == 15 and m <= 30)
-            
-            is_volume_scalping = scalping_until and scalping_until > now.timestamp()
-            is_standard_scalping = (in_window1 or in_window2) and is_expiry_day
-            
-            is_scalping_active = is_volume_scalping or is_standard_scalping
 
-            
-            # 2. Check Timeframe Eligibility (super_order_engine.py logic)
-            if alert['timeframe'] == 1 and not is_scalping_active:
-                continue
-            if alert['timeframe'] == 5 and is_scalping_active:
-                continue
-                
-            # 3. Market Open Volatility Check (9:15 - 9:25 IST)
-            if not is_scalping_active:
-                if now.hour == 9 and 15 <= now.minute < 25:
-                    continue
-
-            # 4. Handle Active Trade
+            # 2. Handle Active Trade
             if active_trade:
-                # Check for Reversal or Exit
                 exit_price = None
                 reason = ""
                 
-                # Check for Target/SL hit by this alert's price
                 if active_trade['type'] == 'B':
                     if current_price >= active_trade['target']:
                         exit_price = active_trade['target']
@@ -139,10 +102,9 @@ class BacktestEngine:
                     if reason != "REVERSAL":
                         continue 
 
-
-            # 5. Open New Trade
+            # 3. Open New Trade (Always using NORMAL config)
             if not active_trade:
-                config = CONFIGS["SCALPING" if is_scalping_active else "NORMAL"]
+                config = CONFIGS["NORMAL"]
                 
                 target = current_price + config['target'] if alert['type'] == 'B' else current_price - config['target']
                 sl = current_price - config['sl'] if alert['type'] == 'B' else current_price + config['sl']

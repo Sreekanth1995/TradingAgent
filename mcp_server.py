@@ -59,7 +59,7 @@ async def get_ltp(instrument: str = "NIFTY"):
     return await call_api("/get-ltp", {"instrument": instrument})
 
 @mcp.tool()
-async def place_conditional_order(action: str, underlying: str = "NIFTY", quantity: int = 1, sl_price: float = None, target_price: float = None, sl_index: float = None, target_index: float = None):
+async def place_conditional_order(action: str, underlying: str = "NIFTY", quantity: int = 1, spot_index: float = None, sl_index: float = None, target_index: float = None):
     """
     Manually place a trade order (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL).
     SL and Target are mandatory for CALL/PUT.
@@ -76,12 +76,11 @@ async def place_conditional_order(action: str, underlying: str = "NIFTY", quanti
         sl_index: [REQUIRED] Index SL level (e.g., 23430). Must be < entry for BUY.
         target_index: [REQUIRED] Index Target level (e.g., 23550).
     """
-    return await call_api("/ui-signal", {
+    return await call_api("/conditional-order", {
         "action": action, 
         "underlying": underlying, 
         "quantity": quantity,
-        "sl_price": sl_price,
-        "target_price": target_price,
+        "spot_index": spot_index,
         "sl_index": sl_index,
         "target_index": target_index
     })
@@ -106,7 +105,7 @@ async def modify_index_gtt_levels(underlying: str, idx_target_level: float, idx_
     })
 
 @mcp.tool()
-async def place_super_order(underlying: str, option: str, target_price: float, sl_price: float, quantity: int = 1):
+async def place_super_order(underlying: str, option: str, spot_price: float, target_price: float, sl_price: float, quantity: int = 1):
     """
     Places a Premium-based Super Order (Bracket Order).
     The broker handles SL/Target natively as legs of the entry order.
@@ -121,6 +120,7 @@ async def place_super_order(underlying: str, option: str, target_price: float, s
     return await call_api("/super-order", {
         "underlying": underlying,
         "option": option,
+        "spot_price": spot_price,
         "target_price": target_price,
         "sl_price": sl_price,
         "quantity": quantity

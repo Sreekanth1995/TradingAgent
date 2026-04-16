@@ -1462,7 +1462,7 @@
                 
                 notify(`🚀 Sending Signal: BUY ${action}...`, 'success');
                 try {
-                    const response = await fetch('/ui-signal', {
+                    const response = await fetch('/conditional-order', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(body)

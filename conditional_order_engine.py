@@ -114,22 +114,17 @@ class ConditionalOrderEngine:
         Independent entry/exit logic for Conditional Engine.
         Places basic entry orders without Super Order brackets.
         """
-        underlying = leg_data.get('underlying', 'NIFTY')
+        underlying = leg_data.get('underlying', 'BASE')
         state = self._get_state(underlying)
         
-        # Resolve Index Price
-        spot_price = float(leg_data.get('current_price', 0.0))
-        idx_id = self.broker.get_index_id(underlying)
-        if spot_price <= 0 and idx_id:
-            spot_price = self.broker.get_ltp(idx_id, exchange_segment="IDX_I") or 0.0
-            
+        # Access provided Context
+        itm = leg_data.get('itm')
+        idx_sec_id = leg_data.get('idx_sec_id')
+        spot_index = float(leg_data.get('spot_index', 0.0))
+        
         if signal_type in ['B', 'S']:
-            side = 'CALL' if signal_type == 'B' else 'PUT'
-            opt_type = 'CE' if side == 'CALL' else 'PE'
-            
-            itm = self.broker.get_itm_contract(underlying, opt_type, spot_price)
             if not itm:
-                return {"status": "error", "message": f"Failed to resolve ITM for {underlying} {side}"}
+                return {"status": "error", "message": f"Missing ITM context for {underlying} {signal_type}"}
                 
             symbol = itm['symbol']
             sec_id = itm['security_id']
@@ -146,9 +141,10 @@ class ConditionalOrderEngine:
             resp = self.broker.place_buy_order(symbol, order_payload)
             if resp.get('success') or resp.get('order_id'):
                 state.update({
-                    'side': side,
+                    'side': 'CALL' if signal_type == 'B' else 'PUT',
                     'symbol': symbol,
                     'security_id': sec_id,
+                    'idx_sec_id': idx_sec_id,
                     'entry_id': resp.get('order_id'),
                     'quantity': qty,
                     'last_signal': signal_type
@@ -196,10 +192,10 @@ class ConditionalOrderEngine:
 
             opt_sec_id = state.get('security_id')
             qty = int(quantity or state.get('quantity', 1))
-            idx_sec_id = self.broker.get_index_id(underlying)
+            idx_sec_id = state.get('idx_sec_id')
             
             if not idx_sec_id or not opt_sec_id:
-                return {"status": "error", "message": "Could not resolve Index or Option security IDs"}
+                return {"status": "error", "message": "Could not resolve Index or Option security IDs from state"}
 
             lot_size = self.broker.lot_map.get(str(opt_sec_id), 1)
             actual_qty = qty * lot_size
@@ -301,11 +297,13 @@ class ConditionalOrderEngine:
 
             logger.info(f"Dhan Postback received. alertId: {alert_id}, userNote: {user_note}")
             
-            # Identify which instrument this belongs to
-            indices = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
-            target_found = False
+            # Identify which instrument this belongs to by checking active states
+            # This logic avoids hardcoding index names
+            active_keys = (self.r.keys("cond_state:*") if self.use_redis else self.memory_store.keys())
             
-            for underlying in indices:
+            for key in active_keys:
+                # Extract underlying from key (state:SYMBOL or cond_state:SYMBOL)
+                underlying = key.split(':')[-1]
                 state = self._get_state(underlying)
                 # Match target alert ID
                 is_target_hit = (state.get('idx_target_alert_id') == alert_id)
@@ -316,8 +314,8 @@ class ConditionalOrderEngine:
                     sl_alert_id = user_note if (user_note and len(user_note) > 5) else state.get('idx_sl_alert_id')
                     
                     if sl_alert_id:
-                        idx_id = self.broker.get_index_id(underlying)
-                        current_idx_ltp = self.broker.get_ltp(idx_id, exchange_segment="IDX_I")
+                        idx_id = state.get('idx_sec_id')
+                        current_idx_ltp = self.broker.get_ltp(idx_id, exchange_segment="IDX_I") if idx_id else None
                         
                         if current_idx_ltp:
                             # Update SL dynamically tracking market movements

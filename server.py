@@ -9,6 +9,8 @@ from conditional_order_engine import ConditionalOrderEngine
 from broker_dhan import DhanClient
 from collections import deque
 from datetime import datetime
+import pytz
+from instrument_resolver import resolve_index_spot, resolve_call_itm, resolve_put_itm
 
 # Load Environment Variables
 load_dotenv()
@@ -25,7 +27,6 @@ app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 # Activity Logs (In-memory fallback + Redis persistence)
-from collections import deque
 activity_logs = deque(maxlen=50)
 
 def _add_activity_log(msg, prefix=""):
@@ -112,8 +113,6 @@ def _load_levels():
     """
     try:
         if os.path.exists(_LEVELS_FILE):
-            import pytz
-            from datetime import datetime
             IST = pytz.timezone('Asia/Kolkata')
             now = datetime.now(IST)
             
@@ -167,6 +166,8 @@ def health():
         "error": init_error
     }
     return jsonify(status), 200
+
+
 
 @app.route('/')
 def dashboard():
@@ -234,33 +235,40 @@ def webhook():
             
             transaction_type = leg.get('transactionType')
             
-            # Fetch feeling from state (which is populated by /feeling API)
-            state = super_order_engine._get_state(underlying)
-            feeling = state.get('feeling', '').upper()
-            
-            # Apply Feeling API Logic
-            if feeling == 'BUY' and transaction_type == 'S':
-                msg = f"Ignored 'S' signal for {underlying} on {timeframe}m due to state feeling '{feeling}'"
-                logger.info(msg)
-                _add_activity_log(msg, "🛑 ")
-                results.append({"action": "IGNORED_DUE_TO_FEELING", "reason": f"State feeling is {feeling}, ignored S signal"})
-                continue
-            if feeling == 'SELL' and transaction_type == 'B':
-                msg = f"Ignored 'B' signal for {underlying} on {timeframe}m due to state feeling '{feeling}'"
-                logger.info(msg)
-                _add_activity_log(msg, "🛑 ")
-                results.append({"action": "IGNORED_DUE_TO_FEELING", "reason": f"State feeling is {feeling}, ignored B signal"})
-                continue
-                
             msg = f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe"
             logger.info(msg)
             _add_activity_log(msg, "📡 ")
 
             # 4. Process with Ranking Engine (Index-Based)
             mode = leg.get('mode', data.get('mode', 'regular')).lower()
-            final_signal = transaction_type # Direct external fallback
+            
+            # Resolve ITM context for engines
+            spot_index = resolve_index_spot(broker, underlying, leg)
+            itm_ce = resolve_call_itm(broker, underlying, spot_index)
+            itm_pe = resolve_put_itm(broker, underlying, spot_index)
+            
+            # Identify specific target instrument based on signal
+            target_side = 'CALL' if transaction_type in ['B', 'BUY', 'LONG'] else 'PUT' if transaction_type in ['S', 'SELL', 'SHORT'] else None
+            specific_itm = itm_ce if target_side == 'CALL' else itm_pe if target_side == 'PUT' else itm_ce # Fallback to CE for exits/crosses
+            
+            if not itm_ce or not itm_pe:
+                action = {"underlying": underlying, "action": "FAILED_CONTEXT_RESOLUTION", "reason": "Failed to resolve CE/PE ITM contracts"}
+            else:
+                leg_data = {
+                    "underlying": underlying,
+                    "target_side": target_side,
+                    "itm_ce": itm_ce,
+                    "itm_pe": itm_pe,
+                    "spot_index": spot_index,
+                    "quantity": leg.get('quantity', 1)
+                }
+                action = super_order_engine.process_signal(underlying, specific_itm, transaction_type, mode, leg_data)
 
-            action = super_order_engine.process_signal(underlying, final_signal, mode, leg)
+                # Inject resolved context into leg data
+                leg['itm_ce'] = itm_ce
+                leg['itm_pe'] = itm_pe
+                leg['spot_index'] = spot_index
+            
             results.append(action)
             
             # Check for Logic Failures
@@ -297,42 +305,6 @@ def manual_exit():
         logger.error(f"Manual Exit Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/feeling', methods=['POST'])
-def update_feeling():
-    """
-    Endpoint to receive feeling logic (e.g. BUY/SELL market mood) on higher timeframes.
-    This limits TradingView webhook usage by storing state instead of multi-conditional alerts.
-    """
-    if not super_order_engine:
-        return jsonify({"status": "error", "message": "System not initialized"}), 503
-        
-    try:
-        data = request.get_json(force=True, silent=True)
-        if not data or data.get('secret') != SECRET:
-            return jsonify({"status": "error", "message": "Unauthorized"}), 401
-        
-        legs = data.get('order_legs', [])
-        updated = []
-        
-        for leg in legs:
-            symbol = leg.get('symbol') or leg.get('ticker') or leg.get('underlying')
-            if not symbol:
-                continue
-            
-            feeling = leg.get('feeling', '').strip().upper()
-            if feeling in ['BUY', 'SELL']:
-                state = super_order_engine._get_state(symbol)
-                state['feeling'] = feeling
-                super_order_engine._set_state(symbol, state)
-                updated.append({"symbol": symbol, "feeling": feeling})
-                msg = f"Updated Feeling State for {symbol}: {feeling}"
-                logger.info(msg)
-                _add_activity_log(msg, "🧠 ")
-                
-        return jsonify({"status": "success", "updated": updated}), 200
-    except Exception as e:
-        logger.error(f"Update Feeling Error: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 def _get_active_positions():
     """
@@ -400,9 +372,9 @@ def _get_active_positions():
                         "side": active_state.get('side'),
                         "quantity": qty,
                         "entry_price": entry_price,
-                        "ltp": "---", # Visual indicator of stale price
-                        "pnl_abs": "---",
-                        "pnl_pct": "---",
+                        "ltp": 0.0, # Visual indicator of stale price
+                        "pnl_abs": 0.0,
+                        "pnl_pct": 0.0,
                         "strike": active_state.get('strike'),
                         "option_type": active_state.get('option_type'),
                         "range_position": active_state.get('range_position', 'INSIDE'),
@@ -603,7 +575,7 @@ def get_history():
 @app.route('/activity-logs', methods=['POST', 'GET'])
 def get_activity_logs():
     """
-    Returns the most recent system activity logs (signals received, orders placed, feelings updated).
+    Returns the most recent system activity logs (signals received, orders placed).
     """
     data = request.get_json(force=True, silent=True) or {}
     # We still allow fetching logs safely if secrets match, or skip if internal dashboard UI does it passively.
@@ -629,8 +601,8 @@ def get_activity_logs():
     # Fallback to in-memory deque
     return jsonify({"status": "success", "logs": list(activity_logs)}), 200
 
-@app.route('/ui-signal', methods=['POST'])
-def ui_signal():
+@app.route('/conditional-order', methods=['POST'])
+def conditional_order():
     """
     Programmatic/AI entry point for manual UI signals.
     """
@@ -656,18 +628,25 @@ def ui_signal():
         return jsonify({"status": "error", "message": f"Invalid action: {action}"}), 400
         
     try:
-        # Fetch Index LTP for manual entries if needed
-        spot_price = 0.0
-        idx_id = broker.get_index_id(underlying)
-        if idx_id and signal_type in ['B', 'S']:
-            spot_price = broker.get_ltp(idx_id, exchange_segment="IDX_I") or 0.0
-            
+        # 1. Resolve Context Logic (Move intelligence to Server)
+        spot_index = resolve_index_spot(broker, underlying, data)
+        
+        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"}
+        idx_sec_id = index_ids.get(underlying.upper())
+        
+        # Prepare leg_data with resolved context
+        side = 'CALL' if signal_type == 'B' else 'PUT'
+        itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
+        
+        if not itm or not idx_sec_id:
+            return jsonify({"status": "error", "message": "Failed to resolve ITM contract or Index ID"}), 400
+
         leg_data = {
             "underlying": underlying,
-            "quantity": data.get('quantity', 1),
-            "current_price": spot_price,
-            "sl_price": data.get('sl_price'),
-            "target_price": data.get('target_price'),
+            "itm": itm,
+            "idx_sec_id": idx_sec_id,
+            "quantity": int(data.get('quantity', 1)),
+            "spot_index": spot_index,
             "sl_index": data.get('sl_index'),
             "target_index": data.get('target_index')
         }
@@ -705,7 +684,7 @@ def ui_signal():
             
         return jsonify(res), 200
     except Exception as e:
-        logger.error(f"UI Signal Error: {e}")
+        logger.error(f"Conditional Order Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/level-hit', methods=['POST'])
@@ -731,13 +710,36 @@ def level_hit():
             for leg in legs:
                 underlying = leg.get('symbol') or leg.get('underlying') or leg.get('ticker') or 'NIFTY'
                 leg_mode = leg.get('mode', mode).lower()
-                action = super_order_engine.process_signal(underlying, 'LEVEL_CROSS', leg_mode, leg)
+                
+                # NEW: Resolve Context for LEVEL_CROSS (Reversals might need it)
+                spot_index = resolve_index_spot(broker, underlying, leg)
+                itm_ce = resolve_call_itm(broker, underlying, spot_index)
+                itm_pe = resolve_put_itm(broker, underlying, spot_index)
+                
+                if itm_ce and itm_pe:
+                    leg['itm_ce'] = itm_ce
+                    leg['itm_pe'] = itm_pe
+                    leg['spot_index'] = spot_index
+                
+                # For LEVEL_CROSS, we pass itm_ce as a generic starting point; engine identifies active side from holdings
+                action = super_order_engine.process_signal(underlying, itm_ce, 'LEVEL_CROSS', leg_mode, leg)
                 results.append(action)
         else:
             # Fallback for simple payload: {"secret": "...", "underlying": "NIFTY"}
             underlying = data.get('underlying') or data.get('ticker') or 'NIFTY'
             leg_data = data
-            action = super_order_engine.process_signal(underlying, 'LEVEL_CROSS', mode, leg_data)
+            
+            # Resolve Context
+            spot_index = resolve_index_spot(broker, underlying, leg_data)
+            itm_ce = resolve_call_itm(broker, underlying, spot_index)
+            itm_pe = resolve_put_itm(broker, underlying, spot_index)
+            
+            if itm_ce and itm_pe:
+                leg_data['itm_ce'] = itm_ce
+                leg_data['itm_pe'] = itm_pe
+                leg_data['spot_index'] = spot_index
+
+            action = super_order_engine.process_signal(underlying, itm_ce, 'LEVEL_CROSS', mode, leg_data)
             results.append(action)
             
         return jsonify({"status": "success", "actions": results}), 200
@@ -745,33 +747,7 @@ def level_hit():
         logger.error(f"Level Hit Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/volume-alert', methods=['POST'])
-def volume_alert():
-    """
-    Endpoint triggered when NIFTY crosses daily volume.
-    Activates Scalping Mode for 5 minutes and runs AI Analysis.
-    """
-    if not broker or not super_order_engine:
-        return jsonify({"status": "error", "message": "System not initialized"}), 503
-        
-    data = request.get_json(force=True, silent=True)
-    if not data or data.get('secret') != SECRET:
-        return jsonify({"status": "error", "message": "Unauthorized"}), 401
-    
-    try:
-        # Always activate scalping mode
-        super_order_engine.activate_scalping_mode(5)
-        
-        results = []
-        
-        return jsonify({
-            "status": "success", 
-            "message": "Scalping Mode activated.", 
-            "actions": results
-        }), 200
-    except Exception as e:
-        logger.error(f"Volume Alert Processing Error: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 @app.route('/dhan-postback', methods=['POST'])
@@ -825,6 +801,17 @@ def set_conditional_index_orders():
         return jsonify({"status": "error", "message": "target_level and sl_level are required"}), 400
 
     try:
+        # NEW: Ensure idx_sec_id is available even for manual protection
+        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"}
+        idx_sec_id = index_ids.get(underlying.upper())
+        
+        # Inject into state if missing (rare legacy positions)
+        state = conditional_engine._get_state(underlying)
+        if not state.get('idx_sec_id') and idx_sec_id:
+            logger.info(f"Injecting missing idx_sec_id {idx_sec_id} into state for {underlying}")
+            state['idx_sec_id'] = idx_sec_id
+            conditional_engine._set_state(underlying, state)
+
         res = conditional_engine.set_index_boundaries(underlying, target_level, sl_level, quantity)
         if res.get('status') == 'success':
             return jsonify(res), 200
@@ -850,7 +837,7 @@ def set_super_order():
     
     underlying = data.get('underlying', 'NIFTY').upper()
     option = data.get('option')
-    side = data.get('side', 'CALL').upper() if not option else ''
+    signal_dir = data.get('side', 'CALL').upper() if not option else ''
     target = data.get('target_price')
     sl = data.get('sl_price')
     quantity = data.get('quantity', 1)
@@ -859,9 +846,25 @@ def set_super_order():
          return jsonify({"status": "error", "message": "Premium Target and SL are required for Super Orders"}), 400
 
     try:
+        # 1. Resolve Signal Context (Move intelligence to Server)
+        spot_index = resolve_index_spot(broker, underlying, data)
+        itm_ce = resolve_call_itm(broker, underlying, spot_index)
+        itm_pe = resolve_put_itm(broker, underlying, spot_index)
+        
+        if not itm_ce or not itm_pe:
+            return jsonify({"status": "error", "message": "Failed to resolve ITM contract or Index ID"}), 400
+
+        # Identify side using exact logic moved from engine
+        target_side = 'CALL' if signal_dir == 'B' else 'PUT'
+        itm = itm_ce if target_side == 'CALL' else itm_pe
+        
         # Resolve ITM Option and place Super Order via super_order_engine logic
         leg_data = {
             "underlying": underlying,
+            "target_side": target_side,
+            "itm_ce": itm_ce,
+            "itm_pe": itm_pe,
+            "spot_index": spot_index,
             "quantity": int(quantity),
             "sl_price": float(sl),
             "target_price": float(target),
@@ -870,8 +873,8 @@ def set_super_order():
         if option:
             leg_data["option_symbol"] = option
             
-        signal_dir = 'B' if 'CE' in option else 'S' if option else ('B' if side == 'CALL' else 'S')
-        result = super_order_engine.process_signal(underlying, signal_dir, 'regular', leg_data)
+        # Execute Signal
+        result = super_order_engine.process_signal(underlying, itm, signal_dir, 'regular', leg_data)
         return jsonify({"status": "success", "result": result}), 200
     except Exception as e:
         logger.error(f"Super Order Error: {e}")

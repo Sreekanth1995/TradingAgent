@@ -42,20 +42,9 @@ class SuperOrderEngine:
         self.use_redis = False
         self.memory_store = {}
         
-        # Instrument Configurations (Target 55%, SL 20%, Trailing 10%, Slippage Buffer 1%)
+        # Standard Risk Configurations (Target %, SL %, Trailing %)
         self.configs = {
-            "NIFTY": {"target": 55, "sl": 20, "trailing": 20, "slippage_buffer": 1.0},
-            "BANKNIFTY": {"target": 55, "sl": 20, "trailing": 20, "slippage_buffer": 1.0},
-            "FINNIFTY": {"target": 55, "sl": 20, "trailing": 20, "slippage_buffer": 1.0},
             "DEFAULT": {"target": 55, "sl": 20, "trailing": 20, "slippage_buffer": 1.0}
-        }
-        
-        # Scalping Mode Configuration (Trailing 5%, Slippage 0.5%)
-        self.scalping_configs = {
-            "target": 55,
-            "sl": 20,
-            "trailing": 5,
-            "slippage_buffer": 0.5
         }
         
         self.processing_locks = set()
@@ -110,7 +99,7 @@ class SuperOrderEngine:
         Public entry point for signals.
         Returns result dict containing 'status' and optionally 'order_id'.
         """
-        underlying = leg_data.get('underlying', 'NIFTY')
+        underlying = leg_data.get('underlying', 'BASE')
         res = self.process_signal(underlying, signal_type, mode, leg_data)
         
         # Extract orderId if available from the internal execution result
@@ -133,47 +122,14 @@ class SuperOrderEngine:
                 logger.info(f"Cleanup: Cancelling conditional order {alert_id} for {underlying}")
                 self.broker.cancel_conditional_order(alert_id)
 
-    def _get_params(self, underlying, is_scalping=False):
-        """Returns the configuration for the given underlying."""
-        if is_scalping:
-            return self.scalping_configs
-        return self.configs.get(underlying.upper(), self.configs["DEFAULT"])
+    def _get_params(self, underlying):
+        """Returns the execution parameters."""
+        # Index-blind lookup: relies on DEFAULT unless a specific security override exists
+        return self.configs.get("DEFAULT")
 
-    def activate_scalping_mode(self, duration_mins=5):
-        """
-        Activates scalping mode for a specific duration.
-        """
-        expiry = int(time.time()) + (duration_mins * 60)
-        if self.use_redis:
-            self.r.set("scalping_until", expiry)
-        else:
-            self.memory_store["scalping_until"] = expiry
-        logger.info(f"🚀 Scalping Mode ACTIVATED for {duration_mins} minutes (until {datetime.fromtimestamp(expiry).strftime('%H:%M:%S')})")
-        return True
 
-    def _is_scalping_active(self, underlying=None):
-        """
-        Checks if scalping mode is currently active based on volume trigger.
-        Time-based windows and expiry day rules have been removed.
-        
-        Args:
-            underlying (str): The underlying instrument symbol (e.g., NIFTY).
-            
-        Returns:
-            bool: True if scalping mode should be used.
-        """
-        # 1. Volume Trigger Check (Always Priority)
-        if self.use_redis:
-            val = self.r.get("scalping_until")
-        else:
-            val = self.memory_store.get("scalping_until")
-        
-        if val and int(val) > time.time():
-            return True
-                
-        return False
 
-    def _handle_update_sl(self, underlying, is_scalping):
+    def _handle_update_sl(self, underlying):
         """
         Calculates new SL based on active option's LTP and updates the pending
         SL order only if the new SL price is greater than the existing SL price.
@@ -194,7 +150,7 @@ class SuperOrderEngine:
             logger.warning(f"UPDATE_SL failed: Could not fetch LTP for {symbol}")
             return {"action": "FAILED_LTP_FETCH", "symbol": symbol}
 
-        params = self._get_params(underlying, is_scalping)
+        params = self._get_params(underlying)
         
         is_super_order = state.get('is_super_order', False)
         pending_orders = self._get_pending_legs(sec_id, is_super_order)
@@ -242,34 +198,24 @@ class SuperOrderEngine:
         else:
             return {"action": "NONE", "reason": "New SL not greater than existing SL"}
 
-    def _validate_market_volatility(self, underlying, is_scalping, now_ist):
+    def _validate_market_volatility(self, underlying, now_ist):
         """
         Checks if the signal should be skipped due to initial market volatility.
-        
-        Args:
-            underlying (str): The underlying symbol.
-            is_scalping (bool): Whether we are in scalping mode.
-            now_ist (datetime): Current IST time.
-            
-        Returns:
-            tuple: (is_valid, error_response)
         """
-        if not is_scalping:
-            market_start = now_ist.replace(hour=MARKET_OPEN_HOUR, minute=MARKET_OPEN_MINUTE, second=0, microsecond=0)
-            delay_end = market_start.replace(minute=MARKET_OPEN_MINUTE + MARKET_VOLATILITY_DELAY_MINS)
-            if market_start <= now_ist < delay_end:
-                logger.info(f"Market Volatility Delay: Ignoring signal for {underlying} during first {MARKET_VOLATILITY_DELAY_MINS} mins.")
-                return False, {"underlying": underlying, "action": "SKIPPED_MARKET_OPEN_DELAY", "time": now_ist.strftime('%H:%M:%S')}
+        market_start = now_ist.replace(hour=MARKET_OPEN_HOUR, minute=MARKET_OPEN_MINUTE, second=0, microsecond=0)
+        delay_end = market_start.replace(minute=MARKET_OPEN_MINUTE + MARKET_VOLATILITY_DELAY_MINS)
+        if market_start <= now_ist < delay_end:
+            logger.info(f"Market Volatility Delay: Ignoring signal for {underlying} during first {MARKET_VOLATILITY_DELAY_MINS} mins.")
+            return False, {"underlying": underlying, "action": "SKIPPED_MARKET_OPEN_DELAY", "time": now_ist.strftime('%H:%M:%S')}
         return True, None
 
     # --- Core Logic ---
-    def process_signal(self, underlying, signal_type, mode, leg_data):
+    def process_signal(self, underlying, itm, signal_type, mode, leg_data):
         """
         Main entry point for processing BUY/SELL signals.
         Coordinates validation, locking, and execution.
         """
         now_ist = datetime.now(IST)
-        is_scalping = (str(mode).lower() == 'scalping')
 
         # 2. Deduplication Check (DISABLED as per new strategy)
         state = self._get_state(underlying)
@@ -278,7 +224,7 @@ class SuperOrderEngine:
         #     return {"underlying": underlying, "signal": signal_type, "action": "SKIPPED_DUPLICATE", "time": now_ist.strftime('%H:%M:%S')}
 
         # 3. Market Volatility Check
-        is_valid_vol, err_vol = self._validate_market_volatility(underlying, is_scalping, now_ist)
+        is_valid_vol, err_vol = self._validate_market_volatility(underlying, now_ist)
         if not is_valid_vol:
             return err_vol
 
@@ -289,17 +235,16 @@ class SuperOrderEngine:
         
         self.processing_locks.add(underlying)
         try:
-            current_side = state.get('side', 'NONE')
             if signal_type in ['B', 'LONG', 'BUY']:
-                result = self._execute_signal(underlying, 'B', mode, leg_data, state, current_side, now_ist, is_scalping)
+                result = self._execute_signal(underlying, itm, mode, leg_data, state, now_ist)
             elif signal_type in ['S', 'SHORT', 'SELL']:
-                result = self._execute_signal(underlying, 'S', mode, leg_data, state, current_side, now_ist, is_scalping)
+                result = self._execute_signal(underlying, itm, mode, leg_data, state, now_ist)
             elif signal_type == 'LONG_EXIT':
                 result = self._handle_directional_exit(underlying, 'CALL')
             elif signal_type == 'SHORT_EXIT':
                 result = self._handle_directional_exit(underlying, 'PUT')
             elif signal_type in ['UPDATE_SL', 'LEVEL_CROSS', 'TRAIL', 'UPDATE']:
-                result = self._handle_update_sl(underlying, is_scalping)
+                result = self._handle_update_sl(underlying)
             else:
                 logger.warning(f"Unknown signal type: {signal_type}")
                 result = {"action": "NONE", "reason": f"Unknown signal type: {signal_type}"}
@@ -334,54 +279,26 @@ class SuperOrderEngine:
 
 
 
-    def _execute_signal(self, underlying, signal_type, mode, leg_data, state, current_side, now_ist, is_scalping=False):
+    def _execute_signal(self, underlying, itm, mode, leg_data, state, now_ist):
         """
-        Advanced Strategy Implementation:
-        Manages Super Orders based on signal alignment and leg status.
+        Price-based Strategy Implementation:
+        Manages orders based on provided security context (itm_ce, itm_pe).
         """
         action_log = []
         
-        # 1. Fetch Index LTP for ITM resolution
-        # We need to resolve both CE and PE contracts for management
-        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"} 
-        idx_id = index_ids.get(underlying.upper())
+        # 1. Access provided Security Context
+        # itm_ce and itm_pe are still provided in leg_data for symmetric awareness,
+        # but the primary 'itm' (target instrument) is now passed explicitly.
+        itm_ce = leg_data.get('itm_ce')
+        itm_pe = leg_data.get('itm_pe')
         
-        # Prioritize payload price if available from TradingView/Webhook
-        spot_price = float(leg_data.get('current_price', 0))
-        
-        if spot_price <= 0 and idx_id:
-            # Note: For Index LTP, Dhan API v2 expects exchange_segment="IDX_I"
-            spot_price = self.broker.get_ltp(idx_id, exchange_segment="IDX_I") or 0.0
-        
-        if spot_price <= 0:
-            logger.error(f"Cannot execute strategy for {underlying}: Index LTP failed.")
-            return {"underlying": underlying, "action": "FAILED_INDEX_LTP", "time": now_ist.strftime('%H:%M:%S')}
+        # Determine current target side and instrument
+        target_itm = itm
+        signal_type = 'B' if target_itm == itm_ce else 'S' if target_itm == itm_pe else 'B' 
 
-        # 2. Resolve target contract
-        exact_option = leg_data.get('option_symbol')
-        itm_ce = None
-        itm_pe = None
-        
-        if exact_option:
-            info = self.broker.get_security_info_by_symbol(exact_option)
-            if not info:
-                logger.error(f"Cannot resolve explicit option {exact_option} for {underlying}")
-                return {"underlying": underlying, "action": "FAILED_EXPLICIT_OPTION", "time": now_ist.strftime('%H:%M:%S')}
-            # Mock the itm dictionary structure used downstream
-            if info['opt_type'] == 'CE':
-                itm_ce = info
-                # Need an opposing PE for the symmetric logic to not break
-                itm_pe = self.broker.get_itm_contract(underlying, 'PE', spot_price)
-            else:
-                itm_pe = info
-                itm_ce = self.broker.get_itm_contract(underlying, 'CE', spot_price)
-        else:
-            itm_ce = self.broker.get_itm_contract(underlying, 'CE', spot_price)
-            itm_pe = self.broker.get_itm_contract(underlying, 'PE', spot_price)
-        
-        if not itm_ce or not itm_pe:
-            logger.error(f"Failed to resolve ITM contracts for {underlying}")
-            return {"underlying": underlying, "action": "FAILED_ITM_RESOLUTION", "time": now_ist.strftime('%H:%M:%S')}
+        if not target_itm:
+            logger.error(f"Cannot execute price strategy for {underlying}: Missing target instrument context.")
+            return {"underlying": underlying, "action": "FAILED_CONTEXT_MISSING", "time": now_ist.strftime('%H:%M:%S')}
 
         # 3. Fetch all active Super Orders
         # We group them by Side (CE/PE) using their securityId or Symbol
@@ -404,7 +321,7 @@ class SuperOrderEngine:
                 orders_by_id[oid]['side'] = 'PE'
             else:
                 # Robust reverse lookup: natively decode sec_id directly from Master Scrip map
-                # This guarantees side mapping even if the NIFTY spot price shifted the ITM baseline
+                # This guarantees side mapping even if the Index spot price shifted the ITM baseline
                 info = self.broker.get_security_info(sec_id)
                 if info:
                     sym, _, opt_type, _ = info
@@ -424,13 +341,13 @@ class SuperOrderEngine:
             # 4.1 Handle Opposite Side (PE)
             self._manage_opposite_orders(underlying, state, orders_by_id, 'PE', action_log)
             # 4.2 Handle Aligned Side (CE)
-            self._manage_aligned_orders(underlying, itm_ce, orders_by_id, 'CE', action_log, mode, leg_data, is_scalping)
+            self._manage_aligned_orders(underlying, itm_ce, orders_by_id, 'CE', action_log, mode, leg_data)
             
         elif signal_type == 'S': # SELL (PE Aligned, CE Opposite)
             # 4.1 Handle Opposite Side (CE)
             self._manage_opposite_orders(underlying, state, orders_by_id, 'CE', action_log)
             # 4.2 Handle Aligned Side (PE)
-            self._manage_aligned_orders(underlying, itm_pe, orders_by_id, 'PE', action_log, mode, leg_data, is_scalping)
+            self._manage_aligned_orders(underlying, itm_pe, orders_by_id, 'PE', action_log, mode, leg_data)
 
         elif signal_type == 'LONG_EXIT':
             logger.info(f"Strategy: Explicit LONG_EXIT for {underlying}")
@@ -512,13 +429,13 @@ class SuperOrderEngine:
                 self._close_position_market(underlying, state)
                 action_log.append(f"CLOSED_OPPOSITE_{side_to_manage}")
 
-    def _manage_aligned_orders(self, underlying, itm_data, orders_by_id, side_to_manage, action_log, mode, leg_data, is_scalping):
+    def _manage_aligned_orders(self, underlying, itm_data, orders_by_id, side_to_manage, action_log, mode, leg_data):
         """
         Aligned side logic:
         - If no order: Place new Native Super Order (Market Entry, 55/20/Config SL).
         - If existing order: No modifications (trust Native Legs).
         """
-        params = self._get_params(underlying, is_scalping)
+        params = self._get_params(underlying)
         target_oid = None
         for oid, order in orders_by_id.items():
             if order['side'] == side_to_manage:
@@ -532,7 +449,7 @@ class SuperOrderEngine:
             logger.info(f"Strategy: Placing NEW {side} position for {underlying}")
             entry_data = leg_data.copy() if hasattr(leg_data, 'copy') else {}
             if 'quantity' not in entry_data: entry_data['quantity'] = 1
-            new_state = self._open_position(underlying, side, entry_data, is_scalping)
+            new_state = self._open_position(underlying, side, entry_data)
             if new_state:
                 self._set_state(underlying, new_state) # Persist the new position state
                 action_log.append(f"OPENED_{side}")
@@ -543,46 +460,29 @@ class SuperOrderEngine:
             # For now, we trust the existing Native Super Order legs unless a reversal happens.
             logger.info(f"Strategy: Aligned {side_to_manage} position already exists ({target_oid}). No modifications needed.")
 
-    def _open_position(self, underlying, side, leg_data, is_scalping=False):
+    def _open_position(self, underlying, side, leg_data):
         """
-        Main orchestrator for opening a new position.
-        
-        Args:
-            underlying (str): The underlying symbol.
-            side (str): 'CALL' or 'PUT'.
-            leg_data (dict): Signal payload data.
-            is_scalping (bool): Scalping mode flag.
-            
-        Returns:
-            dict: New state dictionary or None on failure.
+        Opens a new position using provided ITM context.
         """
-        # 1. Resolve Instrument
-        itm = self._resolve_entry_instrument(underlying, side, leg_data)
+        # Distinguish side from leg_data injected context
+        itm = leg_data.get('itm_ce') if side == 'CALL' else leg_data.get('itm_pe')
         if not itm:
+            logger.error(f"Missing ITM context for {side} on {underlying}")
             return None
         
         symbol = itm['symbol']
         sec_id = itm['security_id']
-        params = self._get_params(underlying, is_scalping)
+        params = self._get_params(underlying)
         
-        # 2. Try Native Super Order First
+        # 1. Try Native Super Order First
         ltp = self._wait_for_ltp(symbol, sec_id)
         if ltp:
-            state = self._execute_native_super_order(symbol, sec_id, itm, ltp, params, leg_data, is_scalping)
+            state = self._execute_native_super_order(symbol, security_id, itm, ltp, params, leg_data)
             if state:
                 return state
 
-        # 3. Fallback: Simulated Bracket
-        return self._execute_simulated_bracket(underlying, symbol, sec_id, itm, params, leg_data, is_scalping, ltp)
-
-    def _resolve_entry_instrument(self, underlying, side, leg_data):
-        """Resolves the ITM contract for the given side."""
-        spot = leg_data.get('current_price', 0)
-        opt_type = 'CE' if side == 'CALL' else 'PE'
-        itm = self.broker.get_itm_contract(underlying, opt_type, spot)
-        if not itm:
-            logger.error(f"Failed to resolve ITM for {underlying} {side}")
-        return itm
+        # 2. Fallback: Simulated Bracket
+        return self._execute_simulated_bracket(underlying, symbol, security_id, itm, params, leg_data, ltp)
 
     def _wait_for_ltp(self, symbol, sec_id, max_retries=3):
         """Fetches LTP for a security with retries."""
@@ -594,7 +494,7 @@ class SuperOrderEngine:
             time.sleep(1)
         return None
 
-    def _execute_native_super_order(self, symbol, sec_id, itm_data, ltp, params, leg_data, is_scalping):
+    def _execute_native_super_order(self, symbol, security_id, itm_data, ltp, params, leg_data):
         """Calculates levels and places a Native Super Order."""
         sl_price = round(ltp * (1 - params['sl']/100), 1)
         tgt_price = round(ltp * (1 + params['target']/100), 1)
@@ -633,7 +533,6 @@ class SuperOrderEngine:
                 'tgt_price': tgt_price,
                 'sl_price': sl_price,
                 'is_super_order': True,
-                'is_scalping': is_scalping,
                 'quantity': so_leg['quantity']
             }
 
@@ -654,13 +553,12 @@ class SuperOrderEngine:
                 'tgt_price': tgt_price,
                 'sl_price': sl_price,
                 'is_super_order': True,
-                'is_scalping': is_scalping,
                 'quantity': so_leg['quantity']
             }
         logger.warning(f"Native Super Order Failed: {resp.get('error')}. Falling back to Simulation.")
         return None
 
-    def _execute_simulated_bracket(self, underlying, symbol, sec_id, itm_data, params, leg_data, is_scalping, ltp=None):
+    def _execute_simulated_bracket(self, underlying, symbol, security_id, itm_data, params, leg_data, ltp=None):
         """Places a protected entry and separate exit orders (Simulation mode)."""
         order_leg = itm_data.copy()
         order_leg['quantity'] = leg_data.get('quantity', 1)
@@ -712,7 +610,6 @@ class SuperOrderEngine:
             'tgt_id': tgt_id,
             'sl_price': sl_price,
             'tgt_price': tgt_price,
-            'is_scalping': is_scalping,
             'quantity': order_leg['quantity']
         }
 
@@ -819,7 +716,7 @@ class SuperOrderEngine:
                 self._cancel_entry_leg(oid, parent_id, is_super_order)
             elif txn == 'SELL':
                 if is_super_order and oid:
-                    self._modify_super_leg(oid, leg_name, ltp, order, state.get('is_scalping', False))
+                    self._modify_super_leg(oid, leg_name, ltp, order)
                 else:
                     self._modify_standard_leg(underlying, oid, otype, ltp, state)
 
@@ -895,7 +792,7 @@ class SuperOrderEngine:
         self._clear_state(underlying)
         return {"action": "EXIT_MARKET", "symbol": symbol, "quantity": qty}
 
-    def _modify_super_leg(self, oid, leg_name, ltp, order_data, is_scalping=False):
+    def _modify_super_leg(self, oid, leg_name, ltp, order_data):
         """Modifies a leg of a Native Super Order for Smart Exit (LTP +/- 5)."""
         offset = 5
         if leg_name == 'TARGET_LEG':
@@ -909,13 +806,11 @@ class SuperOrderEngine:
 
     def _modify_standard_leg(self, underlying, oid, otype, ltp, state):
         """Modifies a standard bracket leg."""
-        is_scalping = state.get('is_scalping', False)
-        if otype == 'LIMIT':
-            offset = 1 if is_scalping else 5
-            new_price = round(ltp + offset, 1)
-            self.broker.modify_order(oid, 'LIMIT', {'price': new_price})
-        elif otype in ['STOP_LOSS', 'STOP_LOSS_MARKET']:
-            params = self._get_params(underlying, state.get('is_scalping', False))
+        if is_super_order:
+            offset = 5
+            # Access underlying via state if not explicitly passed
+            underlying = state.get('underlying', 'NIFTY')
+            params = self._get_params(underlying)
             trail_offset = round(ltp * (params['trailing']/100), 1)
             barrier = round(ltp - trail_offset, 1)
             

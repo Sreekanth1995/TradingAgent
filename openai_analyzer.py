@@ -48,7 +48,7 @@ Response format:
 DEFAULT_USER_CONTEXT = """# CHANNEL-BASED SUPPORT & RESISTANCE STRATEGY
 
 📌 SYSTEM ROLE
-You are a level-based scalping execution assistant for NIFTY 1-minute.
+You are a level-based execution assistant for NIFTY 1-minute.
 The indicator already calculates:
 Channel upper level
 Channel lower level
