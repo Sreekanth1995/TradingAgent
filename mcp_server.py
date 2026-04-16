@@ -59,6 +59,32 @@ async def get_ltp(instrument: str = "NIFTY"):
     return await call_api("/get-ltp", {"instrument": instrument})
 
 @mcp.tool()
+async def get_itm_option(underlying: str = "NIFTY", side: str = "CE", spot_index: float = None):
+    """
+    Resolve the current ITM (In-The-Money) option contract for a given underlying and side.
+
+    Use this BEFORE placing any super order or margin query to get the exact
+    option symbol and security_id for the nearest ITM strike.
+
+    Lot sizes for reference:
+        NIFTY    = 75 units/lot   (step 50)
+        BANKNIFTY = 15 units/lot  (step 100)
+        FINNIFTY  = 40 units/lot  (step 50)
+
+    Args:
+        underlying:  Index symbol — NIFTY, BANKNIFTY, or FINNIFTY (default: NIFTY)
+        side:        Option type — CE (Call/bullish) or PE (Put/bearish) (default: CE)
+        spot_index:  Optional current spot price. If omitted the server fetches it live.
+
+    Returns:
+        security_id, symbol, strike, expiry, spot_index
+    """
+    payload = {"underlying": underlying, "side": side}
+    if spot_index is not None:
+        payload["spot_index"] = spot_index
+    return await call_api("/get-itm", payload)
+
+@mcp.tool()
 async def place_conditional_order(action: str, underlying: str = "NIFTY", quantity: int = 1, spot_index: float = None, sl_index: float = None, target_index: float = None):
     """
     Manually place a trade order (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL).

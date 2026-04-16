@@ -482,6 +482,47 @@ def get_ltp():
         logger.error(f"Get LTP Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
         
+@app.route('/get-itm', methods=['POST'])
+def get_itm():
+    """
+    Resolve the current ITM option contract for a given underlying and side.
+    Payload: { "secret": "...", "underlying": "NIFTY", "side": "CE" | "PE", "spot_index": <optional float> }
+    Returns: { security_id, symbol, strike, expiry, spot_index }
+    """
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY').upper()
+    side = data.get('side', 'CE').upper()
+
+    try:
+        spot_index = resolve_index_spot(broker, underlying, data)
+        if spot_index <= 0:
+            return jsonify({"status": "error", "message": f"Could not determine spot index for {underlying}"}), 400
+
+        if side == 'CE':
+            contract = resolve_call_itm(broker, underlying, spot_index)
+        else:
+            contract = resolve_put_itm(broker, underlying, spot_index)
+
+        if not contract:
+            return jsonify({"status": "error", "message": f"Failed to resolve {side} ITM contract for {underlying}"}), 400
+
+        return jsonify({
+            "status": "success",
+            "underlying": underlying,
+            "side": side,
+            "spot_index": spot_index,
+            **contract
+        }), 200
+    except Exception as e:
+        logger.error(f"Get ITM Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/fundlimit', methods=['POST', 'GET'])
 def fund_limit():
     """
