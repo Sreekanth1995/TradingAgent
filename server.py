@@ -314,7 +314,7 @@ def _get_active_positions():
     Aggregates active positions across NIFTY, BANKNIFTY, and FINNIFTY.
     Fetches live LTP for PnL calculation.
     """
-    if not super_order_engine or not broker:
+    if not broker or (not super_order_engine and not conditional_engine):
         return []
     
     indices = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
@@ -322,7 +322,7 @@ def _get_active_positions():
     
     for underlying in indices:
         try:
-            state = super_order_engine._get_state(underlying)
+            state = super_order_engine._get_state(underlying) if super_order_engine else {}
             cond_state = conditional_engine._get_state(underlying) if conditional_engine else {}
             
             # Merge state conditionally
@@ -634,16 +634,22 @@ def ui_signal():
         # Mandatory Validation for Manual Entries (AC 6)
         if signal_type == 'B':
             if not leg_data.get('sl_index') or not leg_data.get('target_index'):
-                return jsonify({"status": "error", "message": "Manual BUY requires Index Stop Loss and Target levels"}), 400
+                return jsonify({"status": "error", "message": "Manual CALL requires Index Stop Loss and Target levels"}), 400
                 
             if float(leg_data['sl_index']) >= spot_price:
                  return jsonify({"status": "error", "message": f"Stop Loss Index ({leg_data['sl_index']}) must be less than current Index price ({spot_price})"}), 400
+        elif signal_type == 'S':
+            if not leg_data.get('sl_index') or not leg_data.get('target_index'):
+                return jsonify({"status": "error", "message": "Manual PUT requires Index Stop Loss and Target levels"}), 400
+                
+            if float(leg_data['sl_index']) <= spot_price:
+                 return jsonify({"status": "error", "message": f"Stop Loss Index ({leg_data['sl_index']}) must be greater than current Index price ({spot_price})"}), 400
 
         # Execute Order via Conditional Engine
         res = conditional_engine.handle_signal(signal_type, leg_data)
         
         # Acceptance Criteria: Defer GTT placement until order is TRADED (Fill-Triggered)
-        if res.get('status') == 'success' and signal_type == 'B' and leg_data.get('sl_index') and leg_data.get('target_index'):
+        if res.get('status') == 'success' and signal_type in ['B', 'S'] and leg_data.get('sl_index') and leg_data.get('target_index'):
             order_id = res.get('order_id')
             if order_id:
                 logger.info(f"Deferring GTT placement for Order {order_id} until fill confirmation.")

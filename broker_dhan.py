@@ -608,15 +608,26 @@ class DhanClient:
                 if 'productType' not in order_data:
                     order_data['productType'] = 'INTRADAY'
                     
-                resp = self.dhan.margin_calculator(order_data)
+                # SDK expects individual arguments, not a dictionary
+                def _call_margin():
+                    return self.dhan.margin_calculator(
+                        security_id=order_data.get('security_id'),
+                        exchange_segment=order_data.get('exchange_segment'),
+                        transaction_type=order_data.get('transaction_type'),
+                        quantity=order_data.get('quantity'),
+                        product_type=order_data.get('product_type', 'INTRADAY'),
+                        price=order_data.get('price', 0)
+                    )
+
+                resp = _call_margin()
                 if resp.get('status') == 'success':
                     return resp
                 elif resp.get('errorCode') == 'DH-901' or 'Unauthorized' in str(resp):
                     logger.warning("Margin Calculator: 401 Unauthorized. Syncing token...")
                     if self._sync_token_from_redis():
-                        return self.dhan.margin_calculator(order_data)
-                else:
-                    return {"status": "error", "message": resp.get('remarks')}
+                        return _call_margin()
+                
+                return {"status": "error", "message": resp.get('remarks') or resp.get('errorMessage')}
             except Exception as e:
                 logger.error(f"Exception in margin calculator: {e}")
                 return {"status": "error", "message": str(e)}
