@@ -162,13 +162,25 @@ async def get_fund_limits():
 async def get_margin_requirement(security_id: str, exchange_segment: str, transaction_type: str, quantity: int, price: float = 0.0, product_type: str = "INTRADAY"):
     """
     Calculate the margin required for a specific order before placement.
+
+    ⚠️  IMPORTANT — Options Buying Capital Check:
+    For buying NIFTY/BANKNIFTY option contracts the required capital is simply:
+        premium_price × lot_size × quantity
+    Use `calculate_options_buy_cost` for that instead — it returns the correct
+    number without an API call.
+
+    This tool is for SELLING options or for equity/futures margin queries where
+    Dhan's margin API is meaningful.  Passing the INDEX security_id (e.g. '13'
+    for NIFTY or '25' for BANKNIFTY) will always return zeros because the index
+    itself is not a tradeable contract — you must pass the OPTION CONTRACT's
+    security_id (obtained from the scrip master or instrument resolver).
     
     Args:
-        security_id: Dhan Security ID (e.g., '13' for NIFTY)
+        security_id: Dhan Security ID of the OPTION CONTRACT (not the index).
         exchange_segment: NSE_FNO, NSE_EQ, etc.
         transaction_type: BUY or SELL
-        quantity: Order quantity
-        price: Limit price (0 or missing for MARKET)
+        quantity: Order quantity (number of lots × lot_size)
+        price: Limit price (0 for MARKET)
         product_type: INTRADAY, MARGIN, CNC, etc. (Default: INTRADAY)
     """
     payload = {
@@ -180,6 +192,37 @@ async def get_margin_requirement(security_id: str, exchange_segment: str, transa
         "product_type": product_type
     }
     return await call_api("/margincalculator", data=payload)
+
+@mcp.tool()
+async def calculate_options_buy_cost(premium: float, lot_size: int = 75, quantity: int = 1) -> dict:
+    """
+    Calculate the total capital required to BUY an options contract.
+
+    For options buying there is no complex margin — the cost is simply:
+        total_cost = premium × lot_size × quantity
+
+    Use this tool INSTEAD of get_margin_requirement when checking whether
+    you have enough funds to buy a NIFTY or BANKNIFTY option.
+
+    Args:
+        premium:   Current LTP / limit price of the option (e.g. 185.50)
+        lot_size:  Lot size for the underlying (NIFTY=75, BANKNIFTY=15). Default: 75
+        quantity:  Number of lots to buy (default: 1)
+
+    Returns:
+        A dict with `total_cost`, `per_lot_cost`, `lot_size`, and `quantity`.
+    """
+    per_lot = round(premium * lot_size, 2)
+    total = round(per_lot * quantity, 2)
+    return {
+        "status": "ok",
+        "premium": premium,
+        "lot_size": lot_size,
+        "quantity": quantity,
+        "per_lot_cost": per_lot,
+        "total_cost": total,
+        "note": "Options buying cost = premium × lot_size × quantity. No broker margin API needed."
+    }
 
 @mcp.tool()
 async def get_performance_history():
