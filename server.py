@@ -697,14 +697,14 @@ def conditional_order():
             if not leg_data.get('sl_index') or not leg_data.get('target_index'):
                 return jsonify({"status": "error", "message": "Manual CALL requires Index Stop Loss and Target levels"}), 400
                 
-            if float(leg_data['sl_index']) >= spot_price:
-                 return jsonify({"status": "error", "message": f"Stop Loss Index ({leg_data['sl_index']}) must be less than current Index price ({spot_price})"}), 400
+            if float(leg_data['sl_index']) >= spot_index:
+                 return jsonify({"status": "error", "message": f"Stop Loss Index ({leg_data['sl_index']}) must be less than current Index price ({spot_index})"}), 400
         elif signal_type == 'S':
             if not leg_data.get('sl_index') or not leg_data.get('target_index'):
                 return jsonify({"status": "error", "message": "Manual PUT requires Index Stop Loss and Target levels"}), 400
                 
-            if float(leg_data['sl_index']) <= spot_price:
-                 return jsonify({"status": "error", "message": f"Stop Loss Index ({leg_data['sl_index']}) must be greater than current Index price ({spot_price})"}), 400
+            if float(leg_data['sl_index']) <= spot_index:
+                 return jsonify({"status": "error", "message": f"Stop Loss Index ({leg_data['sl_index']}) must be greater than current Index price ({spot_index})"}), 400
 
         # Execute Order via Conditional Engine
         res = conditional_engine.handle_signal(signal_type, leg_data)

@@ -25,7 +25,13 @@ class MockDhanClient:
         self.active_exits = {}
         # Completed trades ready for persistence
         self.completed_trades = []
-        
+        # Mock GTT store: alert_id -> metadata
+        self.mock_gtts = {}
+
+        # lot_map: security_id -> lot_size (mirrors DhanClient interface)
+        # Mock contracts use string sec-ids; default 75 for NIFTY-style contracts
+        self.lot_map = {}
+
         self.scrip_loaded = True
         self.dry_run = False # Irrelevant in mock mode but kept for compatibility
 
@@ -197,7 +203,8 @@ class MockDhanClient:
             # Remove positions matching symbol
             self.mock_positions = [p for p in self.mock_positions if p['tradingSymbol'] != symbol]
             
-        return {"status": "success", "data": {"orderId": f"MOCK_{random.randint(100000, 999999)}"}}
+        mock_order_id = f"MOCK_{random.randint(100000, 999999)}"
+        return {"success": True, "order_id": mock_order_id, "error": None}
 
     def place_buy_order(self, symbol, leg_data):
         leg_data['transaction_type'] = 'BUY'
@@ -220,10 +227,21 @@ class MockDhanClient:
             "symbol": f"{underlying}_MOCK_{int(strike)}_{side}"
         }
 
+    def get_nearest_expiry(self, underlying):
+        """Returns a mock expiry date (today) for any underlying."""
+        from datetime import datetime
+        return datetime.now().strftime('%Y-%m-%d')
+
+    def get_index_spot_fallback(self, symbol):
+        """Returns a mock spot price for the index."""
+        defaults = {"NIFTY": 24500.0, "BANKNIFTY": 52300.0, "FINNIFTY": 22400.0}
+        return defaults.get(symbol.upper(), 24500.0)
+
     def cancel_order(self, order_id):
         return {"success": True}
 
     def get_order_status(self, order_id):
+        """Always reports TRADED so engines proceed past fill-wait."""
         return {"orderStatus": "TRADED", "averagePrice": 100.0}
 
     def get_pending_orders(self, security_id=None):
@@ -233,8 +251,25 @@ class MockDhanClient:
         return []
 
     def place_conditional_order(self, sec_id, exchange_seg, quantity, operator, comparing_value, **kwargs):
-        logger.info(f"[MOCK BROKER] GTT Created: {operator} @ {comparing_value}")
-        return {"success": True, "alert_id": f"GTT_{random.randint(1000, 9999)}", "error": None}
+        alert_id = f"GTT_{random.randint(1000, 9999)}"
+        self.mock_gtts[alert_id] = {
+            "sec_id": sec_id, "operator": operator,
+            "comparing_value": comparing_value, "quantity": quantity
+        }
+        logger.info(f"[MOCK BROKER] GTT Created: alertId={alert_id} | {operator} @ {comparing_value}")
+        return {"success": True, "alert_id": alert_id, "error": None}
+
+    def cancel_conditional_order(self, alert_id):
+        self.mock_gtts.pop(str(alert_id), None)
+        logger.info(f"[MOCK BROKER] GTT Cancelled: alertId={alert_id}")
+        return {"success": True}
+
+    def modify_conditional_order(self, alert_id, quantity, comparing_value):
+        if str(alert_id) in self.mock_gtts:
+            self.mock_gtts[str(alert_id)]['comparing_value'] = comparing_value
+            self.mock_gtts[str(alert_id)]['quantity'] = quantity
+        logger.info(f"[MOCK BROKER] GTT Modified: alertId={alert_id} | newVal={comparing_value}")
+        return {"success": True, "alert_id": alert_id, "error": None}
 
     def kill_all_gtt(self, sec_id):
         return {"success": True}
