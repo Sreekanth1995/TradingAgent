@@ -10,3 +10,4 @@ server.pid
 check_import.py
 test_token_refresh.py
 *.log
+deploy_automated.exp
