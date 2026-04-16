@@ -220,34 +220,106 @@ async def get_margin_requirement(security_id: str, exchange_segment: str, transa
     return await call_api("/margincalculator", data=payload)
 
 @mcp.tool()
-async def calculate_options_buy_cost(premium: float, lot_size: int = 75, quantity: int = 1) -> dict:
+async def get_option_margin_requirement(
+    underlying: str = "NIFTY",
+    side: str = "CE",
+    quantity: int = 1,
+    transaction_type: str = "BUY",
+    product_type: str = "INTRADAY",
+    spot_index: float = None,
+    security_id: str = None,
+):
     """
-    Calculate the total capital required to BUY an options contract.
+    All-in-one margin check for an option contract.
 
-    For options buying there is no complex margin — the cost is simply:
-        total_cost = premium × lot_size × quantity
-
-    Use this tool INSTEAD of get_margin_requirement when checking whether
-    you have enough funds to buy a NIFTY or BANKNIFTY option.
+    Resolves the nearest ITM option for the given underlying + side, then
+    queries Dhan's margin calculator — all in a single tool call.
 
     Args:
-        premium:   Current LTP / limit price of the option (e.g. 185.50)
-        lot_size:  Lot size for the underlying (NIFTY=75, BANKNIFTY=15). Default: 75
-        quantity:  Number of lots to buy (default: 1)
+        underlying:       Index symbol — NIFTY, BANKNIFTY, or FINNIFTY (default: NIFTY)
+        side:             CE (Call) or PE (Put) (default: CE)
+        quantity:         Number of lots (default: 1)
+        transaction_type: BUY or SELL (default: BUY)
+        product_type:     INTRADAY, MARGIN, or CNC (default: INTRADAY)
+        spot_index:       Optional current spot price. Omit to let the server
+                          fetch it live.
+        security_id:      Optional — if you already know the contract's
+                          security_id (from get_itm_option) pass it here to
+                          skip the resolution step.
 
     Returns:
-        A dict with `total_cost`, `per_lot_cost`, `lot_size`, and `quantity`.
+        Resolved contract details (symbol, strike, expiry, security_id) plus
+        margin fields from Dhan: totalMarginRequired, spanMargin,
+        exposureMargin, and available_balance for a go/no-go decision.
     """
-    per_lot = round(premium * lot_size, 2)
-    total = round(per_lot * quantity, 2)
+    # ── Step 1: resolve security_id if not supplied ──────────────────────────
+    if not security_id:
+        itm_payload = {"underlying": underlying, "side": side}
+        if spot_index is not None:
+            itm_payload["spot_index"] = spot_index
+
+        itm = await call_api("/get-itm", itm_payload)
+        if itm.get("status") != "success":
+            return {
+                "status": "error",
+                "step": "itm_resolution",
+                "message": itm.get("message", "Failed to resolve ITM contract"),
+            }
+
+        security_id = itm.get("security_id")
+        resolved = {
+            "underlying": underlying,
+            "side": side,
+            "strike": itm.get("strike"),
+            "expiry": itm.get("expiry"),
+            "symbol": itm.get("symbol"),
+            "security_id": security_id,
+            "spot_index": itm.get("spot_index"),
+        }
+    else:
+        resolved = {
+            "underlying": underlying,
+            "side": side,
+            "security_id": security_id,
+        }
+
+    # ── Step 2: fetch LTP for the option ────────────────────────────────────
+    ltp_resp = await call_api("/get-ltp", {"instrument": security_id})
+    if ltp_resp.get("status") != "success":
+        return {"status": "error", "step": "ltp_fetch", "message": ltp_resp.get("message", "Failed to fetch LTP")}
+    premium = ltp_resp.get("ltp", 0)
+
+    # ── Step 3: calculate cost ───────────────────────────────────────────────
+    lot_map = {"NIFTY": 65, "BANKNIFTY": 15, "FINNIFTY": 40}
+    lot_size = lot_map.get(underlying.upper(), 65)
+    total_units = quantity * lot_size
+    per_lot_cost = round(premium * lot_size, 2)
+    total_required = round(per_lot_cost * quantity, 2)
+
+    # ── Step 4: fetch available balance for a go/no-go decision ─────────────
+    funds_resp = await call_api("/fundlimit", method="POST")
+    available_balance = None
+    if funds_resp.get("status") == "success":
+        funds_data = funds_resp.get("data", {})
+        available_balance = funds_data.get("availabelBalance") or funds_data.get("availableBalance")
+
+    can_trade = (available_balance is not None) and (available_balance >= total_required)
+
     return {
-        "status": "ok",
-        "premium": premium,
+        "status": "success",
+        "contract": resolved,
+        "quantity_lots": quantity,
         "lot_size": lot_size,
-        "quantity": quantity,
-        "per_lot_cost": per_lot,
-        "total_cost": total,
-        "note": "Options buying cost = premium × lot_size × quantity. No broker margin API needed."
+        "total_units": total_units,
+        "premium": premium,
+        "per_lot_cost": per_lot_cost,
+        "total_required": total_required,
+        "transaction_type": transaction_type,
+        "product_type": product_type,
+        "funds": {
+            "availableBalance": available_balance,
+            "can_trade": can_trade,
+        },
     }
 
 @mcp.tool()
