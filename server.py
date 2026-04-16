@@ -324,12 +324,20 @@ def _get_active_positions():
         try:
             state = super_order_engine._get_state(underlying)
             cond_state = conditional_engine._get_state(underlying) if conditional_engine else {}
-            if state and state.get('side') != 'NONE':
+            
+            # Merge state conditionally
+            active_state = {}
+            if state and state.get('side', 'NONE') != 'NONE':
+                active_state = state.copy()
+            if cond_state and cond_state.get('side', 'NONE') != 'NONE':
+                active_state.update(cond_state)
+
+            if active_state and active_state.get('side', 'NONE') != 'NONE':
                 # Fetch LTP for the specific contract if symbol is present
-                symbol = state.get('symbol')
-                security_id = state.get('security_id')
-                entry_price = float(state.get('entry_price', 0))
-                qty = int(state.get('quantity', 0))
+                symbol = active_state.get('symbol')
+                security_id = active_state.get('security_id')
+                entry_price = float(active_state.get('entry_price', 0))
+                qty = int(active_state.get('quantity', 0))
                 
                 # Fetch Live LTP
                 ltp = broker.get_ltp(security_id) if security_id else None
@@ -343,19 +351,19 @@ def _get_active_positions():
                     active_positions.append({
                         "underlying": underlying,
                         "symbol": symbol,
-                        "side": state.get('side'),
+                        "side": active_state.get('side'),
                         "quantity": qty,
                         "entry_price": entry_price,
                         "ltp": ltp,
                         "pnl_abs": round(pnl_abs, 2),
                         "pnl_pct": round(pnl_pct, 2),
-                        "strike": state.get('strike'),
-                        "option_type": state.get('option_type'),
-                        "range_position": state.get('range_position', 'INSIDE'),
+                        "strike": active_state.get('strike'),
+                        "option_type": active_state.get('option_type'),
+                        "range_position": active_state.get('range_position', 'INSIDE'),
                         "idx_target_level": cond_state.get('idx_target_level') or state.get('idx_target_level'),
                         "idx_sl_level": cond_state.get('idx_sl_level') or state.get('idx_sl_level'),
-                        "tgt_price": state.get('tgt_price') or state.get('conditional_target_price'),
-                        "sl_price": state.get('sl_price') or state.get('conditional_sl_price')
+                        "tgt_price": state.get('tgt_price') or state.get('conditional_target_price') or cond_state.get('tgt_price'),
+                        "sl_price": state.get('sl_price') or state.get('conditional_sl_price') or cond_state.get('sl_price')
                     })
                 else:
                     # Fallback if LTP is missing: use last cached state if available 
@@ -364,19 +372,19 @@ def _get_active_positions():
                     active_positions.append({
                         "underlying": underlying,
                         "symbol": symbol,
-                        "side": state.get('side'),
+                        "side": active_state.get('side'),
                         "quantity": qty,
                         "entry_price": entry_price,
                         "ltp": "---", # Visual indicator of stale price
                         "pnl_abs": "---",
                         "pnl_pct": "---",
-                        "strike": state.get('strike'),
-                        "option_type": state.get('option_type'),
-                        "range_position": state.get('range_position', 'INSIDE'),
+                        "strike": active_state.get('strike'),
+                        "option_type": active_state.get('option_type'),
+                        "range_position": active_state.get('range_position', 'INSIDE'),
                         "idx_target_level": cond_state.get('idx_target_level') or state.get('idx_target_level'),
                         "idx_sl_level": cond_state.get('idx_sl_level') or state.get('idx_sl_level'),
-                        "tgt_price": state.get('tgt_price') or state.get('conditional_target_price'),
-                        "sl_price": state.get('sl_price') or state.get('conditional_sl_price')
+                        "tgt_price": state.get('tgt_price') or state.get('conditional_target_price') or cond_state.get('tgt_price'),
+                        "sl_price": state.get('sl_price') or state.get('conditional_sl_price') or cond_state.get('sl_price')
                     })
         except Exception as e:
             logger.error(f"Error fetching position for {underlying}: {e}")

@@ -279,6 +279,13 @@ class ConditionalOrderEngine:
                 logger.info(f"Order {order_id} TRADED. Checking for pending conditional triggers.")
                 pending = self.get_pending_protection(order_id)
                 if pending:
+                    # Update entry price into cond_state
+                    traded_price = data.get('tradedPrice') or (data.get('data') or {}).get('tradedPrice')
+                    if traded_price:
+                        state = self._get_state(pending['underlying'])
+                        state['entry_price'] = float(traded_price)
+                        self._set_state(pending['underlying'], state)
+
                     logger.info(f"Triggering GTT placement for filled order {order_id} ({pending['underlying']})")
                     gtt_res = self.set_index_boundaries(
                         underlying=pending['underlying'],
