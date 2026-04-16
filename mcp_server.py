@@ -38,6 +38,9 @@ async def get_trading_status(underlying: str = "NIFTY"):
     """
     Get the current trading status, including active positions, current trend, 
     and NIFTY/BANKNIFTY range positions.
+    Active positions include boundary fields if set: `tgt_price`, `sl_price` 
+    for premium protective orders, or `idx_target_level`, `idx_sl_level` for 
+    Index-based Conditional GTT orders.
     
     IMPORTANT: The state object contains a `range_timestamp`. This timestamp points
     to the exact time the price changed direction. You must compare this timestamp with
@@ -84,21 +87,21 @@ async def place_conditional_order(action: str, underlying: str = "NIFTY", quanti
     })
 
 @mcp.tool()
-async def modify_index_gtt_levels(underlying: str, target_level: float, sl_level: float, quantity: int = None):
+async def modify_index_gtt_levels(underlying: str, idx_target_level: float, idx_sl_level: float, quantity: int = None):
     """
     Set or update GTT triggers for an active NIFTY/BANKNIFTY position.
     Triggers SELL on Option when Price crosses index level.
-    
+
     Args:
         underlying: Symbol (NIFTY, BANKNIFTY)
-        target_level: [REQUIRED] Index level for target exit (e.g., 23550)
-        sl_level: [REQUIRED] Index level for stop loss exit (e.g., 23430)
+        idx_target_level: [REQUIRED] Index level for target exit (e.g., 23550.50)
+        idx_sl_level: [REQUIRED] Index level for stop loss exit (e.g., 23400.00)
         quantity: Optional lot quantity (defaults to active position size)
     """
     return await call_api("/conditional-index-order", {
         "underlying": underlying,
-        "target_level": target_level,
-        "sl_level": sl_level,
+        "idx_target_level": idx_target_level,
+        "idx_sl_level": idx_sl_level,
         "quantity": quantity
     })
 
@@ -124,18 +127,18 @@ async def place_super_order(underlying: str, option: str, target_price: float, s
     })
 
 @mcp.tool()
-async def modify_super_order(underlying: str, target_price: float, sl_price: float):
+async def modify_super_order(underlying: str, tgt_price: float, sl_price: float):
     """
     Updates the target and sl legs of an active Premium-based Super Order natively.
-    
+
     Args:
         underlying: Symbol (NIFTY, BANKNIFTY)
-        target_price: [REQUIRED] The new premium price level for target exit
-        sl_price: [REQUIRED] The new premium price level for stop loss exit
+        tgt_price: [REQUIRED] The new premium price level for target exit (e.g., 240.25)
+        sl_price: [REQUIRED] The new premium price level for stop loss exit (e.g., 150.00)
     """
     return await call_api("/update-super-order", {
         "underlying": underlying,
-        "target_price": target_price,
+        "tgt_price": tgt_price,
         "sl_price": sl_price
     })
 

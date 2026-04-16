@@ -250,6 +250,8 @@ class ConditionalOrderEngine:
 
             state['idx_target_alert_id'] = tgt_res.get('alert_id')
             state['idx_sl_alert_id'] = sl_alert_id
+            state['idx_target_level'] = float(target_level)
+            state['idx_sl_level'] = float(sl_level)
             self._set_state(underlying, state)
 
             return {

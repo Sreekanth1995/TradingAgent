@@ -630,6 +630,8 @@ class SuperOrderEngine:
                 'security_id': sec_id,
                 'sl_id': "NATIVE_BO", 
                 'tgt_id': "NATIVE_BO",
+                'tgt_price': tgt_price,
+                'sl_price': sl_price,
                 'is_super_order': True,
                 'is_scalping': is_scalping,
                 'quantity': so_leg['quantity']
@@ -649,6 +651,8 @@ class SuperOrderEngine:
                 'security_id': sec_id,
                 'sl_id': "NATIVE_BO", 
                 'tgt_id': "NATIVE_BO",
+                'tgt_price': tgt_price,
+                'sl_price': sl_price,
                 'is_super_order': True,
                 'is_scalping': is_scalping,
                 'quantity': so_leg['quantity']

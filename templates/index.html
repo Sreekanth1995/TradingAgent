@@ -1358,32 +1358,61 @@
 
             // 5. Sync GTT inputs with current state if they match or are active
             const activePrefix = activeSide === 'PUT' ? 'put' : 'call';
-            if (state.idx_target_level) {
+            if (activeSide !== 'NONE' && sector) {
                 const tInp = document.getElementById(`${activePrefix}-target`);
                 const sInp = document.getElementById(`${activePrefix}-sl`);
                 const stEl = document.getElementById(`cond-status-${activePrefix}`);
                 const modBtn = document.getElementById(`btn-modify-${activePrefix}`);
+                const setBtn = document.getElementById(`btn-set-${activePrefix}`);
+                
+                const tLbl = document.querySelector(`#sector-${activePrefix} .cond-label.target`);
+                const sLbl = document.querySelector(`#sector-${activePrefix} .cond-label.sl`);
+                const pnlTitle = document.querySelector(`#sector-${activePrefix} .cond-panel-title`);
 
-                if (tInp && !tInp.getAttribute('data-active')) {
-                    tInp.value = state.idx_target_level;
-                    tInp.setAttribute('data-active', state.idx_target_level);
-                }
-                if (sInp && !sInp.getAttribute('data-active')) {
-                    sInp.value = state.idx_sl_level;
-                    sInp.setAttribute('data-active', state.idx_sl_level);
-                }
-                stEl.textContent = `✅ Index GTT — T:${state.idx_target_level} SL:${state.idx_sl_level}`;
-                
-                // Hide Apply, check for Modify
-                document.getElementById(`btn-set-${activePrefix}`).style.display = 'none';
-                
-                // Detection: Show Modify button if inputs changed
-                const currentT = parseFloat(tInp.value);
-                const currentS = parseFloat(sInp.value);
-                if (currentT !== state.idx_target_level || currentS !== state.idx_sl_level) {
-                    modBtn.style.display = 'block';
-                    modBtn.disabled = false;
+                // Ensure labels stay clean since title indicates type
+                if (tLbl) tLbl.textContent = 'Target';
+                if (sLbl) sLbl.textContent = 'SL';
+
+                if (sector.idx_target_level) {
+                    if (pnlTitle) pnlTitle.innerHTML = 'Index Conditional GTT <span style="color:var(--success); font-size:9px">(ACTIVE)</span>';
+                    
+                    if (tInp && !tInp.getAttribute('data-active')) {
+                        tInp.value = sector.idx_target_level;
+                        tInp.setAttribute('data-active', sector.idx_target_level);
+                    }
+                    if (sInp && !sInp.getAttribute('data-active')) {
+                        sInp.value = sector.idx_sl_level;
+                        sInp.setAttribute('data-active', sector.idx_sl_level);
+                    }
+                    stEl.textContent = `✅ Index GTT — T:${sector.idx_target_level} SL:${sector.idx_sl_level}`;
+                    
+                    setBtn.style.display = 'none';
+                    const currentT = parseFloat(tInp.value);
+                    const currentS = parseFloat(sInp.value);
+                    if (currentT !== sector.idx_target_level || currentS !== sector.idx_sl_level) {
+                        modBtn.style.display = 'block';
+                        modBtn.disabled = false;
+                    } else {
+                        modBtn.style.display = 'none';
+                    }
+                } else if (sector.tgt_price) {
+                    if (pnlTitle) pnlTitle.innerHTML = 'Super Order Bracket <span style="color:var(--success); font-size:9px">(ACTIVE)</span>';
+                    
+                    tInp.value = sector.tgt_price;
+                    sInp.value = sector.sl_price;
+                    stEl.textContent = `✅ Premium Bracket — T:₹${sector.tgt_price} SL:₹${sector.sl_price}`;
+                    
+                    setBtn.style.display = 'none';
+                    modBtn.style.display = 'none'; // Editing simulated super order natively via UI can be disabled here
                 } else {
+                    if (pnlTitle) pnlTitle.innerHTML = 'Order Protections <span style="color:var(--danger); font-size:9px">(PENDING)</span>';
+                    
+                    tInp.value = '';
+                    sInp.value = '';
+                    tInp.placeholder = 'Pending';
+                    sInp.placeholder = 'Pending';
+                    stEl.textContent = `⏳ Bounds Pending...`;
+                    setBtn.style.display = 'none';
                     modBtn.style.display = 'none';
                 }
             } else {
@@ -1395,6 +1424,14 @@
                     if (setBtn) setBtn.style.display = 'block';
                     const modBtn = document.getElementById(`btn-modify-${p}`);
                     if (modBtn) modBtn.style.display = 'none';
+                    
+                    const tLbl = document.querySelector(`#sector-${p} .cond-label.target`);
+                    const sLbl = document.querySelector(`#sector-${p} .cond-label.sl`);
+                    if (tLbl) tLbl.textContent = 'Target';
+                    if (sLbl) sLbl.textContent = 'SL';
+                    
+                    const pnlTitle = document.querySelector(`#sector-${p} .cond-panel-title`);
+                    if (pnlTitle) pnlTitle.textContent = 'Index Conditional GTT';
                 });
             }
         }
