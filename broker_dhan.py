@@ -947,15 +947,12 @@ class DhanClient:
 
         payload = {
             "dhanClientId": self.client_id,
-            "userNote": user_note if user_note else "",
             "condition": {
                 "comparisonType": "LTP_WITH_VALUE",
                 "exchangeSegment": condition_exchange_seg,
                 "securityId": str(actual_trigger_id),
                 "operator": operator,
-                "comparingValue": float(comparing_value),
-                "expDate": exp_date,
-                "frequency": "ONCE"
+                "comparingValue": float(comparing_value)
             },
             "orders": [{
                 "transactionType": transaction_type,
@@ -963,20 +960,14 @@ class DhanClient:
                 "productType": product_type,
                 "orderType": "MARKET",
                 "securityId": str(sec_id),
-                "quantity": int(quantity),
-                "validity": "DAY",
-                "price": 0.0,
-                "disclosedQuantity": 0,
-                "triggerPrice": 0.0,
-                "afterMarketOrder": False,
-                "amo": False
+                "quantity": int(quantity)
             }]
         }
         
-        # Log the payload for troubleshooting DH-905 in production
+        # High visibility payload logging for production debugging
         import json
-        logger.info(f"Dhan GTT Place Trigger: {operator} @ {comparing_value} (TriggerID: {actual_trigger_id}) for {sec_id}")
-        logger.debug(f"FULL GTT PAYLOAD: {json.dumps(payload)}")
+        payload_json = json.dumps(payload)
+        logger.info(f"$$$ SENDING GTT ALERT PAYLOAD: {payload_json}")
         try:
             resp = requests.post(url, headers=headers, json=payload)
             if resp.status_code in [200, 201]:

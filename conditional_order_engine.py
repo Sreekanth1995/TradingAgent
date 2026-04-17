@@ -202,9 +202,9 @@ class ConditionalOrderEngine:
             side = state.get('side') # CALL or PUT
             
             if side == 'CALL':
-                tgt_op, sl_op = "ABOVE", "BELOW"
+                tgt_op, sl_op = "GREATER_THAN", "LESS_THAN"
             else:
-                tgt_op, sl_op = "BELOW", "ABOVE"
+                tgt_op, sl_op = "LESS_THAN", "GREATER_THAN"
 
             # Cleanup existing GTTs
             self.cancel_active_conditional_orders(underlying, state)
