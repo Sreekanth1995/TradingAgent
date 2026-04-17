@@ -953,7 +953,7 @@ class DhanClient:
                 "exchangeSegment": condition_exchange_seg,
                 "securityId": str(actual_trigger_id),
                 "operator": operator,
-                "comparingValue": float(comparing_value),
+                "comparingValue": str(comparing_value),
                 "frequency": "ONCE"
             },
             "orders": [{
@@ -962,11 +962,11 @@ class DhanClient:
                 "productType": product_type,
                 "orderType": "MARKET",
                 "securityId": str(sec_id),
-                "quantity": int(quantity),
+                "quantity": str(quantity),
                 "validity": "DAY",
-                "price": 0,
-                "disclosedQuantity": 0,
-                "triggerPrice": 0,
+                "price": "0",
+                "disclosedQuantity": "0",
+                "triggerPrice": "0",
                 "afterMarketOrder": False,
                 "amo": False
             }]
