@@ -222,11 +222,12 @@ class ConditionalOrderEngine:
             )
             
             if not sl_res.get('success'):
-                return {"status": "error", "message": f"SL GTT failed: {sl_res.get('error')}"}
+                logger.warning(f"GTT SL placement failed ({sl_res.get('error')}). Using Polling Protection Fallback.")
+            else:
+                sl_alert_id = sl_res.get('alert_id')
+                state['idx_sl_alert_id'] = sl_alert_id
             
-            sl_alert_id = sl_res.get('alert_id')
-            
-            # Place Target Dummy GTT with SL ID in userNote
+            # Place Target Dummy GTT if possible
             tgt_res = self.broker.place_conditional_order(
                 sec_id="11006", # LiquidBees
                 exchange_seg="NSE_EQ",
@@ -235,30 +236,87 @@ class ConditionalOrderEngine:
                 comparing_value=float(target_level),
                 transaction_type="BUY",
                 product_type="CNC",
-                trigger_sec_id=idx_sec_id,
-                user_note=sl_alert_id # Stateless mapping
+                trigger_sec_id=idx_sec_id
             )
             
             if not tgt_res.get('success'):
-                # Rollback SL if target fails
-                self.broker.cancel_conditional_order(sl_alert_id)
-                return {"status": "error", "message": f"Target GTT failed: {tgt_res.get('error')}. SL leg cancelled."}
+                logger.warning(f"GTT Target placement failed ({tgt_res.get('error')}). Using Polling Protection Fallback.")
+            else:
+                state['idx_target_alert_id'] = tgt_res.get('alert_id')
 
-            state['idx_target_alert_id'] = tgt_res.get('alert_id')
-            state['idx_sl_alert_id'] = sl_alert_id
+            # MANDATORY: Save levels to state regardless of broker error for polling monitor
             state['idx_target_level'] = float(target_level)
             state['idx_sl_level'] = float(sl_level)
             self._set_state(underlying, state)
 
             return {
                 "status": "success", 
-                "message": "Index GTTs placed successfully",
-                "sl_id": sl_alert_id,
-                "target_id": tgt_res.get('alert_id')
+                "message": "Boundaries saved. Polling Protection Active.",
+                "gtt_error": sl_res.get('error') if not sl_res.get('success') else None
             }
         except Exception as e:
-            logger.error(f"Internal GTT Placement Error: {e}")
+            logger.error(f"Internal Boundary Setting Error: {e}")
             return {"status": "error", "message": str(e)}
+
+    def monitor_positions(self):
+        """
+        Background monitor: Fetches LTP for active indices and exits trades if SL/Target hit.
+        This bypasses the need for broker-side GTT Alerts.
+        """
+        try:
+            active_keys = []
+            if self.use_redis:
+                active_keys = self.r.keys("cond_state:*")
+            else:
+                active_keys = list(self.memory_store.keys())
+
+            for key in active_keys:
+                underlying = key.split(':')[-1] if ':' in key else key
+                state = self._get_state(underlying)
+                
+                if state.get('side', 'NONE') == 'NONE': continue
+                
+                idx_id = state.get('idx_sec_id')
+                sl_level = state.get('idx_sl_level')
+                target_level = state.get('idx_target_level')
+                side = state.get('side')
+                
+                if not idx_id or sl_level is None or target_level is None:
+                    continue
+                
+                # Fetch Index LTP
+                try:
+                    current_ltp = self.broker.get_ltp(idx_id, exchange_segment="IDX_I")
+                    if not current_ltp: continue
+                    
+                    hit = False
+                    reason = ""
+                    
+                    if side == 'CALL':
+                        if current_ltp >= target_level:
+                            hit, reason = True, "TARGET_HIT"
+                        elif current_ltp <= sl_level:
+                            hit, reason = True, "SL_HIT"
+                    else: # PUT
+                        if current_ltp <= target_level:
+                            hit, reason = True, "TARGET_HIT"
+                        elif current_ltp >= sl_level:
+                            hit, reason = True, "SL_HIT"
+                            
+                    if hit:
+                        msg = f"🛡️ [POLLING MONITOR] {underlying} Index {reason} at {current_ltp}! (Tgt={target_level}, SL={sl_level})"
+                        logger.info(msg)
+                        from server import _add_activity_log
+                        _add_activity_log(msg, "🚨 ")
+                        
+                        # Trigger exit signal
+                        exit_signal = "LONG_EXIT" if side == 'CALL' else "SHORT_EXIT"
+                        self.handle_signal(exit_signal, {'underlying': underlying})
+                except Exception as monitor_err:
+                    logger.error(f"Error monitoring {underlying}: {monitor_err}")
+                    
+        except Exception as e:
+            logger.error(f"Monitor Loop Error: {e}")
 
     def handle_postback(self, data):
         """

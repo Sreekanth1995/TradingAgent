@@ -1,7 +1,8 @@
-import os
 import re
 import json
 import logging
+import threading
+import time
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from super_order_engine import SuperOrderEngine
@@ -73,6 +74,22 @@ try:
         
     super_order_engine = SuperOrderEngine(broker)
     conditional_engine = ConditionalOrderEngine(broker)
+    
+    # --- Start Background Protection Monitor ---
+    def _protection_monitor_loop():
+        """Background thread to monitor conditional index levels."""
+        logger.info("🛡️  Starting Background Protection Monitor...")
+        while True:
+            try:
+                if conditional_engine:
+                    conditional_engine.monitor_positions()
+            except Exception as e:
+                logger.error(f"Monitor Loop Error: {e}")
+            time.sleep(2) # Frequency of index level polling
+
+    monitor_thread = threading.Thread(target=_protection_monitor_loop, daemon=True)
+    monitor_thread.start()
+    
     logger.info("✅ System Initialized Successfully")
 except Exception as e:
     init_error = str(e)
