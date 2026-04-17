@@ -405,18 +405,27 @@ def get_state():
         underlying = data.get('underlying', 'NIFTY')
         state = super_order_engine._get_state(underlying)
         
-        # New: Aggregate active positions for dashboard
-        active_positions = _get_active_positions()
-        
         # Sector Mapping: Pair positions with UI cards
-        # We check if active_side matches a position's side
+        # We check if either engine state matches the position's side
         current_pnl = 0
         active_pos_details = None
+        
+        # Merge engine sides to find what the system THINKS is active
+        cond_state = conditional_engine._get_state(underlying) if conditional_engine else {}
+        system_active_side = state.get('side', 'NONE')
+        if system_active_side == 'NONE' and cond_state.get('side', 'NONE') != 'NONE':
+            system_active_side = cond_state.get('side')
+
         for pos in active_positions:
-            if pos.get('underlying') == underlying and pos.get('side') == state.get('side'):
-                active_pos_details = pos
-                current_pnl = pos.get('pnl_abs', 0)
-                break
+            if pos.get('underlying') == underlying:
+                # If it matches our active side, it's the primary sector detail
+                if pos.get('side') == system_active_side:
+                    active_pos_details = pos
+                    current_pnl = pos.get('pnl_abs', 0)
+                    break
+                # Fallback: if we only have one position for this index, show it even if side mismatch
+                elif not active_pos_details:
+                    active_pos_details = pos
 
         # NEW: Background Interlock Reconciliation
         # If state claims a position is active, but it vanished from active_positions (meaning Broker executed a Native exiting leg like SL/Target),

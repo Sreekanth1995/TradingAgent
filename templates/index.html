@@ -1089,6 +1089,13 @@
                         </div>
                     </div>
                 </section>
+                
+                <!-- ACTIVE POSITIONS SUMMARY -->
+                <div id="active-positions-container" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--glass-border); display: none;">
+                    <div class="sector-title">Active Multi-Index Positions</div>
+                    <div id="active-positions-list"></div>
+                </div>
+
 
                 <button id="btn-exit-all" class="emergency-btn" onclick="agentAPI.emergencyExit()"
                     data-action="exit-all" aria-label="Emergency exit all positions and reset">
@@ -1347,7 +1354,18 @@
                 }
             });
 
-            // 4. Update Range Tracker Summary (Header)
+            // 4. Update Global Active Positions List
+            const positionsListEl = document.getElementById('active-positions-list');
+            const positionsContainer = document.getElementById('active-positions-container');
+            
+            if (data.active_positions && data.active_positions.length > 0) {
+                positionsContainer.style.display = 'block';
+                positionsListEl.innerHTML = data.active_positions.map(p => renderPositionCard(p)).join('');
+            } else {
+                positionsContainer.style.display = 'none';
+            }
+
+            // 5. Update Range Tracker Summary (Header)
             for (const [symbol, pos] of Object.entries(rangeTracker)) {
                 const el = document.getElementById(`range-${symbol}`);
                 if (el) {
