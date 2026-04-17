@@ -38,6 +38,7 @@ class SuperOrderEngine:
         self.broker = broker
         self.is_dry_run = is_dry_run
         self.redis = redis_client
+        self.r = redis_client
         self.activity_logs = activity_logs
         self.use_redis = False
         self.memory_store = {}
@@ -47,25 +48,17 @@ class SuperOrderEngine:
             "DEFAULT": {"target": 55, "sl": 20, "trailing": 20, "slippage_buffer": 1.0}
         }
         
-        self.processing_locks = set()
+        # self.processing_locks = set() # MOVED TO REDIS
 
-        if REDIS_AVAILABLE:
-            redis_url = os.getenv("REDIS_URL")
+        if self.r:
             try:
-                if redis_url:
-                    self.r = redis.from_url(redis_url, decode_responses=True)
-                else:
-                    redis_host = os.getenv("REDIS_HOST", "localhost")
-                    redis_port = int(os.getenv("REDIS_PORT", 6379))
-                    self.r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
-                
                 self.r.ping()
-                logger.info("✅ SuperOrderEngine: Connected to Redis successfully")
+                logger.info("✅ SuperOrderEngine: Using shared Redis connection")
                 self.use_redis = True
             except Exception as e:
-                logger.warning(f"SuperOrderEngine: Redis connection failed ({e}). Using in-memory storage.")
+                logger.warning(f"SuperOrderEngine: Injected Redis client failed ping ({e}). Using in-memory storage.")
         else:
-            logger.warning("SuperOrderEngine: Redis library not installed. Using in-memory storage.")
+            logger.warning("SuperOrderEngine: No Redis client provided. Using in-memory storage.")
 
     # --- State Management ---
     def _get_state(self, underlying):
@@ -229,11 +222,13 @@ class SuperOrderEngine:
             return err_vol
 
         # 4. Locking & Execution
-        if underlying in self.processing_locks:
-            logger.warning(f"Execution Lock: Signal for {underlying} is already being processed. Skipping.")
-            return {"underlying": underlying, "action": "SKIPPED_LOCKED", "time": now_ist.strftime('%H:%M:%S')}
+        lock_key = f"proc_lock:{underlying}"
+        if self.use_redis:
+            # Distributed Lock (set nx=True means only creates if not exists)
+            if not self.r.set(lock_key, "locked", nx=True, ex=30):
+                logger.warning(f"Execution Lock: Signal for {underlying} is already being processed by another worker. Skipping.")
+                return {"underlying": underlying, "action": "SKIPPED_LOCKED", "time": now_ist.strftime('%H:%M:%S')}
         
-        self.processing_locks.add(underlying)
         try:
             if signal_type in ['B', 'LONG', 'BUY']:
                 result = self._execute_signal(underlying, itm, mode, leg_data, state, now_ist)
@@ -253,7 +248,8 @@ class SuperOrderEngine:
             self._finalize_signal_state(underlying, result, signal_type)
             return result
         finally:
-            self.processing_locks.remove(underlying)
+            if self.use_redis:
+                self.r.delete(lock_key)
 
     def _finalize_signal_state(self, underlying, result, signal_type):
         """

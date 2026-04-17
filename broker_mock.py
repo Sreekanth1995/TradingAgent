@@ -10,8 +10,9 @@ class MockDhanClient:
     Simulates the Dhan Broker interface for local development and testing.
     Provides jittery price movements and managed mock positions.
     """
-    def __init__(self):
+    def __init__(self, redis_client=None):
         logger.info("🛠️ initializing Mock Dhan Client...")
+        self.r = redis_client
         self.mock_positions = []
         # Base prices for indices
         self.prices = {

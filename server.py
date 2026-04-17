@@ -39,12 +39,29 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
-# Activity Logs (In-memory fallback + Redis persistence)
+# activity_logs (In-memory fallback + Redis persistence)
 activity_logs = deque(maxlen=50)
+
+# Initialize Shared Redis Client
+redis_client = None
+try:
+    import redis
+    redis_url = os.getenv("REDIS_URL")
+    if redis_url:
+        redis_client = redis.from_url(redis_url, decode_responses=True)
+    else:
+        redis_host = os.getenv("REDIS_HOST", "localhost")
+        redis_port = int(os.getenv("REDIS_PORT", 6379))
+        redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+    redis_client.ping()
+    logger.info("✅ Shared Redis Client Initialized")
+except Exception as e:
+    logger.warning(f"Shared Redis not available: {e}. Falling back to memory.")
 
 def _add_activity_log(msg, prefix=""):
     """
     Appends a log entry to the in-memory deque and persists it to Redis if available.
+    Uses pipelining for efficient batch operations.
     """
     timestamp = datetime.now().strftime('%H:%M:%S')
     full_msg = f"[{timestamp}] {prefix}{msg}"
@@ -52,19 +69,15 @@ def _add_activity_log(msg, prefix=""):
     # Update memory fallback
     activity_logs.appendleft(full_msg)
     
-    # Persist to Redis via engines if possible
-    try:
-        r = None
-        if super_order_engine and super_order_engine.use_redis:
-            r = super_order_engine.r
-        elif conditional_engine and conditional_engine.use_redis:
-            r = conditional_engine.r
-            
-        if r:
-            r.lpush("activity_logs", full_msg)
-            r.ltrim("activity_logs", 0, 49) # Keep last 50
-    except Exception as e:
-        logger.error(f"Failed to persist activity log to Redis: {e}")
+    # Persist to Redis via shared client
+    if redis_client:
+        try:
+            pipe = redis_client.pipeline()
+            pipe.lpush("activity_logs", full_msg)
+            pipe.ltrim("activity_logs", 0, 49)
+            pipe.execute()
+        except Exception as e:
+            logger.error(f"Failed to persist activity log to Redis: {e}")
 
 # Initialize Components with graceful error handling
 broker = None
@@ -77,15 +90,15 @@ USE_MOCK = os.getenv("USE_MOCK_API", "false").lower() == "true"
 try:
     if USE_MOCK:
         from broker_mock import MockDhanClient
-        broker = MockDhanClient()
+        broker = MockDhanClient(redis_client=redis_client)
         logger.info("🛠️  Running in MOCK API MODE - Using broker_mock.py")
     else:
         from broker_dhan import DhanClient
-        broker = DhanClient()
+        broker = DhanClient(redis_client=redis_client)
         logger.info("🔗 Running in LIVE API MODE - Using broker_dhan.py")
         
-    super_order_engine = SuperOrderEngine(broker)
-    conditional_engine = ConditionalOrderEngine(broker)
+    super_order_engine = SuperOrderEngine(broker, redis_client=redis_client, activity_logs=activity_logs)
+    conditional_engine = ConditionalOrderEngine(broker, redis_client=redis_client)
     
     # --- Start Background Protection Monitor ---
     def _protection_monitor_loop():

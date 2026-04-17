@@ -19,27 +19,19 @@ class ConditionalOrderEngine:
     def __init__(self, broker=None, is_dry_run=False, redis_client=None):
         self.broker = broker
         self.is_dry_run = is_dry_run
-        self.redis = redis_client
+        self.r = redis_client
         self.use_redis = False
         self.memory_store = {}
 
-        if REDIS_AVAILABLE:
-            redis_url = os.getenv("REDIS_URL")
+        if self.r:
             try:
-                if redis_url:
-                    self.r = redis.from_url(redis_url, decode_responses=True)
-                else:
-                    redis_host = os.getenv("REDIS_HOST", "localhost")
-                    redis_port = int(os.getenv("REDIS_PORT", 6379))
-                    self.r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
-                
                 self.r.ping()
-                logger.info("✅ ConditionalOrderEngine: Connected to Redis successfully")
+                logger.info("✅ ConditionalOrderEngine: Using shared Redis connection")
                 self.use_redis = True
             except Exception as e:
-                logger.warning(f"ConditionalOrderEngine: Redis connection failed ({e}). Using in-memory storage.")
+                logger.warning(f"ConditionalOrderEngine: Injected Redis client failed ping ({e}). Using in-memory storage.")
         else:
-            logger.warning("ConditionalOrderEngine: Redis library not installed. Using in-memory storage.")
+            logger.warning("ConditionalOrderEngine: No Redis client provided. Using in-memory storage.")
 
     # --- State Management ---
     def _get_state(self, underlying):

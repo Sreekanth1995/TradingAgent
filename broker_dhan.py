@@ -42,39 +42,36 @@ DHAN_AVAILABLE = True
 logger = logging.getLogger(__name__)
 
 class DhanClient:
-    def __init__(self):
+    def __init__(self, redis_client=None):
         self.client_id = os.getenv("DHAN_CLIENT_ID")
         self.access_token = os.getenv("DHAN_ACCESS_TOKEN")
         self.api_id = os.getenv("DHAN_API_ID")
         self.api_secret = os.getenv("DHAN_API_SECRET")
         
         # Redis for Token Persistence
-        self.r = None
+        self.r = redis_client
         
-        # Support both REDIS_URL (Railway) and REDIS_HOST/REDIS_PORT (manual config)
-        redis_url = os.getenv("REDIS_URL")
-        
-        try:
-            import redis
-            
-            if redis_url:
-                # Use Redis URL if provided (Railway format)
-                self.r = redis.from_url(redis_url, decode_responses=True)
-                logger.info("Connecting to Redis using REDIS_URL")
-            else:
-                # Fall back to host/port configuration
-                redis_host = os.getenv("REDIS_HOST", "localhost")
-                redis_port = int(os.getenv("REDIS_PORT", 6379))
-                self.r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
-                logger.info(f"Connecting to Redis at {redis_host}:{redis_port}")
-            
-            # Test connection and load cached token
-            cached_token = self.r.get("dhan_access_token")
-            if cached_token:
-                self.access_token = cached_token
-                logger.info("✅ Access Token loaded from Redis.")
-        except Exception as e:
-            logger.warning(f"Redis not available for Token Persistence: {e}")
+        if self.r:
+            try:
+                # Test connection and load cached token
+                cached_token = self.r.get("dhan_access_token")
+                if cached_token:
+                    self.access_token = cached_token
+                    logger.info("✅ Access Token loaded from Redis.")
+            except Exception as e:
+                logger.warning(f"Failed to load token from Redis: {e}")
+        else:
+            logger.warning("Redis client not provided to DhanClient. Persistence disabled.")
+
+    def save_access_token(self, token):
+        """Persists the access token to Redis for cross-worker synchronization."""
+        self.access_token = token
+        if self.r:
+            try:
+                self.r.set("dhan_access_token", token)
+                logger.info("✅ Access Token saved to Redis.")
+            except Exception as e:
+                logger.error(f"Failed to save token to Redis: {e}")
 
         self.dry_run = os.getenv("DRY_RUN", "false").lower() == "true"
         self.dhan = None
