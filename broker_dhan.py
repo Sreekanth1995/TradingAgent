@@ -939,13 +939,19 @@ class DhanClient:
         # Use trigger_sec_id if provided, otherwise default to the order's sec_id
         actual_trigger_id = str(trigger_sec_id) if trigger_sec_id else str(sec_id)
 
+        # When trigger is an index (sec IDs: 13=NIFTY, 25=BANKNIFTY, 27=FINNIFTY),
+        # the condition block MUST use IDX_I exchange segment — not NSE_FNO.
+        # Using NSE_FNO for index IDs causes Dhan DH-905 Input_Exception.
+        INDEX_IDS = {"13", "25", "27"}
+        condition_exchange_seg = "IDX_I" if str(actual_trigger_id) in INDEX_IDS else exchange_seg
+
         payload = {
             "dhanClientId": self.client_id,
             "userNote": user_note if user_note else "",
             "condition": {
                 "comparisonType": "LTP_WITH_VALUE",
-                "exchangeSegment": exchange_seg,
-                "securityId": actual_trigger_id, 
+                "exchangeSegment": condition_exchange_seg,
+                "securityId": actual_trigger_id,
                 "operator": operator,
                 "comparingValue": float(comparing_value),
                 "expDate": exp_date,
