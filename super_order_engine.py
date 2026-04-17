@@ -74,20 +74,11 @@ class SuperOrderEngine:
                 logger.error(f"Redis log failed: {e}")
 
     # --- 1. Place Native Super Order ---
-    def place_super_order(self, underlying, side, quantity, target_val=None, sl_val=None, trailing_val=None, entry_price=None, mode='MARKET'):
+    def place_super_order(self, underlying, side, quantity, itm, target_val=None, sl_val=None, trailing_val=None, entry_price=None, mode='MARKET'):
         """
-        Calculates levels and places a Native Super Order.
+        Calculates levels and places a Native Super Order using the provided instrument (itm).
         If values are < 100, they are treated as % of LTP.
         """
-        # Resolve Instrument
-        spot_price = self.broker.get_ltp(underlying)
-        if not spot_price:
-            return {"success": False, "error": "Could not fetch spot price"}
-            
-        itm = self.broker.get_itm_contract(underlying, side, spot_price)
-        if not itm:
-            return {"success": False, "error": "Could not select ITM contract"}
-            
         symbol = itm['symbol']
         sec_id = itm['security_id']
         ltp = self.broker.get_ltp(sec_id)
@@ -235,10 +226,19 @@ class SuperOrderEngine:
             return self.exit_super_order(underlying)
             
         # 2. Handle Entries
-        if signal_type == 'B' and current_side == 'NONE':
-            return self.place_super_order(underlying, 'CALL', leg_data.get('quantity', 1), mode=mode)
-        elif signal_type == 'S' and current_side == 'NONE':
-            return self.place_super_order(underlying, 'PUT', leg_data.get('quantity', 1), mode=mode)
+        if signal_type in ['B', 'S'] and current_side == 'NONE':
+            side = 'CALL' if signal_type == 'B' else 'PUT'
+            
+            # Resolve Instrument here
+            spot_price = self.broker.get_ltp(underlying)
+            if not spot_price:
+                return {"success": False, "error": "Could not fetch spot price"}
+                
+            itm = self.broker.get_itm_contract(underlying, side, spot_price)
+            if not itm:
+                return {"success": False, "error": "Could not select ITM contract"}
+                
+            return self.place_super_order(underlying, side, leg_data.get('quantity', 1), itm, mode=mode)
             
         return {"action": "NONE", "reason": "Already in position or no action needed"}
 
