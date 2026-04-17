@@ -142,26 +142,10 @@ class MockDhanClient:
         Captures target and SL prices for simulation.
         """
         sec_id = leg_data.get('security_id')
+        qty = int(leg_data.get('quantity', 1))
         if not sec_id:
              sec_id = "MOCK_SO_" + str(random.randint(1000, 9999))
              
-        target_price = leg_data.get('target_price')
-        sl_price = leg_data.get('stop_loss_price')
-        qty = int(leg_data.get('quantity', 1))
-        
-        # Determine side from symbol
-        side = 'CALL' if 'CE' in symbol.upper() else 'PUT'
-        
-        logger.info(f"🚀 [MOCK BROKER] Super Order for {symbol} | Qty={qty}, SL={sl_price}, Tgt={target_price}")
-        
-        # Store exit state
-        self.active_exits[str(sec_id)] = {
-            'target': target_price,
-            'sl': sl_price,
-            'symbol': symbol,
-            'side': side
-        }
-        
         # Add to positions
         entry_price = self.get_ltp(sec_id)
         self.mock_positions.append({
@@ -244,6 +228,34 @@ class MockDhanClient:
     def get_order_status(self, order_id):
         """Always reports TRADED so engines proceed past fill-wait."""
         return {"orderStatus": "TRADED", "averagePrice": 100.0}
+
+    def place_super_order(self, symbol, leg_data):
+        """Simulates native super/bracket order placement."""
+        qty = int(leg_data.get('quantity', 1))
+        # sec_id should be provided in leg_data or we generate one
+        sec_id = leg_data.get('security_id', f"MOCK_SO_{random.randint(1000, 9999)}")
+        logger.info(f"🚀 [MOCK BROKER] Super Order for {symbol} | Qty={qty}, SL={leg_data.get('stop_loss_price')}, Tgt={leg_data.get('target_price')}")
+        return {"success": True, "order_id": "MOCK_SO_123"}
+
+    def modify_super_sl_leg(self, order_id, stop_loss_price, trailing_jump=1.0):
+        """Simulates native SL leg modification."""
+        logger.info(f"🛠️ [MOCK BROKER] Modifying Super SL for {order_id} -> {stop_loss_price} (TJ: {trailing_jump})")
+        return {"success": True}
+
+    def modify_super_target_leg(self, order_id, target_price):
+        """Simulates native Target leg modification."""
+        logger.info(f"🛠️ [MOCK BROKER] Modifying Super Target for {order_id} -> {target_price}")
+        return {"success": True}
+
+    def modify_super_entry_leg(self, order_id, price, quantity=None):
+        """Simulates native Entry leg modification."""
+        logger.info(f"🛠️ [MOCK BROKER] Modifying Super Entry for {order_id} -> P:{price}, Q:{quantity}")
+        return {"success": True}
+
+    def cancel_super_order(self, order_id, leg_name='ENTRY_LEG'):
+        """Simulates native bracket cancellation."""
+        logger.info(f"🚫 [MOCK BROKER] Cancelling Super Order {order_id} ({leg_name})")
+        return {"success": True}
 
     def get_pending_orders(self, security_id=None):
         return []
