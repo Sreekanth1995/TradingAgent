@@ -28,6 +28,10 @@ sse_clients = []
 sse_lock = threading.Lock()
 last_signal_storage = {"data": None}
 
+# Signal Deduplication Memory (Key: {underlying}_{transaction_type}, Value: datetime)
+signal_memory = {}
+signal_memory_lock = threading.Lock()
+
 # Logging Setup
 logging.basicConfig(level=getattr(logging, LOG_LEVEL), format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -305,6 +309,19 @@ def webhook():
             
             transaction_type = leg.get('transactionType')
             
+            # 3. Deduplication Check
+            sig_key = f"{underlying}_{transaction_type}"
+            now = datetime.now()
+            with signal_memory_lock:
+                last_time = signal_memory.get(sig_key)
+                if last_time and (now - last_time).total_seconds() < 60:
+                    msg = f"DEDUPLICATED: Signal {transaction_type} for {underlying} ignored (occurred < 60s ago)"
+                    logger.info(msg)
+                    _add_activity_log(msg, "⏭️ ")
+                    results.append({"status": "ignored", "action": "DEDUPLICATED", "message": msg})
+                    continue
+                signal_memory[sig_key] = now
+
             msg = f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe"
             logger.info(msg)
             _add_activity_log(msg, "📡 ")
