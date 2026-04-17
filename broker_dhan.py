@@ -406,6 +406,24 @@ class DhanClient:
                              return {"success": True, "order_id": resp.get('data', {}).get('orderId'), "error": None}
                      
                      return {"success": False, "order_id": None, "error": resp.get('remarks', 'Authentication Failed')}
+                elif resp.status_code == 500:
+                     logger.warning(f"Order Placement: 500 Internal Server Error from Dhan. Retrying in 2s... | Body: {resp.text[:200]}")
+                     time.sleep(2)
+                     resp = self.dhan.place_order(
+                        security_id=sec_id,
+                        exchange_segment=ExchangeSegment.NSE_FNO,
+                        transaction_type=transaction_type,
+                        quantity=final_qty,
+                        order_type=order_type,
+                        product_type=ProductType.INTRADAY,
+                        price=price,
+                        trigger_price=trigger_price,
+                        validity=Validity.DAY
+                     )
+                     if resp.get('status') == 'success':
+                         return {"success": True, "order_id": resp.get('data', {}).get('orderId'), "error": None}
+                     logger.error(f"Order Placement: Retry after 500 also failed: {resp}")
+                     return {"success": False, "order_id": None, "error": resp.get('remarks', 'Dhan 500 after retry')}
                 else:
                      return {"success": False, "order_id": None, "error": resp.get('remarks', 'Unknown Error')}
             else:
@@ -1169,6 +1187,19 @@ class DhanClient:
                         return {"success": True, "order_id": order_id, "status": status}
                 
                 return {"success": False, "error": f"Auth failed after sync: {resp.text}"}
+            elif resp.status_code == 500:
+                logger.warning(f"Super Order: 500 Internal Server Error from Dhan. Retrying in 2s... | Body: {resp.text[:200]}")
+                time.sleep(2)
+                resp = requests.post(url, headers=headers, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    order_id = data.get('orderId') or data.get('data', {}).get('orderId')
+                    status = data.get('orderStatus') or data.get('data', {}).get('orderStatus')
+                    if order_id:
+                        logger.info(f"Super Order retry succeeded: {order_id}")
+                        return {"success": True, "order_id": order_id, "status": status}
+                logger.error(f"Super Order: Retry after 500 also failed: {resp.status_code} {resp.text}")
+                return {"success": False, "error": f"Dhan 500 after retry: {resp.text}"}
             else:
                  logger.error(f"Super Order Failed: {resp.status_code} {resp.text}")
                  return {"success": False, "error": resp.text}
