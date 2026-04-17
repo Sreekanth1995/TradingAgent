@@ -336,5 +336,14 @@ async def get_activity_logs():
     """
     return await call_api("/activity-logs")
 
+@mcp.tool()
+async def get_last_signal():
+    """
+    Retrieve the most recent enriched signal received from TradingView.
+    Use this to get context for a trade decision if you've been notified 
+    of a new signal via SSE but don't have the data payload.
+    """
+    return await call_api("/last-signal", method="GET")
+
 if __name__ == "__main__":
     mcp.run()

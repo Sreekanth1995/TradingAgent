@@ -4,7 +4,8 @@ import json
 import logging
 import threading
 import time
-from flask import Flask, request, jsonify, render_template
+import queue
+from flask import Flask, request, jsonify, render_template, Response
 from dotenv import load_dotenv
 from super_order_engine import SuperOrderEngine
 from conditional_order_engine import ConditionalOrderEngine
@@ -20,6 +21,11 @@ load_dotenv()
 # Configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 SECRET = os.getenv("WEBHOOK_SECRET", "60pgS") # Default from user example
+AI_IN_THE_LOOP = os.getenv("AI_IN_THE_LOOP", "true").lower() == "true"
+
+# SSE Signal Queue for AI Bridge
+signal_queue = queue.Queue(maxsize=10)
+last_signal_storage = {"data": None}
 
 # Logging Setup
 logging.basicConfig(level=getattr(logging, LOG_LEVEL), format='%(asctime)s - %(levelname)s - %(message)s')
@@ -177,13 +183,35 @@ def health():
     """
     Health check endpoint for Railway and monitoring.
     """
-    status = {
-        "status": "healthy" if broker and super_order_engine else "degraded",
-        "broker_initialized": broker is not None,
-        "engine_initialized": super_order_engine is not None,
-        "error": init_error
-    }
+    try:
+        status = {
+            "status": "healthy" if broker and super_order_engine else "degraded",
+            "broker_initialized": broker is not None,
+            "engine_initialized": super_order_engine is not None,
+            "error": init_error
+        }
+    except Exception as e:
+        status = {"status": "error", "message": str(e)}
     return jsonify(status), 200
+
+def _event_stream():
+    """Generator for Server-Sent Events (SSE)."""
+    while True:
+        # Blocks until a signal arrives in the queue
+        signal_data = signal_queue.get()
+        yield f"event: signal\ndata: {json.dumps(signal_data)}\n\n"
+
+@app.route('/events')
+def events():
+    """SSE endpoint for AI to listen to real-time signals."""
+    # Note: In a production environment with many clients, we would need 
+    # a more sophisticated Pub/Sub mechanism. For a single AI bridge, a queue is enough.
+    return Response(_event_stream(), mimetype='text/event-stream')
+
+@app.route('/last-signal')
+def get_last_signal():
+    """Returns the most recent enriched signal for AI pull/re-sync."""
+    return jsonify({"status": "success", "signal": last_signal_storage["data"]})
 
 
 
@@ -278,11 +306,23 @@ def webhook():
                     "itm_ce": itm_ce,
                     "itm_pe": itm_pe,
                     "spot_index": spot_index,
-                    "quantity": leg.get('quantity', 1)
+                    "timeframe": timeframe,
+                    "quantity": leg.get('quantity', 1),
+                    "transaction_type": transaction_type,
+                    "timestamp": datetime.now().isoformat()
                 }
-                action = super_order_engine.process_signal(underlying, specific_itm, transaction_type, mode, leg_data)
+                
+                if AI_IN_THE_LOOP:
+                    # EMIT SSE EVENT INSTEAD OF EXECUTING
+                    logger.info(f"AI-IN-THE-LOOP: Emitting signal event for {underlying}")
+                    signal_queue.put(leg_data)
+                    last_signal_storage["data"] = leg_data
+                    action = {"status": "success", "action": "SIGNAL_EMITTED", "message": "Signal sent to AI via SSE"}
+                else:
+                    # DIRECT EXECUTION (Legacy/Automated)
+                    action = super_order_engine.process_signal(underlying, specific_itm, transaction_type, mode, leg_data)
 
-                # Inject resolved context into leg data
+                # Inject resolved context into leg data for response
                 leg['itm_ce'] = itm_ce
                 leg['itm_pe'] = itm_pe
                 leg['spot_index'] = spot_index
