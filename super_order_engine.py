@@ -103,7 +103,136 @@ class SuperOrderEngine:
             
         return res
 
-    def _cancel_active_conditional_orders(self, underlying, state):
+    def _add_activity_log(self, msg, prefix=""):
+        """Logs to local deque and shared Redis if available."""
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        full_msg = f"[{timestamp}] {prefix}{msg}"
+        
+        if self.activity_logs is not None:
+            self.activity_logs.appendleft(full_msg)
+            
+        if self.r: # self.r is the shared redis_client
+            try:
+                pipe = self.r.pipeline()
+                pipe.lpush("activity_logs", full_msg)
+                pipe.ltrim("activity_logs", 0, 49)
+                pipe.execute()
+            except Exception as e:
+                logger.error(f"Failed to persist activity log to Redis: {e}")
+
+    def handle_order_update(self, payload):
+        """
+        Processes Dhan Webhook payloads for order status changes.
+        """
+        order_id = payload.get('orderId')
+        status = payload.get('orderStatus')
+        avg_price = float(payload.get('averagePrice', 0.0) or payload.get('price', 0.0))
+        
+        if status in ['TRADED', 'FILLED']:
+            # 1. Check for Pending Brackets (Entry filled -> Place SL/TGT)
+            pending_key = f"pending_bracket:{order_id}"
+            pending_data = None
+            
+            if self.use_redis:
+                val = self.r.get(pending_key)
+                if val:
+                    pending_data = json.loads(val)
+                    self.r.delete(pending_key)
+            elif pending_key in self.memory_store:
+                pending_data = self.memory_store.get(pending_key)
+                del self.memory_store[pending_key]
+
+            if pending_data:
+                underlying = pending_data.get('underlying')
+                logger.info(f"📡 Entry Filled for {underlying}: {order_id} at {avg_price}. Placing protection legs...")
+                self._place_protection_from_fill(underlying, order_id, avg_price, pending_data)
+            else:
+                # 2. Check for known entry fills (Native)
+                self._handle_entry_leg_fill(order_id, avg_price)
+                # 3. Check for Exit Leg fills (SL/TGT filled -> Cleanup Position)
+                self._handle_exit_leg_fill(order_id, status)
+                
+        elif status in ['CANCELLED', 'REJECTED']:
+            # Cleanup pending data if entry cancelled
+            pending_key = f"pending_bracket:{order_id}"
+            if self.use_redis: self.r.delete(pending_key)
+            elif pending_key in self.memory_store: del self.memory_store[pending_key]
+            logger.info(f"Order {order_id} was {status}. Pending data cleaned up.")
+
+    def _place_protection_from_fill(self, underlying, entry_id, avg_price, pending_data):
+        """Places SL and Target legs after an entry fill is confirmed via webhook."""
+        symbol = pending_data['symbol']
+        sec_id = pending_data['security_id']
+        params = pending_data['params']
+        itm_data = pending_data['itm_data']
+        
+        # Calculate Exit Levels
+        sl_price = round(avg_price * (1 - params['sl']/100), 1)
+        tgt_price = round(avg_price * (1 + params['target']/100), 1)
+        if sl_price <= 0: sl_price = 0.05
+        
+        # Place Exit Legs
+        order_leg = itm_data.copy()
+        order_leg['quantity'] = pending_data.get('quantity', 1)
+        
+        tgt_id = self._place_exit_leg(symbol, order_leg, tgt_price, "LIMIT")
+        sl_id = self._place_exit_leg(symbol, order_leg, sl_price, "STOP_LOSS_MARKET")
+        
+        # Update State
+        state = {
+            'side': pending_data['side'],
+            'entry_id': entry_id,
+            'symbol': symbol,
+            'security_id': sec_id,
+            'sl_id': sl_id, 
+            'tgt_id': tgt_id,
+            'sl_price': sl_price,
+            'tgt_price': tgt_price,
+            'quantity': order_leg['quantity']
+        }
+        self._set_state(underlying, state)
+        self._add_activity_log(f"Position Active: {symbol} at {avg_price}. SL: {sl_price}, TGT: {tgt_price}", "⚡ ")
+
+    def _handle_entry_leg_fill(self, order_id, avg_price):
+        """Processes fills for known entry orders (Native)."""
+        keys = []
+        if self.use_redis:
+            keys = self.r.keys("state:*")
+        else:
+            keys = [k for k in self.memory_store.keys() if k.startswith("state:")]
+
+        for k in keys:
+            underlying = k.split(":")[1] if ":" in k else k
+            state = self._get_state(underlying)
+            if state.get('entry_id') == order_id:
+                symbol = state.get('symbol')
+                logger.info(f"📡 Native Entry Filled for {underlying}: {order_id} at {avg_price}.")
+                # For Native, SL/TGT already calculated during placement
+                sl = state.get('sl_price')
+                tgt = state.get('tgt_price')
+                self._add_activity_log(f"Position Active: {symbol} at {avg_price}. SL: {sl}, TGT: {tgt}", "⚡ ")
+                break
+
+    def _handle_exit_leg_fill(self, order_id, status):
+        """Checks if a filled order was a SL or Target leg and cleans up."""
+        keys = []
+        if self.use_redis:
+            keys = self.r.keys("state:*")
+        else:
+            keys = [k for k in self.memory_store.keys() if k.startswith("state:")]
+
+        for k in keys:
+            underlying = k.split(":")[1] if ":" in k else k
+            state = self._get_state(underlying)
+            if state.get('sl_id') == order_id or state.get('tgt_id') == order_id:
+                logger.info(f"📡 Exit Leg Filled: {order_id} ({status}) for {underlying}. Clearing position state.")
+                self._add_activity_log(f"Exit Filled: {state.get('symbol')} via {status}", "🏁 ")
+                # Cancel the remaining leg
+                self._cancel_active_conditional_orders(underlying, state)
+                # Clear state
+                self._clear_state(underlying)
+                break
         """Cancels associated Dhan Alert triggers (GTT) if they exist in state."""
         alert_keys = (
             'conditional_target_alert_id', 'conditional_sl_alert_id',
@@ -353,11 +482,14 @@ class SuperOrderEngine:
             logger.info(f"Strategy: Explicit SHORT_EXIT for {underlying}")
             self._manage_opposite_orders(underlying, state, orders_by_id, 'PE', action_log)
 
+        state = self._get_state(underlying)
         return {
             "underlying": underlying,
             "signal": signal_type,
             "actions": action_log,
             "action": ", ".join(action_log) if action_log else "NO_ACTION",
+            "order_id": state.get('entry_id') if state else None,
+            "status": state.get('status') if state else "ACTIVE",
             "time": now_ist.strftime('%H:%M:%S')
         }
 
@@ -473,12 +605,12 @@ class SuperOrderEngine:
         # 1. Try Native Super Order First
         ltp = self._wait_for_ltp(symbol, sec_id)
         if ltp:
-            state = self._execute_native_super_order(symbol, security_id, itm, ltp, params, leg_data)
+            state = self._execute_native_super_order(symbol, sec_id, itm, ltp, params, leg_data)
             if state:
                 return state
 
         # 2. Fallback: Simulated Bracket
-        return self._execute_simulated_bracket(underlying, symbol, security_id, itm, params, leg_data, ltp)
+        return self._execute_simulated_bracket(underlying, symbol, sec_id, itm, params, leg_data, ltp)
 
     def _wait_for_ltp(self, symbol, sec_id, max_retries=3):
         """Fetches LTP for a security with retries."""
@@ -490,7 +622,7 @@ class SuperOrderEngine:
             time.sleep(1)
         return None
 
-    def _execute_native_super_order(self, symbol, security_id, itm_data, ltp, params, leg_data):
+    def _execute_native_super_order(self, symbol, sec_id, itm_data, ltp, params, leg_data):
         """Calculates levels and places a Native Super Order."""
         sl_price = round(ltp * (1 - params['sl']/100), 1)
         tgt_price = round(ltp * (1 + params['target']/100), 1)
@@ -555,7 +687,7 @@ class SuperOrderEngine:
         return None
 
     def _execute_simulated_bracket(self, underlying, symbol, security_id, itm_data, params, leg_data, ltp=None):
-        """Places a protected entry and separate exit orders (Simulation mode)."""
+        """Places a protected entry and stores metadata for async SL/Target placement via webhook."""
         order_leg = itm_data.copy()
         order_leg['quantity'] = leg_data.get('quantity', 1)
 
@@ -575,55 +707,34 @@ class SuperOrderEngine:
             return None
         
         entry_id = resp['order_id']
-        avg_price = self._wait_for_fill(entry_id)
+        side = 'CALL' if 'CE' in symbol else 'PUT'
         
-        if avg_price <= 0:
-            logger.warning(f"Could not fetch fill price for {entry_id}. Skipping SL/Target placement.")
-            return {
-                'side': 'CALL' if 'CE' in symbol else 'PUT',
-                'entry_id': entry_id,
-                'symbol': symbol,
-                'security_id': sec_id,
-                'sl_id': None,
-                'tgt_id': None
-            }
-        
-        # Calculate Exit Levels
-        sl_price = round(avg_price * (1 - params['sl']/100), 1)
-        tgt_price = round(avg_price * (1 + params['target']/100), 1)
-        if sl_price <= 0: sl_price = 0.05
-        
-        # Place Exit Legs
-        tgt_id = self._place_exit_leg(symbol, order_leg, tgt_price, "LIMIT")
-        sl_id = self._place_exit_leg(symbol, order_leg, sl_price, "STOP_LOSS_MARKET")
-        
-        return {
-            'side': 'CALL' if 'CE' in symbol else 'PUT',
-            'entry_id': entry_id,
+        # Store metadata for Webhook Callback (Wait for TRADED status)
+        pending_data = {
+            'underlying': underlying,
+            'side': side,
             'symbol': symbol,
-            'security_id': sec_id,
-            'sl_id': sl_id, 
-            'tgt_id': tgt_id,
-            'sl_price': sl_price,
-            'tgt_price': tgt_price,
+            'security_id': security_id,
+            'itm_data': itm_data,
+            'params': params,
             'quantity': order_leg['quantity']
         }
-
-    def _wait_for_fill(self, entry_id, max_retries=5):
-        """Polls order status for average fill price."""
-        for i in range(max_retries):
-            try:
-                status = self.broker.get_order_status(entry_id)
-                if status and isinstance(status, dict):
-                    st = status.get('orderStatus') 
-                    if st in ['TRADED', 'FILLED']:
-                        avg_price = float(status.get('averagePrice', 0.0) or status.get('price', 0.0))
-                        if avg_price > 0:
-                            return avg_price
-            except Exception as e:
-                logger.error(f"Error polling order status for {entry_id}: {e}")
-            time.sleep(0.5)
-        return 0.0
+        
+        key = f"pending_bracket:{entry_id}"
+        if self.use_redis:
+            self.r.setex(key, 86400, json.dumps(pending_data))
+        else:
+            self.memory_store[key] = pending_data
+            
+        logger.info(f"Entry Sent: {entry_id}. Awaiting Webhook fill to place SL/Target.")
+        
+        return {
+            'side': side,
+            'entry_id': entry_id,
+            'symbol': symbol,
+            'security_id': security_id,
+            'status': 'PENDING_FILL'
+        }
 
     def _place_exit_leg(self, symbol, order_leg, price, order_type):
         """Helper to place Target/SL sell orders."""
@@ -714,7 +825,7 @@ class SuperOrderEngine:
                 if is_super_order and oid:
                     self._modify_super_leg(oid, leg_name, ltp, order)
                 else:
-                    self._modify_standard_leg(underlying, oid, otype, ltp, state)
+                    self._modify_standard_leg(underlying, oid, otype, ltp, state, order)
 
     def _cancel_entry_leg(self, oid, parent_id, is_super_order):
         """Cancels an unfilled entry leg."""
@@ -800,24 +911,23 @@ class SuperOrderEngine:
             tj = order_data.get('trailingJump', 1.0)
             self.broker.modify_super_sl_leg(oid, new_sl, tj)
 
-    def _modify_standard_leg(self, underlying, oid, otype, ltp, state):
+    def _modify_standard_leg(self, underlying, oid, otype, ltp, state, order_data):
         """Modifies a standard bracket leg."""
-        if is_super_order:
-            offset = 5
-            # Access underlying via state if not explicitly passed
-            underlying = state.get('underlying', 'NIFTY')
-            params = self._get_params(underlying)
-            trail_offset = round(ltp * (params['trailing']/100), 1)
-            barrier = round(ltp - trail_offset, 1)
-            
-            # Fetch existing trigger price if available
-            existing_trigger = float(order_data.get('triggerPrice') or order_data.get('trigger_price') or 0)
-            
-            if barrier > existing_trigger:
-                logger.info(f"Smart Exit: Updating SL {oid} from {existing_trigger} to {barrier}")
-                self.broker.modify_order(oid, 'SL', {'trigger_price': barrier})
-            else:
-                logger.info(f"Smart Exit: New SL {barrier} is not higher than existing {existing_trigger} for {oid}. Skipping.")
+        is_so = state.get('is_super_order', False)
+        # Standard brackets are always trailing-based logic
+        offset = 5
+        params = self._get_params(underlying)
+        trail_offset = round(ltp * (params['trailing']/100), 1)
+        barrier = round(ltp - trail_offset, 1)
+        
+        # Fetch existing trigger price if available
+        existing_trigger = float(order_data.get('triggerPrice') or order_data.get('trigger_price') or 0)
+        
+        if barrier > existing_trigger:
+            logger.info(f"Smart Exit: Updating SL {oid} from {existing_trigger} to {barrier}")
+            self.broker.modify_order(oid, 'SL', {'trigger_price': barrier})
+        else:
+            logger.info(f"Smart Exit: New SL {barrier} is not higher than existing {existing_trigger} for {oid}. Skipping.")
 
     def manual_exit_all(self):
         """

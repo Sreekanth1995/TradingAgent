@@ -219,6 +219,33 @@ def _event_stream(q):
         signal_data = q.get()
         yield f"event: signal\ndata: {json.dumps(signal_data)}\n\n"
 
+@app.route('/dhan-webhook', methods=['POST'])
+def dhan_webhook():
+    """
+    Receives Live Order Updates from Dhan Broker.
+    Triggered when an order status changes (e.g., TRADED).
+    """
+    try:
+        data = request.get_json(force=True, silent=True)
+        # Authentication check
+        if request.args.get('secret') != SECRET and data.get('secret') != SECRET:
+             logger.warning("Unauthorized Dhan Webhook attempt")
+             return jsonify({"status": "error", "message": "Unauthorized"}), 401
+             
+        if not data:
+            return jsonify({"status": "error", "message": "No data"}), 400
+            
+        logger.info(f"📡 Dhan Webhook Received: {data.get('orderId')} - {data.get('orderStatus')}")
+        
+        # Route to SuperOrderEngine for processing fills/transitions
+        if super_order_engine:
+            super_order_engine.handle_order_update(data)
+            
+        return jsonify({"status": "received"}), 200
+    except Exception as e:
+        logger.error(f"Error processing Dhan Webhook: {e}")
+        return jsonify({"status": "error"}), 500
+
 @app.route('/events')
 def events():
     """SSE endpoint for AI to listen to real-time signals. Requires ?secret="""
