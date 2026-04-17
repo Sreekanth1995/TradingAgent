@@ -693,18 +693,33 @@ def conditional_order():
         }
         
         # Mandatory Validation for Manual Entries (AC 6)
+        if spot_index <= 0:
+            return jsonify({"status": "error", "message": "Could not determine current index spot price. Cannot validate SL/Target."}), 400
+
         if signal_type == 'B':
             if not leg_data.get('sl_index') or not leg_data.get('target_index'):
                 return jsonify({"status": "error", "message": "Manual CALL requires Index Stop Loss and Target levels"}), 400
-                
-            if float(leg_data['sl_index']) >= spot_index:
-                 return jsonify({"status": "error", "message": f"Stop Loss Index ({leg_data['sl_index']}) must be less than current Index price ({spot_index})"}), 400
+
+            try:
+                sl_idx_val = float(leg_data['sl_index'])
+                tgt_idx_val = float(leg_data['target_index'])
+            except (TypeError, ValueError) as e:
+                return jsonify({"status": "error", "message": f"Invalid SL/Target index value: {e}"}), 400
+
+            if sl_idx_val >= spot_index:
+                 return jsonify({"status": "error", "message": f"Stop Loss Index ({sl_idx_val}) must be less than current Index price ({spot_index})"}), 400
         elif signal_type == 'S':
             if not leg_data.get('sl_index') or not leg_data.get('target_index'):
                 return jsonify({"status": "error", "message": "Manual PUT requires Index Stop Loss and Target levels"}), 400
-                
-            if float(leg_data['sl_index']) <= spot_index:
-                 return jsonify({"status": "error", "message": f"Stop Loss Index ({leg_data['sl_index']}) must be greater than current Index price ({spot_index})"}), 400
+
+            try:
+                sl_idx_val = float(leg_data['sl_index'])
+                tgt_idx_val = float(leg_data['target_index'])
+            except (TypeError, ValueError) as e:
+                return jsonify({"status": "error", "message": f"Invalid SL/Target index value: {e}"}), 400
+
+            if sl_idx_val <= spot_index:
+                 return jsonify({"status": "error", "message": f"Stop Loss Index ({sl_idx_val}) must be greater than current Index price ({spot_index})"}), 400
 
         # Execute Order via Conditional Engine
         res = conditional_engine.handle_signal(signal_type, leg_data)
