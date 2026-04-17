@@ -405,6 +405,9 @@ def get_state():
         underlying = data.get('underlying', 'NIFTY')
         state = super_order_engine._get_state(underlying)
         
+        # New: Aggregate active positions for dashboard
+        active_positions = _get_active_positions()
+
         # Sector Mapping: Pair positions with UI cards
         # We check if either engine state matches the position's side
         current_pnl = 0
