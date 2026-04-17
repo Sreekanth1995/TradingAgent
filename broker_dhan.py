@@ -947,6 +947,7 @@ class DhanClient:
 
         payload = {
             "dhanClientId": self.client_id,
+            "userNote": user_note if user_note else "GTT Trigger",
             "condition": {
                 "comparisonType": "LTP_WITH_VALUE",
                 "exchangeSegment": condition_exchange_seg,
