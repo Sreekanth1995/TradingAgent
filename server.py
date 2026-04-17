@@ -23,8 +23,9 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 SECRET = os.getenv("WEBHOOK_SECRET", "60pgS") # Default from user example
 AI_IN_THE_LOOP = os.getenv("AI_IN_THE_LOOP", "true").lower() == "true"
 
-# SSE Signal Queue for AI Bridge
-signal_queue = queue.Queue(maxsize=10)
+# SSE Infrastructure for AI Bridge (Multi-client support)
+sse_clients = []
+sse_lock = threading.Lock()
 last_signal_storage = {"data": None}
 
 # Logging Setup
@@ -194,23 +195,46 @@ def health():
         status = {"status": "error", "message": str(e)}
     return jsonify(status), 200
 
-def _event_stream():
+def _event_stream(q):
     """Generator for Server-Sent Events (SSE)."""
     while True:
-        # Blocks until a signal arrives in the queue
-        signal_data = signal_queue.get()
+        # Blocks until a signal arrives in the private client queue
+        signal_data = q.get()
         yield f"event: signal\ndata: {json.dumps(signal_data)}\n\n"
 
 @app.route('/events')
 def events():
-    """SSE endpoint for AI to listen to real-time signals."""
-    # Note: In a production environment with many clients, we would need 
-    # a more sophisticated Pub/Sub mechanism. For a single AI bridge, a queue is enough.
-    return Response(_event_stream(), mimetype='text/event-stream')
+    """SSE endpoint for AI to listen to real-time signals. Requires ?secret="""
+    if request.args.get('secret') != SECRET:
+        logger.warning("Unauthorized SSE Connection Attempt")
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    # Create a private queue for this client
+    q = queue.Queue(maxsize=10)
+    
+    with sse_lock:
+        sse_clients.append(q)
+        logger.info(f"New SSE client connected. Active listeners: {len(sse_clients)}")
+    
+    def stream():
+        try:
+            for msg in _event_stream(q):
+                yield msg
+        finally:
+            with sse_lock:
+                if q in sse_clients:
+                    sse_clients.remove(q)
+                    logger.info(f"SSE client disconnected. Active listeners: {len(sse_clients)}")
+
+    return Response(stream(), mimetype='text/event-stream')
 
 @app.route('/last-signal')
 def get_last_signal():
-    """Returns the most recent enriched signal for AI pull/re-sync."""
+    """Returns the most recent enriched signal for AI pull/re-sync. Requires ?secret="""
+    if request.args.get('secret') != SECRET:
+        logger.warning("Unauthorized Last-Signal Pull Attempt")
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        
     return jsonify({"status": "success", "signal": last_signal_storage["data"]})
 
 
@@ -313,11 +337,21 @@ def webhook():
                 }
                 
                 if AI_IN_THE_LOOP:
-                    # EMIT SSE EVENT INSTEAD OF EXECUTING
+                    # BROADCAST SSE EVENT TO ALL LISTENERS
                     logger.info(f"AI-IN-THE-LOOP: Emitting signal event for {underlying}")
-                    signal_queue.put(leg_data)
                     last_signal_storage["data"] = leg_data
-                    action = {"status": "success", "action": "SIGNAL_EMITTED", "message": "Signal sent to AI via SSE"}
+                    
+                    current_listeners = 0
+                    with sse_lock:
+                        current_listeners = len(sse_clients)
+                        for q in sse_clients:
+                            try:
+                                # Per user request, we keep the put() operation as is.
+                                q.put(leg_data)
+                            except Exception as e:
+                                logger.error(f"Error pushing signal to SSE client: {e}")
+                    
+                    action = {"status": "success", "action": "SIGNAL_EMITTED", "message": f"Signal broadcast to {current_listeners} listeners"}
                 else:
                     # DIRECT EXECUTION (Legacy/Automated)
                     action = super_order_engine.process_signal(underlying, specific_itm, transaction_type, mode, leg_data)

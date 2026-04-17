@@ -1,29 +1,42 @@
-# Phase 11 Code Review: MCP Parallel Order Flows & Interlock Analysis
-**Date**: 2026-04-14
-**Reviewed Files**:
-- `mcp_server.py`
-- `server.py`
-- `super_order_engine.py`
+# Code Review: Phase 11 — AI-in-the-loop Infrastructure
 
-## Observations & Findings
+## Summary
+The phase successfully implemented the Server-Sent Events (SSE) infrastructure and refactored the webhook to emit enriched signals. However, several critical security and stability issues were introduced that must be addressed before production use.
 
-### 1. `update_super_order` method is missing
-- **Finding**: While `broker_dhan.py` provides `modify_super_target_leg` and `modify_super_sl_leg`, there is no `update_super_order` route in `server.py` nor a corresponding tool in `mcp_server.py`. The AI cannot dynamically manage the parameters of an ongoing super order.
+## Findings
 
-### 2. `place_conditional_order` routes to `/ui-signal`
-- **Finding**: In Phase 10, `place_manual_order` was renamed to `place_conditional_order`. However, keeping its payload routed to `/ui-signal` means it triggers `engine.handle_signal()` -> `_execute_signal()`. This is configured as a primary entry signal, which by default executes a **Native Super Order Bracket**! If the intent of `place_conditional_order` was purely to deploy GTT Conditional Triggers, routing to `/ui-signal` fundamentally violates separation of concerns.
+### 🔴 Critical
+#### [Denial of Service] Webhook blocks if queue is full
+- **File**: [server.py](file:///Users/sreekanthmekala/Desktop/TradingAgent/server.py#L318)
+- **Problem**: `signal_queue.put(leg_data)` is a blocking call because the queue has `maxsize=10`. If no consumer is listening to `/events` and 10 signals arrive, the 11th signal will cause the Flask request to hang indefinitely.
+- **Impact**: The entire TradingView webhook integration stops working if the AI listener is offline.
+- **Recommendation**: Use `signal_queue.put_nowait(leg_data)` and wrapped in a `try...except queue.Full` block to log an error instead of hanging.
 
-### 3. Parallel Tracking of Super & Conditional Orders
-- **Finding**: If an AI places a Super Order (Premium SL/Target), and simultaneously places a Conditional Order (Index SL/Target GTT), both orders run alongside each other against the same underlying position. 
-- **Risk**: They both place eventual `SELL` (exit) triggers.
+#### [Security] SSE Endpoint is Public
+- **File**: [server.py](file:///Users/sreekanthmekala/Desktop/TradingAgent/server.py#L204)
+- **Problem**: The `/events` endpoint does not check for the `WEBHOOK_SECRET`. 
+- **Impact**: Any unauthorized third party can connect to `http://IP/events` and receive real-time trading signals, including sensitive instrument IDs and spot prices.
+- **Recommendation**: Add a check for `request.args.get('secret') == SECRET`.
 
-### 4. Interlocking & Conflict Risks
-- **Finding**: The major "interlocking" risk happens when one parallel flow executes before the other:
-  - **Scenario A**: The Super Order Premium SL is hit. Dhan closes the position and cancels the Target leg. However, the Conditional GTT triggers (Index bounds) are still active on Dhan's server! If the index later hits the bound, the GTT will fire a rogue `SELL`, initiating a naked short position.
-  - **Scenario B**: The Conditional GTT executes its market `SELL` because the Index boundary was hit. Dhan executes the trade. However, the Super Order Premium limits are still stuck in `PENDING` state on the Dhan orderbook. If the price swings back, the Super Order leg might execute another naked short.
-- **Locking Risk (Threads)**: `engine.process_signal` uses `self.processing_locks`. If MCP tools push updates at the exact millisecond a webhook fires, one will drop as `SKIPPED_LOCKED`. This is generally safe but can cause ignored AI commands.
+#### [Security] Last Signal Endpoint is Public
+- **File**: [server.py](file:///Users/sreekanthmekala/Desktop/TradingAgent/server.py#L211)
+- **Problem**: The `/last-signal` endpoint does not check for the `WEBHOOK_SECRET`.
+- **Impact**: Unauthorized retrieval of the last trading context.
+- **Recommendation**: Add a check for `request.args.get('secret') == SECRET`.
 
-## Recommendations
-1. **Expose Update Endpoint**: Build `/update-super-order` in `server.py` to route to broker leg modifier methods, and expose `update_super_order` in MCP.
-2. **Decouple Conditional endpoints**: Remove `/ui-signal` routing from conditional tools. MCP should separate entries (`place_super_order`, `place_manual_entry`) from condition placement (`place_conditional_order` -> `/conditional-index-order`).
-3. **State Syncing**: Implement a cleanup routine or require the AI to explicitly use a cancellation sequence to prevent rogue double-sells when parallel flows resolve.
+### 🟡 Moderate
+#### [Architectural] Multiple Listener Race Condition
+- **File**: [server.py](file:///Users/sreekanthmekala/Desktop/TradingAgent/server.py#L201)
+- **Problem**: `signal_queue.get()` removes the item from the queue. If two clients connect to `/events`, they will compete for events. Client A might get signal 1, and Client B might get signal 2.
+- **Impact**: Inconsistent notifications if debugging or running multiple AI bridges.
+- **Recommendation**: For a single-user system, this is acceptable but should be documented. For multi-user, use a list of subscriber queues and push to all of them.
+
+### 🟢 Minor
+#### [Quality] Inconsistent Indentation
+- **File**: [server.py](file:///Users/sreekanthmekala/Desktop/TradingAgent/server.py#L182-195)
+- **Problem**: The `health()` function has slightly inconsistent indentation in the `status` dictionary definition after recent edits.
+
+## Next Steps
+- [ ] Implement security secret checks on `/events` and `/last-signal`.
+- [ ] Fix blocking `put()` in the webhook logic.
+- [ ] (Optional) Refactor SSE to support multiple concurrent listeners.
