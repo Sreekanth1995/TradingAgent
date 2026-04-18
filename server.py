@@ -160,7 +160,7 @@ _pending_trades: dict = {}
 
 def _set_pending_trade(underlying: str, trade_id: int):
     if redis_client:
-        redis_client.set(f"pending_trade:{underlying}", trade_id, ex=900)
+        redis_client.set(f"pending_trade:{underlying}", trade_id, ex=300)
     else:
         _pending_trades[underlying] = trade_id
 
