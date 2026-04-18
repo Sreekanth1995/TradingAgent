@@ -451,7 +451,54 @@ def webhook():
                 failure_count += 1
                 continue
 
-            # 3. Deduplication Check (Redis atomic SET NX EX for multi-worker safety)
+            # 3. Process with Ranking Engine (Index-Based)
+            mode = leg.get('mode', data.get('mode', 'regular')).lower()
+            is_buy = transaction_type in ['B', 'BUY', 'LONG']
+            is_sell = transaction_type in ['S', 'SELL', 'SHORT']
+            target_side = 'CALL' if is_buy else 'PUT' if is_sell else None
+
+            # Pre-check state: exits don't need ITM resolution (0 API calls)
+            current_state = super_order_engine._get_state(underlying)
+            current_side = current_state.get('side', 'NONE')
+            is_exit = (is_sell and current_side == 'CALL') or (is_buy and current_side == 'PUT')
+
+            spot_index = 0
+            specific_itm = None
+
+            if not is_exit:
+                spot_index = resolve_index_spot(broker, underlying, leg)
+
+                # Guard: spot resolution failed (missing 'price' key or broker API error).
+                # Dedup is intentionally checked AFTER this so a bad payload doesn't
+                # consume the 60s dedup window and block a valid retry.
+                if spot_index <= 0:
+                    err_msg = f"Spot index resolution failed for {underlying} — missing 'price' in payload or broker LTP unavailable"
+                    logger.error(err_msg)
+                    trade_feed.insert_trade(
+                        underlying=underlying,
+                        signal='BUY' if is_buy else 'SELL',
+                        status='FAILED',
+                        comment='Missing price / spot resolution failed'
+                    )
+                    results.append({"error": err_msg, "underlying": underlying, "action": "FAILED_SPOT_RESOLUTION"})
+                    failure_count += 1
+                    continue
+
+                specific_itm = resolve_call_itm(broker, underlying, spot_index) if is_buy else resolve_put_itm(broker, underlying, spot_index)
+                if not specific_itm:
+                    trade_feed.insert_trade(
+                        underlying=underlying,
+                        signal='BUY' if is_buy else 'SELL',
+                        index_price=spot_index,
+                        status='FAILED',
+                        comment=f'Could not resolve {target_side} ITM contract'
+                    )
+                    results.append({"underlying": underlying, "action": "FAILED_CONTEXT_RESOLUTION", "reason": f"Failed to resolve {target_side} ITM contract"})
+                    failure_count += 1
+                    continue
+
+            # 4. Deduplication Check — placed after spot validation so a bad payload
+            #    (missing price) does not consume the dedup window and block valid retries.
             sig_key = f"dedup:{underlying}_{transaction_type}"
             is_duplicate = False
             if redis_client:
@@ -476,36 +523,6 @@ def webhook():
             msg = f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe"
             logger.info(msg)
             _add_activity_log(msg, "📡 ")
-
-            # 4. Process with Ranking Engine (Index-Based)
-            mode = leg.get('mode', data.get('mode', 'regular')).lower()
-            is_buy = transaction_type in ['B', 'BUY', 'LONG']
-            is_sell = transaction_type in ['S', 'SELL', 'SHORT']
-            target_side = 'CALL' if is_buy else 'PUT' if is_sell else None
-
-            # Pre-check state: exits don't need ITM resolution (0 API calls)
-            current_state = super_order_engine._get_state(underlying)
-            current_side = current_state.get('side', 'NONE')
-            is_exit = (is_sell and current_side == 'CALL') or (is_buy and current_side == 'PUT')
-
-            spot_index = 0
-            specific_itm = None
-
-            if not is_exit:
-                spot_index = resolve_index_spot(broker, underlying, leg)
-                specific_itm = resolve_call_itm(broker, underlying, spot_index) if is_buy else resolve_put_itm(broker, underlying, spot_index)
-                if not specific_itm:
-                    trade_feed.insert_trade(
-                        underlying=underlying,
-                        signal='BUY' if is_buy else 'SELL',
-                        index_price=spot_index if spot_index else None,
-                        status='FAILED',
-                        comment=f'Could not resolve {target_side} ITM contract'
-                    )
-                    action = {"underlying": underlying, "action": "FAILED_CONTEXT_RESOLUTION", "reason": f"Failed to resolve {target_side} ITM contract"}
-                    results.append(action)
-                    failure_count += 1
-                    continue
 
             # Insert trade-feed record so the dashboard can track this signal
             feed_id = trade_feed.insert_trade(
