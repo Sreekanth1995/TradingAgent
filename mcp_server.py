@@ -253,6 +253,20 @@ async def get_activity_logs():
 
 
 @mcp.tool()
+async def skip_trade(underlying: str, reason: str):
+    """
+    Call this when you decide NOT to place an order for the received signal.
+    Marks the pending feed record as closed with the given reason so the
+    System Activity Feed shows why the signal was skipped.
+
+    Args:
+        underlying: Index the signal was for — NIFTY, BANKNIFTY, or FINNIFTY.
+        reason:     Human-readable explanation (e.g. "Low confidence", "Already in position").
+    """
+    return await _call("/skip-trade", {"underlying": underlying, "reason": reason})
+
+
+@mcp.tool()
 async def get_last_signal():
     """
     Retrieve the most recent enriched TradingView signal.

@@ -116,29 +116,6 @@ try:
     monitor_thread = threading.Thread(target=_protection_monitor_loop, daemon=True)
     monitor_thread.start()
 
-    def _stale_pending_cleanup_loop():
-        """Mark PENDING feed records older than 5 minutes as having no AI callback."""
-        import sqlite3 as _sqlite3
-        while True:
-            time.sleep(60)
-            try:
-                from trade_feed import DB_PATH, IST
-                from datetime import timedelta
-                cutoff = (datetime.now(IST).replace(tzinfo=None) -
-                          timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')
-                with _sqlite3.connect(DB_PATH) as conn:
-                    conn.execute(
-                        "UPDATE trades SET status='CLOSED', comment='No callback from AI', "
-                        "updated_at=? WHERE status='PENDING' AND created_at < ?",
-                        (datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S'), cutoff)
-                    )
-                    conn.commit()
-            except Exception as e:
-                logger.error(f"Stale pending cleanup error: {e}")
-
-    cleanup_thread = threading.Thread(target=_stale_pending_cleanup_loop, daemon=True, name="stale-pending-cleanup")
-    cleanup_thread.start()
-
     logger.info("✅ System Initialized Successfully")
 except Exception as e:
     init_error = str(e)
@@ -151,6 +128,21 @@ trade_feed.init_db()
 def _handle_live_order_update(order_id: str, status: str, avg_price):
     """Callback from Dhan Live Order Update WebSocket."""
     try:
+        # 1. Check if this is an exit order fill — update exit price/profit on feed
+        exit_meta = _get_exit_order_meta(order_id)
+        if exit_meta and status in ('TRADED', 'FILLED') and avg_price:
+            price = float(avg_price)
+            feed_id = exit_meta.get('feed_id')
+            entry_price = float(exit_meta.get('entry_price') or 0)
+            qty = int(exit_meta.get('qty') or 1)
+            profit = round((price - entry_price) * qty, 2) if entry_price else None
+            if feed_id:
+                trade_feed.update_trade(feed_id, exit_price=price, profit=profit, status='CLOSED', comment='Manual exit')
+                logger.info(f"📡 Exit fill: order {order_id} → exit_price={price} profit={profit}")
+            _clear_exit_order_meta(order_id)
+            return
+
+        # 2. Entry order updates
         if not super_order_engine:
             return
         underlying = super_order_engine.find_underlying_by_order_id(order_id)
@@ -192,6 +184,28 @@ def _get_pending_trade(underlying: str):
         v = redis_client.get(f"pending_trade:{underlying}")
         return int(v) if v else None
     return _pending_trades.get(underlying)
+
+# Exit order meta — maps exit order_id → {feed_id, entry_price, qty}
+# so the WS listener can update exit_price/profit when the SELL fill arrives.
+_exit_order_meta: dict = {}
+
+def _set_exit_order_meta(order_id: str, meta: dict):
+    if redis_client:
+        redis_client.set(f"exit_meta:{order_id}", json.dumps(meta), ex=300)
+    else:
+        _exit_order_meta[order_id] = meta
+
+def _get_exit_order_meta(order_id: str):
+    if redis_client:
+        v = redis_client.get(f"exit_meta:{order_id}")
+        return json.loads(v) if v else None
+    return _exit_order_meta.get(order_id)
+
+def _clear_exit_order_meta(order_id: str):
+    if redis_client:
+        redis_client.delete(f"exit_meta:{order_id}")
+    else:
+        _exit_order_meta.pop(order_id, None)
 
 # In-memory stores (persisted to JSON files for restart survival)
 _LEVELS_FILE = "levels.json"
@@ -1338,7 +1352,7 @@ def cancel_super_order():
 
         result = super_order_engine.cancel_super_order(underlying)
         if result.get('success') and feed_id:
-            trade_feed.update_trade(feed_id, status='CLOSED', comment='Super order cancelled')
+            trade_feed.update_trade(feed_id, status='CLOSED', comment='Order cancelled')
         code = 200 if result.get('success') else 400
         return jsonify(result), code
     except Exception as e:
@@ -1360,28 +1374,23 @@ def exit_super_order():
     try:
         pre_state = super_order_engine._get_state(underlying)
         feed_id = pre_state.get('trade_feed_id')
-        sec_id = pre_state.get('security_id')
         entry_price = float(pre_state.get('entry_price') or 0)
         qty = int(pre_state.get('quantity') or 1)
 
-        # Approximate exit price via LTP before we place the market exit
-        approx_exit = None
-        if sec_id:
-            try:
-                approx_exit = broker.get_ltp(sec_id)
-            except Exception:
-                pass
-
         result = super_order_engine.exit_super_order(underlying)
         if result.get('success'):
-            if feed_id:
-                exit_p = float(approx_exit) if approx_exit else None
-                profit = round((exit_p - entry_price) * qty, 2) if exit_p and entry_price else None
-                trade_feed.update_trade(feed_id,
-                    exit_price=exit_p,
-                    profit=profit,
-                    status='CLOSED',
-                    comment='Manual exit')
+            exit_order_id = str(result.get('exit', {}).get('order_id', ''))
+            if feed_id and exit_order_id:
+                # Store meta so WS listener can write the real fill price when TRADED fires
+                _set_exit_order_meta(exit_order_id, {
+                    'feed_id': feed_id,
+                    'entry_price': entry_price,
+                    'qty': qty,
+                })
+                logger.info(f"Exit order {exit_order_id} queued — awaiting WS fill for {underlying}")
+            elif feed_id:
+                # No order_id returned (dry-run / mock) — mark closed without price
+                trade_feed.update_trade(feed_id, status='CLOSED', comment='Manual exit')
 
         if result.get('success') and pre_state.get('side') in ('CALL', 'PUT'):
             _add_to_history({
@@ -1461,6 +1470,30 @@ def get_broker_orders():
     except Exception as e:
         logger.error(f"Orders Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/skip-trade', methods=['POST'])
+def skip_trade():
+    """
+    Called by Claude when it decides NOT to place an order for a received signal.
+    Marks the pending feed record as closed with the given reason.
+    Payload: { secret, underlying, reason }
+    """
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY').upper()
+    reason = data.get('reason', 'Skipped by AI')
+
+    feed_id = _get_pending_trade(underlying)
+    if feed_id:
+        trade_feed.update_trade(feed_id, status='CLOSED', comment=reason)
+        logger.info(f"Trade skipped for {underlying}: {reason}")
+    else:
+        logger.warning(f"/skip-trade: no pending feed record for {underlying}")
+
+    return jsonify({"status": "success", "feed_id": feed_id, "reason": reason}), 200
 
 
 @app.route('/trade-feed', methods=['POST'])
