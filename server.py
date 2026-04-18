@@ -126,24 +126,51 @@ _LEVELS_FILE = "levels.json"
 _CONTEXT_FILE = "ai_context.txt"
 _HISTORY_FILE = "trade_history.json"
 
+_HISTORY_KEY = "trade_history"
+
 def _load_history():
+    if redis_client:
+        try:
+            raw = redis_client.lrange(_HISTORY_KEY, 0, 49)
+            return [json.loads(r) for r in raw]
+        except Exception as e:
+            logger.error(f"Error loading history from Redis: {e}")
+    # Fallback to JSON file
     try:
         if os.path.exists(_HISTORY_FILE):
-             with open(_HISTORY_FILE) as f:
-                 return json.load(f)
-        return []
+            with open(_HISTORY_FILE) as f:
+                return json.load(f)
     except Exception as e:
-        logger.error(f"Error loading history: {e}")
-        return []
+        logger.error(f"Error loading history from file: {e}")
+    return []
 
 def _save_history(data):
+    if redis_client:
+        try:
+            pipe = redis_client.pipeline()
+            pipe.delete(_HISTORY_KEY)
+            for trade in data[-50:]:
+                pipe.rpush(_HISTORY_KEY, json.dumps(trade))
+            pipe.execute()
+            return
+        except Exception as e:
+            logger.error(f"Error saving history to Redis: {e}")
     try:
         with open(_HISTORY_FILE, 'w') as f:
-            json.dump(data[-50:], f) # Keep last 50 trades
+            json.dump(data[-50:], f)
     except Exception as e:
-        logger.error(f"Error saving history: {e}")
+        logger.error(f"Error saving history to file: {e}")
 
 def _add_to_history(trade):
+    if redis_client:
+        try:
+            pipe = redis_client.pipeline()
+            pipe.lpush(_HISTORY_KEY, json.dumps(trade))
+            pipe.ltrim(_HISTORY_KEY, 0, 49)
+            pipe.execute()
+            return
+        except Exception as e:
+            logger.error(f"Error appending trade to Redis history: {e}")
     history = _load_history()
     history.append(trade)
     _save_history(history)
@@ -235,12 +262,22 @@ def dhan_webhook():
         if not data:
             return jsonify({"status": "error", "message": "No data"}), 400
             
-        logger.info(f"📡 Dhan Webhook Received: {data.get('orderId')} - {data.get('orderStatus')}")
-        
-        # Route to SuperOrderEngine for processing fills/transitions
-        if super_order_engine:
-            super_order_engine.handle_order_update(data)
-            
+        order_id = data.get('orderId')
+        status = data.get('orderStatus')
+        avg_price = data.get('averageTradedPrice', 0)
+
+        logger.info(f"📡 Dhan Webhook: {order_id} - {status}")
+
+        if super_order_engine and order_id:
+            underlying = super_order_engine.find_underlying_by_order_id(order_id)
+            if underlying:
+                if status in ['TRADED', 'FILLED'] and avg_price:
+                    super_order_engine.update_entry_price(underlying, float(avg_price))
+                    logger.info(f"Webhook: entry_price updated for {underlying} → {avg_price}")
+                elif status in ['CANCELLED', 'REJECTED']:
+                    super_order_engine._clear_state(underlying)
+                    logger.info(f"Webhook: state cleared for {underlying} ({status})")
+
         return jsonify({"status": "received"}), 200
     except Exception as e:
         logger.error(f"Error processing Dhan Webhook: {e}")
@@ -306,8 +343,6 @@ def webhook():
     try:
         # Force JSON parsing even if Content-Type header is missing
         data = request.get_json(force=True, silent=True)
-        logger.info(f"DEBUG - Received Payload: {data}")
-        
         if not data:
             return jsonify({"status": "error", "message": "Invalid or missing JSON payload"}), 400
         
@@ -348,19 +383,40 @@ def webhook():
                  continue
             
             transaction_type = leg.get('transactionType')
-            
-            # 3. Deduplication Check
-            sig_key = f"{underlying}_{transaction_type}"
-            now = datetime.now()
-            with signal_memory_lock:
-                last_time = signal_memory.get(sig_key)
-                if last_time and (now - last_time).total_seconds() < 60:
-                    msg = f"DEDUPLICATED: Signal {transaction_type} for {underlying} ignored (occurred < 60s ago)"
-                    logger.info(msg)
-                    _add_activity_log(msg, "⏭️ ")
-                    results.append({"status": "ignored", "action": "DEDUPLICATED", "message": msg})
-                    continue
-                signal_memory[sig_key] = now
+            if not transaction_type:
+                logger.error(f"Missing transactionType for leg: {leg}")
+                results.append({"error": "Missing transactionType"})
+                failure_count += 1
+                continue
+
+            quantity = int(leg.get('quantity', 1))
+            if quantity <= 0:
+                logger.error(f"Invalid quantity {quantity} for leg: {leg}")
+                results.append({"error": "quantity must be > 0"})
+                failure_count += 1
+                continue
+
+            # 3. Deduplication Check (Redis atomic SET NX EX for multi-worker safety)
+            sig_key = f"dedup:{underlying}_{transaction_type}"
+            is_duplicate = False
+            if redis_client:
+                # SET NX EX: only sets if key absent; returns None if already exists
+                is_duplicate = not redis_client.set(sig_key, "1", nx=True, ex=60)
+            else:
+                now = datetime.now()
+                with signal_memory_lock:
+                    last_time = signal_memory.get(sig_key)
+                    if last_time and (now - last_time).total_seconds() < 60:
+                        is_duplicate = True
+                    else:
+                        signal_memory[sig_key] = now
+
+            if is_duplicate:
+                msg = f"DEDUPLICATED: Signal {transaction_type} for {underlying} ignored (< 60s ago)"
+                logger.info(msg)
+                _add_activity_log(msg, "⏭️ ")
+                results.append({"status": "ignored", "action": "DEDUPLICATED", "message": msg})
+                continue
 
             msg = f"Received Signal: {transaction_type} for {underlying} on {timeframe}m timeframe"
             logger.info(msg)
@@ -368,60 +424,61 @@ def webhook():
 
             # 4. Process with Ranking Engine (Index-Based)
             mode = leg.get('mode', data.get('mode', 'regular')).lower()
-            
-            # Resolve ITM context for engines
-            spot_index = resolve_index_spot(broker, underlying, leg)
-            itm_ce = resolve_call_itm(broker, underlying, spot_index)
-            itm_pe = resolve_put_itm(broker, underlying, spot_index)
-            
-            # Identify specific target instrument based on signal
-            target_side = 'CALL' if transaction_type in ['B', 'BUY', 'LONG'] else 'PUT' if transaction_type in ['S', 'SELL', 'SHORT'] else None
-            specific_itm = itm_ce if target_side == 'CALL' else itm_pe if target_side == 'PUT' else itm_ce # Fallback to CE for exits/crosses
-            
-            if not itm_ce or not itm_pe:
-                action = {"underlying": underlying, "action": "FAILED_CONTEXT_RESOLUTION", "reason": "Failed to resolve CE/PE ITM contracts"}
-            else:
-                leg_data = {
-                    "underlying": underlying,
-                    "target_side": target_side,
-                    "itm_ce": itm_ce,
-                    "itm_pe": itm_pe,
-                    "spot_index": spot_index,
-                    "timeframe": timeframe,
-                    "quantity": leg.get('quantity', 1),
-                    "transaction_type": transaction_type,
-                    "timestamp": datetime.now().isoformat()
-                }
-                
-                if AI_IN_THE_LOOP:
-                    # BROADCAST SSE EVENT TO ALL LISTENERS
-                    logger.info(f"AI-IN-THE-LOOP: Emitting signal event for {underlying}")
-                    last_signal_storage["data"] = leg_data
-                    
-                    current_listeners = 0
-                    with sse_lock:
-                        current_listeners = len(sse_clients)
-                        for q in sse_clients:
-                            try:
-                                # Per user request, we keep the put() operation as is.
-                                q.put(leg_data)
-                            except Exception as e:
-                                logger.error(f"Error pushing signal to SSE client: {e}")
-                    
-                    action = {"status": "success", "action": "SIGNAL_EMITTED", "message": f"Signal broadcast to {current_listeners} listeners"}
-                else:
-                    # DIRECT EXECUTION (Legacy/Automated)
-                    action = super_order_engine.process_signal(underlying, specific_itm, transaction_type, mode, leg_data)
+            is_buy = transaction_type in ['B', 'BUY', 'LONG']
+            is_sell = transaction_type in ['S', 'SELL', 'SHORT']
+            target_side = 'CALL' if is_buy else 'PUT' if is_sell else None
 
-                # Inject resolved context into leg data for response
-                leg['itm_ce'] = itm_ce
-                leg['itm_pe'] = itm_pe
-                leg['spot_index'] = spot_index
-            
+            # Pre-check state: exits don't need ITM resolution (0 API calls)
+            current_state = super_order_engine._get_state(underlying)
+            current_side = current_state.get('side', 'NONE')
+            is_exit = (is_sell and current_side == 'CALL') or (is_buy and current_side == 'PUT')
+
+            spot_index = 0
+            specific_itm = None
+
+            if not is_exit:
+                spot_index = resolve_index_spot(broker, underlying, leg)
+                specific_itm = resolve_call_itm(broker, underlying, spot_index) if is_buy else resolve_put_itm(broker, underlying, spot_index)
+                if not specific_itm:
+                    action = {"underlying": underlying, "action": "FAILED_CONTEXT_RESOLUTION", "reason": f"Failed to resolve {target_side} ITM contract"}
+                    results.append(action)
+                    failure_count += 1
+                    continue
+
+            leg_data = {
+                "underlying": underlying,
+                "target_side": target_side,
+                "itm": specific_itm,
+                "spot_index": spot_index,
+                "timeframe": timeframe,
+                "quantity": quantity,
+                "transaction_type": transaction_type,
+                "timestamp": datetime.now().isoformat()
+            }
+
+            if AI_IN_THE_LOOP:
+                logger.info(f"AI-IN-THE-LOOP: Emitting signal event for {underlying}")
+                last_signal_storage["data"] = leg_data
+
+                stale = []
+                with sse_lock:
+                    for q in sse_clients:
+                        try:
+                            q.put_nowait(leg_data)
+                        except queue.Full:
+                            stale.append(q)
+                    for q in stale:
+                        sse_clients.remove(q)
+                        logger.info(f"Removed stale SSE client. Active: {len(sse_clients)}")
+                    current_listeners = len(sse_clients)
+
+                action = {"status": "success", "action": "SIGNAL_EMITTED", "message": f"Signal broadcast to {current_listeners} listeners"}
+            else:
+                action = super_order_engine.process_signal(underlying, specific_itm, transaction_type, mode, leg_data)
+
             results.append(action)
-            
-            # Check for Logic Failures
-            if action.get('action', '').startswith("FAILED"):
+
+            if action.get('action', '').startswith("FAILED") or action.get('success') is False:
                 logger.error(f"Processing Failed for {underlying}: {action}")
                 failure_count += 1
 
@@ -438,103 +495,123 @@ def webhook():
 @app.route('/manual-exit', methods=['POST'])
 def manual_exit():
     """
-    Emergency Exit: Close all positions and reset ranks manually.
+    Kill switch: squares off all net-open positions and cancels every
+    pending/open order via the broker, then wipes all local engine state.
     """
-    if not broker or not super_order_engine:
+    if not broker:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
-        
+
     data = request.get_json(force=True, silent=True)
     if not data or data.get('secret') != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
-    
+
     try:
-        super_order_engine.manual_exit_all()
-        return jsonify({"status": "success", "message": "All positions closed and ranks reset successfully."}), 200
+        result = broker.kill_switch()
+
+        # Wipe all engine state so the bot starts clean
+        if redis_client:
+            try:
+                for pattern in ("state:*", "cond_state:*", "dedup:*"):
+                    keys = redis_client.keys(pattern)
+                    if keys:
+                        redis_client.delete(*keys)
+            except Exception as e:
+                logger.error(f"Kill Switch: Redis state wipe failed: {e}")
+        else:
+            if super_order_engine:
+                super_order_engine.memory_store.clear()
+            if conditional_engine:
+                conditional_engine.memory_store.clear()
+
+        n_sq = len(result.get('squaredoff', []))
+        n_cx = len(result.get('cancelled', []))
+        n_err = len(result.get('errors', []))
+        msg = f"Kill Switch: {n_sq} position(s) squared off, {n_cx} order(s) cancelled"
+        if n_err:
+            msg += f", {n_err} error(s)"
+        _add_activity_log(msg, "🔴 ")
+        logger.warning(f"KILL SWITCH ACTIVATED — {msg}")
+
+        status_code = 200 if not result.get('errors') else 207
+        return jsonify({"status": "success", "message": msg, "result": result}), status_code
+
     except Exception as e:
-        logger.error(f"Manual Exit Error: {e}")
+        logger.error(f"Kill Switch Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
 def _get_active_positions():
     """
-    Aggregates active positions across NIFTY, BANKNIFTY, and FINNIFTY.
-    Fetches live LTP for PnL calculation.
+    Returns active positions enriched with real fill prices from the broker.
+    Cross-references engine state (for SL/TGT context) with broker positions (for real buyAvg).
     """
-    if not broker or (not super_order_engine and not conditional_engine):
+    if not broker or not super_order_engine:
         return []
-    
-    indices = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
-    active_positions = []
-    
-    for underlying in indices:
-        try:
-            state = super_order_engine._get_state(underlying) if super_order_engine else {}
-            cond_state = conditional_engine._get_state(underlying) if conditional_engine else {}
-            
-            # Merge state conditionally
-            active_state = {}
-            if state and state.get('side', 'NONE') != 'NONE':
-                active_state = state.copy()
-            if cond_state and cond_state.get('side', 'NONE') != 'NONE':
-                active_state.update(cond_state)
 
-            if active_state and active_state.get('side', 'NONE') != 'NONE':
-                # Fetch LTP for the specific contract if symbol is present
-                symbol = active_state.get('symbol')
-                security_id = active_state.get('security_id')
-                entry_price = float(active_state.get('entry_price', 0))
-                qty = int(active_state.get('quantity', 0))
-                
-                # Fetch Live LTP
-                ltp = broker.get_ltp(security_id) if security_id else None
-                
-                # Calculate PnL only if LTP was successfully fetched
-                if ltp is not None:
-                    ltp = float(ltp)
-                    pnl_abs = (ltp - entry_price) * qty
-                    pnl_pct = ((ltp / entry_price) - 1) * 100 if entry_price > 0 else 0.0
-                    
-                    active_positions.append({
-                        "underlying": underlying,
-                        "symbol": symbol,
-                        "side": active_state.get('side'),
-                        "quantity": qty,
-                        "entry_price": entry_price,
-                        "ltp": ltp,
-                        "pnl_abs": round(pnl_abs, 2),
-                        "pnl_pct": round(pnl_pct, 2),
-                        "strike": active_state.get('strike'),
-                        "option_type": active_state.get('option_type'),
-                        "range_position": active_state.get('range_position', 'INSIDE'),
-                        "idx_target_level": cond_state.get('idx_target_level') or state.get('idx_target_level'),
-                        "idx_sl_level": cond_state.get('idx_sl_level') or state.get('idx_sl_level'),
-                        "tgt_price": state.get('tgt_price') or state.get('conditional_target_price') or cond_state.get('tgt_price'),
-                        "sl_price": state.get('sl_price') or state.get('conditional_sl_price') or cond_state.get('sl_price')
-                    })
-                else:
-                    # Fallback if LTP is missing: use last cached state if available 
-                    # but for now we just skip the PnL update to avoid showing 0.
-                    logger.warning(f"LTP unavailable for {symbol}, skipping PnL update.")
-                    active_positions.append({
-                        "underlying": underlying,
-                        "symbol": symbol,
-                        "side": active_state.get('side'),
-                        "quantity": qty,
-                        "entry_price": entry_price,
-                        "ltp": 0.0, # Visual indicator of stale price
-                        "pnl_abs": 0.0,
-                        "pnl_pct": 0.0,
-                        "strike": active_state.get('strike'),
-                        "option_type": active_state.get('option_type'),
-                        "range_position": active_state.get('range_position', 'INSIDE'),
-                        "idx_target_level": cond_state.get('idx_target_level') or state.get('idx_target_level'),
-                        "idx_sl_level": cond_state.get('idx_sl_level') or state.get('idx_sl_level'),
-                        "tgt_price": state.get('tgt_price') or state.get('conditional_target_price') or cond_state.get('tgt_price'),
-                        "sl_price": state.get('sl_price') or state.get('conditional_sl_price') or cond_state.get('sl_price')
-                    })
+    # Fetch real broker positions and index by securityId
+    try:
+        broker_positions = broker.get_positions() or []
+    except Exception as e:
+        logger.error(f"Failed to fetch broker positions: {e}")
+        broker_positions = []
+
+    pos_by_sec_id = {}
+    for pos in broker_positions:
+        sec_id = str(pos.get('securityId', ''))
+        if sec_id and int(pos.get('netQty', 0)) != 0:
+            pos_by_sec_id[sec_id] = pos
+
+    active_positions = []
+    for underlying in ["NIFTY", "BANKNIFTY", "FINNIFTY"]:
+        try:
+            state = super_order_engine._get_state(underlying)
+            if state.get('side', 'NONE') == 'NONE':
+                continue
+
+            sec_id = str(state.get('security_id', ''))
+            broker_pos = pos_by_sec_id.get(sec_id)
+
+            if broker_pos:
+                # Use real fill price from broker
+                entry_price = float(broker_pos.get('buyAvg') or broker_pos.get('sellAvg') or 0)
+                net_qty = abs(int(broker_pos.get('netQty', 0)))
+                unrealized_pnl = float(broker_pos.get('unrealizedProfit', 0))
+                # Back-fill entry_price into state if it was 0 (MARKET order not yet updated)
+                if entry_price > 0 and float(state.get('entry_price', 0)) == 0:
+                    state['entry_price'] = entry_price
+                    super_order_engine._set_state(underlying, state)
+            else:
+                entry_price = float(state.get('entry_price', 0))
+                net_qty = int(state.get('quantity', 0))
+                unrealized_pnl = 0.0
+
+            ltp_raw = broker.get_ltp(sec_id) if sec_id else None
+            ltp = float(ltp_raw) if ltp_raw else 0.0
+
+            if broker_pos:
+                pnl_abs = round(unrealized_pnl, 2)
+            elif ltp and entry_price:
+                pnl_abs = round((ltp - entry_price) * net_qty, 2)
+            else:
+                pnl_abs = 0.0
+
+            pnl_pct = round(((ltp / entry_price) - 1) * 100, 2) if entry_price > 0 and ltp > 0 else 0.0
+
+            active_positions.append({
+                "underlying": underlying,
+                "symbol": state.get('symbol'),
+                "side": state.get('side'),
+                "quantity": net_qty,
+                "entry_price": entry_price,
+                "ltp": ltp,
+                "pnl_abs": pnl_abs,
+                "pnl_pct": pnl_pct,
+                "sl_price": state.get('sl_price'),
+                "tgt_price": state.get('tgt_price'),
+            })
         except Exception as e:
             logger.error(f"Error fetching position for {underlying}: {e}")
-            
+
     return active_positions
 
 @app.route('/get-state', methods=['POST'])
@@ -550,62 +627,40 @@ def get_state():
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     
     try:
-        # Backward compatibility for single underlying requests
         underlying = data.get('underlying', 'NIFTY')
         state = super_order_engine._get_state(underlying)
-        
-        # New: Aggregate active positions for dashboard
         active_positions = _get_active_positions()
 
-        # Sector Mapping: Pair positions with UI cards
-        # We check if either engine state matches the position's side
-        current_pnl = 0
-        active_pos_details = None
-        
-        # Merge engine sides to find what the system THINKS is active
-        cond_state = conditional_engine._get_state(underlying) if conditional_engine else {}
-        system_active_side = state.get('side', 'NONE')
-        if system_active_side == 'NONE' and cond_state.get('side', 'NONE') != 'NONE':
-            system_active_side = cond_state.get('side')
+        # Find this underlying's position detail for the dashboard card
+        sector_details = next((p for p in active_positions if p.get('underlying') == underlying), None)
 
-        for pos in active_positions:
-            if pos.get('underlying') == underlying:
-                # If it matches our active side, it's the primary sector detail
-                if pos.get('side') == system_active_side:
-                    active_pos_details = pos
-                    current_pnl = pos.get('pnl_abs', 0)
-                    break
-                # Fallback: if we only have one position for this index, show it even if side mismatch
-                elif not active_pos_details:
-                    active_pos_details = pos
-
-        # NEW: Background Interlock Reconciliation
-        # If state claims a position is active, but it vanished from active_positions (meaning Broker executed a Native exiting leg like SL/Target),
-        # we must immediately rip down Conditional Index bounds to prevent naked short interlocking.
-        if state.get('side') in ['CALL', 'PUT'] and not active_pos_details:
-            logger.warning(f"Reconciliation: Broker shows no active position for {underlying}, but state says {state.get('side')}. Cleaning up...")
-            super_order_engine._cancel_active_conditional_orders(underlying, state)
+        # Reconciliation: broker has no open position but state says active → SL/Target hit natively
+        if state.get('side') in ['CALL', 'PUT'] and not sector_details:
+            logger.warning(f"Reconciliation: state says {state.get('side')} for {underlying} but broker shows no open position. Clearing.")
+            _add_to_history({
+                "underlying": underlying,
+                "symbol": state.get('symbol'),
+                "side": state.get('side'),
+                "entry_price": state.get('entry_price', 0),
+                "exit_price": None,
+                "pnl_abs": None,
+                "pnl_pct": None,
+                "exit_reason": "NATIVE_BO_HIT",
+                "timestamp": datetime.now().isoformat()
+            })
             super_order_engine._clear_state(underlying)
-            state = super_order_engine._get_state(underlying) # refresh the variable for UI response
+            state = super_order_engine._get_state(underlying)
 
-        # New: Global Range Status for major indices
-        range_tracker = {}
-        for idx in ["NIFTY", "BANKNIFTY"]:
-            idx_state = super_order_engine._get_state(idx)
-            range_tracker[idx] = idx_state.get('range_position', 'INSIDE')
-
-        # NEW: Capture any newly completed trades from mock broker
+        # Capture mock broker completed trades if running in test mode
         if hasattr(broker, 'get_completed_trades'):
-            recent_trades = broker.get_completed_trades()
-            for trade in recent_trades:
+            for trade in broker.get_completed_trades():
                 _add_to_history(trade)
 
         return jsonify({
-            "status": "success", 
+            "status": "success",
             "state": state,
             "active_positions": active_positions,
-            "sector_details": active_pos_details, # For in-card P&L
-            "range_tracker": range_tracker
+            "sector_details": sector_details,
         }), 200
     except Exception as e:
         logger.error(f"Get State Error: {e}")
@@ -1043,7 +1098,8 @@ def set_conditional_index_orders():
 @app.route('/super-order', methods=['POST'])
 def set_super_order():
     """
-    Places a Premium-based Super Order (Bracket).
+    Places a Native Super Order (Bracket) with absolute target/SL prices.
+    Intended for AI (Claude MCP) and direct API calls.
     """
     if not broker or not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
@@ -1051,48 +1107,36 @@ def set_super_order():
     data = request.get_json(force=True, silent=True)
     if not data or data.get('secret') != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
-    
+
     underlying = data.get('underlying', 'NIFTY').upper()
-    option = data.get('option')
-    signal_dir = data.get('side', 'CALL').upper() if not option else ''
+    side = data.get('side', 'CALL').upper()       # CALL or PUT
     target = data.get('target_price')
     sl = data.get('sl_price')
-    quantity = data.get('quantity', 1)
+    quantity = int(data.get('quantity', 1))
 
     if not target or not sl:
-         return jsonify({"status": "error", "message": "Premium Target and SL are required for Super Orders"}), 400
+        return jsonify({"status": "error", "message": "target_price and sl_price are required"}), 400
+    if quantity <= 0:
+        return jsonify({"status": "error", "message": "quantity must be > 0"}), 400
+    if side not in ('CALL', 'PUT'):
+        return jsonify({"status": "error", "message": "side must be CALL or PUT"}), 400
 
     try:
-        # 1. Resolve Signal Context (Move intelligence to Server)
         spot_index = resolve_index_spot(broker, underlying, data)
-        itm_ce = resolve_call_itm(broker, underlying, spot_index)
-        itm_pe = resolve_put_itm(broker, underlying, spot_index)
-        
-        if not itm_ce or not itm_pe:
-            return jsonify({"status": "error", "message": "Failed to resolve ITM contract or Index ID"}), 400
+        itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
+        if not itm:
+            return jsonify({"status": "error", "message": f"Failed to resolve {side} ITM contract for {underlying}"}), 400
 
-        # Identify side using exact logic moved from engine
-        target_side = 'CALL' if signal_dir == 'B' else 'PUT'
-        itm = itm_ce if target_side == 'CALL' else itm_pe
-        
-        # Resolve ITM Option and place Super Order via super_order_engine logic
-        leg_data = {
-            "underlying": underlying,
-            "target_side": target_side,
-            "itm_ce": itm_ce,
-            "itm_pe": itm_pe,
-            "spot_index": spot_index,
-            "quantity": int(quantity),
-            "sl_price": float(sl),
-            "target_price": float(target),
-            "force_super": True
-        }
-        if option:
-            leg_data["option_symbol"] = option
-            
-        # Execute Signal
-        result = super_order_engine.process_signal(underlying, itm, signal_dir, 'regular', leg_data)
-        return jsonify({"status": "success", "result": result}), 200
+        result = super_order_engine.place_super_order(
+            underlying=underlying,
+            side=side,
+            quantity=quantity,
+            itm=itm,
+            target_price=float(target),
+            stop_loss_price=float(sl),
+        )
+        code = 200 if result.get('success') else 400
+        return jsonify(result), code
     except Exception as e:
         logger.error(f"Super Order Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -1119,29 +1163,138 @@ def update_super_order():
 
     try:
         state = super_order_engine._get_state(underlying)
-        if not state or not state.get('is_super_order'):
-            return jsonify({"status": "error", "message": "No active Super Order found for underlying"}), 400
-            
         entry_id = state.get('entry_id')
-        if not entry_id:
-            return jsonify({"status": "error", "message": "No entry ID found in state"}), 400
-            
-        # Update Target
+        if not entry_id or state.get('side', 'NONE') == 'NONE':
+            return jsonify({"status": "error", "message": "No active Super Order found for underlying"}), 400
+
         target_res = {"success": True}
         if target:
-            # We assume modify_super_target_leg accepts parent order id which internally modifies target leg
             broker.modify_super_target_leg(entry_id, float(target))
             target_res["modified"] = True
-            
-        # Update SL
+
         sl_res = {"success": True}
         if sl:
             broker.modify_super_sl_leg(entry_id, float(sl), 1.0)
             sl_res["modified"] = True
-            
+
         return jsonify({"status": "success", "target_update": target_res, "sl_update": sl_res}), 200
     except Exception as e:
         logger.error(f"Update Super Order Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/cancel-super-order', methods=['POST'])
+def cancel_super_order():
+    """Cancels the pending (unfilled) entry leg of an active Super Order."""
+    if not broker or not super_order_engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY').upper()
+    try:
+        result = super_order_engine.cancel_super_order(underlying)
+        code = 200 if result.get('success') else 400
+        return jsonify(result), code
+    except Exception as e:
+        logger.error(f"Cancel Super Order Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/exit-super-order', methods=['POST'])
+def exit_super_order():
+    """Exits (squares off) an active Super Order position at market price."""
+    if not broker or not super_order_engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY').upper()
+    try:
+        # Capture state before exit for history recording
+        pre_state = super_order_engine._get_state(underlying)
+        result = super_order_engine.exit_super_order(underlying)
+        if result.get('success') and pre_state.get('side') in ('CALL', 'PUT'):
+            _add_to_history({
+                "underlying": underlying,
+                "symbol": pre_state.get('symbol'),
+                "side": pre_state.get('side'),
+                "entry_price": pre_state.get('entry_price', 0),
+                "exit_price": None,
+                "pnl_abs": None,
+                "pnl_pct": None,
+                "exit_reason": "MANUAL_EXIT",
+                "timestamp": datetime.now().isoformat()
+            })
+        code = 200 if result.get('success') else 400
+        return jsonify(result), code
+    except Exception as e:
+        logger.error(f"Exit Super Order Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/exit-conditional-order', methods=['POST'])
+def exit_conditional_order():
+    """Exits (squares off) an active Conditional Order position at market price."""
+    if not broker or not conditional_engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY').upper()
+    try:
+        state = conditional_engine._get_state(underlying)
+        side = state.get('side', 'NONE')
+        if side == 'NONE':
+            return jsonify({"status": "error", "message": f"No active conditional position for {underlying}"}), 400
+        exit_signal = 'LONG_EXIT' if side == 'CALL' else 'SHORT_EXIT'
+        result = conditional_engine.handle_signal(exit_signal, {'underlying': underlying})
+        code = 200 if result.get('status') == 'success' else 400
+        return jsonify(result), code
+    except Exception as e:
+        logger.error(f"Exit Conditional Order Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/positions', methods=['POST'])
+def get_broker_positions():
+    """Returns all current open positions from Dhan."""
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    try:
+        positions = broker.get_positions()
+        return jsonify({"status": "success", "positions": positions}), 200
+    except Exception as e:
+        logger.error(f"Positions Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/orders', methods=['POST'])
+def get_broker_orders():
+    """Returns the full order book from Dhan."""
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    try:
+        orders = broker.get_all_orders()
+        return jsonify({"status": "success", "orders": orders}), 200
+    except Exception as e:
+        logger.error(f"Orders Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

@@ -74,41 +74,13 @@ class SuperOrderEngine:
                 logger.error(f"Redis log failed: {e}")
 
     # --- 1. Place Native Super Order ---
-    def place_super_order(self, underlying, side, quantity, itm, target_val=None, sl_val=None, trailing_val=None, entry_price=None, mode='MARKET'):
+    def place_super_order(self, underlying, side, quantity, itm, target_price, stop_loss_price, trailing_jump=1.0, entry_price=0, mode='MARKET'):
         """
         Calculates levels and places a Native Super Order using the provided instrument (itm).
-        If values are < 100, they are treated as % of LTP.
+        Expects actual absolute prices for target_price, stop_loss_price, and entry_price.
         """
         symbol = itm['symbol']
         sec_id = itm['security_id']
-        ltp = self.broker.get_ltp(sec_id)
-        if not ltp:
-            return {"success": False, "error": f"Could not fetch LTP for {symbol}"}
-
-        # Calculate Levels
-        ref = entry_price if entry_price else ltp
-        
-        # If vals are small, treat as %, else absolute
-        def resolve_val(val, ref_price, is_sl=False):
-            if val is None:
-                cfg = self.configs.get("DEFAULT")
-                val = cfg['sl'] if is_sl else cfg['target']
-            
-            if val < 100: # Treat as %
-                if is_sl: return round(ref_price * (1 - val/100), 1)
-                else: return round(ref_price * (1 + val/100), 1)
-            return val
-
-        sl_price = resolve_val(sl_val, ref, is_sl=True)
-        tgt_price = resolve_val(target_val, ref, is_sl=False)
-        
-        # Trailing
-        if trailing_val is None:
-            trailing_val = self.configs["DEFAULT"]["trailing"]
-        if trailing_val < 50: # Treat as %
-            trailing_jump = round(ref * (trailing_val/100), 1)
-        else:
-            trailing_jump = trailing_val
         
         # Final Payload update
         leg_data = {
@@ -116,10 +88,10 @@ class SuperOrderEngine:
             'security_id': sec_id,
             'quantity': quantity,
             'order_type': mode,
-            'price': entry_price if mode == 'LIMIT' else 0,
-            'target_price': tgt_price,
-            'stop_loss_price': sl_price,
-            'trailing_jump': trailing_jump
+            'price': float(entry_price) if mode == 'LIMIT' else 0.0,
+            'target_price': float(target_price),
+            'stop_loss_price': float(stop_loss_price),
+            'trailing_jump': float(trailing_jump)
         }
         
         resp = self.broker.place_super_order(symbol, leg_data)
@@ -132,12 +104,12 @@ class SuperOrderEngine:
                 'security_id': sec_id,
                 'sl_id': "NATIVE_BO",
                 'tgt_id': "NATIVE_BO",
-                'sl_price': sl_price,
-                'tgt_price': tgt_price,
+                'sl_price': stop_loss_price,
+                'tgt_price': target_price,
                 'quantity': quantity
             }
             self._set_state(underlying, state)
-            msg = f"Native Super Order: {symbol} at ~{ref}. SL: {sl_price}, TGT: {tgt_price}"
+            msg = f"Native Super Order: {symbol} at ~{entry_price}. SL: {stop_loss_price}, TGT: {target_price}"
             self._add_activity_log(msg, "🚀 ")
             return {"success": True, "order_id": order_id, "state": state}
         
@@ -215,55 +187,69 @@ class SuperOrderEngine:
         return {"success": True, "exit": exit_resp}
 
     # --- Signal Router ---
-    def process_signal(self, underlying, signal_type, mode='MARKET', leg_data=None):
-        """Main entry point for signals."""
+    def process_signal(self, underlying, itm, signal_type, mode='MARKET', leg_data=None):
+        """
+        Main entry point for signals.
+        itm: pre-resolved ITM contract dict from server (skips internal resolution).
+        """
         state = self._get_state(underlying)
         current_side = state.get('side', 'NONE')
-        
+        leg_data = leg_data or {}
+
         # 1. Handle Exits (Opposite Signal)
         if (signal_type == 'S' and current_side == 'CALL') or (signal_type == 'B' and current_side == 'PUT'):
             logger.info(f"Signal: OPPOSITE for {underlying}. Exiting existing state.")
             return self.exit_super_order(underlying)
-            
+
         # 2. Handle Entries
         if signal_type in ['B', 'S'] and current_side == 'NONE':
             side = 'CALL' if signal_type == 'B' else 'PUT'
-            
-            # Resolve Instrument here
-            spot_price = self.broker.get_ltp(underlying)
-            if not spot_price:
-                return {"success": False, "error": "Could not fetch spot price"}
-                
-            itm = self.broker.get_itm_contract(underlying, side, spot_price)
+
             if not itm:
-                return {"success": False, "error": "Could not select ITM contract"}
-                
-            return self.place_super_order(underlying, side, leg_data.get('quantity', 1), itm, mode=mode)
-            
+                return {"success": False, "error": "ITM contract not provided"}
+
+            # Fetch LTP for the pre-resolved ITM contract
+            ltp = self.broker.get_ltp(itm['security_id'])
+            if not ltp:
+                return {"success": False, "error": "Could not fetch LTP for ITM contract"}
+
+            target_val = leg_data.get('target') or self.configs["DEFAULT"]["target"]
+            sl_val = leg_data.get('sl') or self.configs["DEFAULT"]["sl"]
+            trailing_val = leg_data.get('trailing') or self.configs["DEFAULT"]["trailing"]
+
+            def calc_abs(val, ref_price, is_sl=False):
+                if val < 100:
+                    return round(ref_price * (1 - val / 100), 1) if is_sl else round(ref_price * (1 + val / 100), 1)
+                return val
+
+            tgt_price = calc_abs(target_val, ltp, is_sl=False)
+            sl_price = calc_abs(sl_val, ltp, is_sl=True)
+            trailing_jump = round(ltp * (trailing_val / 100), 1) if trailing_val < 50 else trailing_val
+            entry_price = leg_data.get('entry_price', 0)
+
+            return self.place_super_order(
+                underlying, side, leg_data.get('quantity', 1), itm,
+                target_price=tgt_price, stop_loss_price=sl_price,
+                trailing_jump=trailing_jump, entry_price=entry_price, mode=mode
+            )
+
         return {"action": "NONE", "reason": "Already in position or no action needed"}
 
-    def handle_order_update(self, payload):
-        """Handles webhooks to clear state on exit."""
-        order_id = payload.get('orderId')
-        status = payload.get('orderStatus')
-        
-        if status in ['TRADED', 'FILLED']:
-            # For Native BO, if SL or TGT is filled, we should clear state
-            self._check_and_clear_on_fill(order_id)
-        elif status in ['CANCELLED', 'REJECTED']:
-            self._check_and_clear_on_fill(order_id)
-            
-    def _check_and_clear_on_fill(self, order_id):
-        # Scan active states
-        keys = []
+    def find_underlying_by_order_id(self, order_id):
+        """Returns the underlying name whose state has the given entry_id, or None."""
         if self.use_redis:
             keys = self.r.keys("state:*")
         else:
             keys = [k for k in self.memory_store.keys() if k.startswith("state:")]
-            
         for k in keys:
-            u = k.split(":")[1] if ":" in k else k
+            u = k.split(":", 1)[1] if ":" in k else k
             s = self._get_state(u)
             if s.get('entry_id') == order_id:
-                logger.info(f"Webhook Clean: Clearing state for {u} due to order {order_id}")
-                self._clear_state(u)
+                return u
+        return None
+
+    def update_entry_price(self, underlying, price):
+        """Stores the fill price into state (called by dhan-webhook on TRADED)."""
+        state = self._get_state(underlying)
+        state['entry_price'] = price
+        self._set_state(underlying, state)

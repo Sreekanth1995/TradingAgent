@@ -53,7 +53,6 @@ class DhanClient:
         
         if self.r:
             try:
-                # Test connection and load cached token
                 cached_token = self.r.get("dhan_access_token")
                 if cached_token:
                     self.access_token = cached_token
@@ -63,8 +62,34 @@ class DhanClient:
         else:
             logger.warning("Redis client not provided to DhanClient. Persistence disabled.")
 
+        self.dry_run = os.getenv("DRY_RUN", "false").lower() == "true"
+        self.scrip_map = {}
+        self.lot_map = {}
+        self.exact_symbol_map = {}
+        self.scrip_loaded = False
+
+        # Load Scrip Master in background thread to prevent startup timeout
+        def load_scrip_background():
+            try:
+                self._load_scrip_master()
+                self.scrip_loaded = True
+                logger.info("✅ Scrip Master loaded successfully in background")
+            except Exception as e:
+                logger.error(f"Failed to load Scrip Master: {e}")
+
+        threading.Thread(target=load_scrip_background, daemon=True).start()
+
+        self.dhan = None
+        if self.client_id and self.access_token and DHAN_AVAILABLE:
+            if not self.dry_run:
+                self.dhan = dhanhq(self.client_id, self.access_token)
+        elif not DHAN_AVAILABLE:
+            logger.warning("dhanhq library not found. Install with `pip install dhanhq`.")
+        else:
+            logger.warning("No Dhan credentials found. Running in SIMULATION mode.")
+
     def save_access_token(self, token):
-        """Persists the access token to Redis for cross-worker synchronization."""
+        """Persists the access token to Redis and reinitializes the broker client."""
         self.access_token = token
         if self.r:
             try:
@@ -73,36 +98,10 @@ class DhanClient:
             except Exception as e:
                 logger.error(f"Failed to save token to Redis: {e}")
 
-        self.dry_run = os.getenv("DRY_RUN", "false").lower() == "true"
-        self.dhan = None
-        self.scrip_map = {} # (symbol, strike, opt_type, expiry_date) -> security_id
-        self.lot_map = {}   # security_id -> lot_size (int)
-        self.exact_symbol_map = {} # tradingSymbol -> dict of details
-
-        
-        # Load Scrip Master in background thread to prevent Railway startup timeout
-        self.scrip_loaded = False
-        import threading
-        def load_scrip_background():
-            try:
-                self._load_scrip_master()
-                self.scrip_loaded = True
-                logger.info("✅ Scrip Master loaded successfully in background")
-            except Exception as e:
-                logger.error(f"Failed to load Scrip Master: {e}")
-        
-        # Start background download immediately
-        threading.Thread(target=load_scrip_background, daemon=True).start()
-
-        if self.client_id and self.access_token and DHAN_AVAILABLE:
-            if self.dry_run:
-                self.dhan = None
-            else:
-                self.dhan = dhanhq(self.client_id, self.access_token)
-        elif not DHAN_AVAILABLE:
-            logger.warning("dhanhq library not found. Install with `pip install dhanhq`.")
-        else:
-            logger.warning("No Dhan credentials found. Running in SIMULATION mode.")
+        # Reinitialize broker client with the new token
+        if self.client_id and DHAN_AVAILABLE and not self.dry_run:
+            self.dhan = dhanhq(self.client_id, self.access_token)
+            logger.info("✅ Dhan client reinitialized with new token.")
 
     def get_index_id(self, symbol):
         """Returns standard Dhan Security ID for indices."""
@@ -719,6 +718,110 @@ class DhanClient:
                 return []
         return []
 
+    def get_all_orders(self):
+        """Fetches the full order book from Dhan."""
+        if self.dry_run:
+            return []
+        if not self.dhan:
+            return []
+        try:
+            resp = self.dhan.get_order_list()
+            if resp.get('status') == 'success':
+                return resp.get('data', [])
+            if resp.get('errorCode') == 'DH-901' or 'Unauthorized' in str(resp):
+                logger.warning("Get Orders: 401 Unauthorized. Syncing token...")
+                if self._sync_token_from_redis():
+                    resp = self.dhan.get_order_list()
+                    return resp.get('data', []) if resp.get('status') == 'success' else []
+            logger.error(f"Failed to fetch order list: {resp}")
+            return []
+        except Exception as e:
+            logger.error(f"Exception fetching order list: {e}")
+            return []
+
+    def kill_switch(self):
+        """
+        Emergency kill switch.
+        Step 1 — square off every net-open position with a market order.
+        Step 2 — cancel every TRANSIT / PENDING / PART_TRADED order.
+        Returns a result summary dict.
+        """
+        CANCELLABLE = {"TRANSIT", "PENDING", "PART_TRADED"}
+        results = {"squaredoff": [], "cancelled": [], "errors": []}
+
+        # --- Step 1: Square off positions ---
+        try:
+            positions = self.get_positions()
+            for pos in positions:
+                net_qty = int(pos.get('netQty', 0))
+                if net_qty == 0:
+                    continue
+
+                sec_id = pos.get('securityId')
+                exchange_seg = pos.get('exchangeSegment', ExchangeSegment.NSE_FNO)
+                product_type = pos.get('productType', ProductType.INTRADAY)
+                symbol = pos.get('tradingSymbol', sec_id)
+                txn_type = TransactionType.SELL if net_qty > 0 else TransactionType.BUY
+                qty = abs(net_qty)
+
+                logger.warning(f"Kill Switch: Squaring off {txn_type} {qty} × {symbol}")
+
+                if self.dhan and not self.dry_run:
+                    try:
+                        resp = self.dhan.place_order(
+                            security_id=sec_id,
+                            exchange_segment=exchange_seg,
+                            transaction_type=txn_type,
+                            quantity=qty,
+                            order_type=OrderType.MARKET,
+                            product_type=product_type,
+                            price=0.0
+                        )
+                        if resp.get('status') == 'success':
+                            results["squaredoff"].append({"symbol": symbol, "qty": qty, "side": txn_type})
+                        else:
+                            err = f"Squareoff failed for {symbol}: {resp.get('remarks', resp)}"
+                            logger.error(err)
+                            results["errors"].append(err)
+                    except Exception as e:
+                        err = f"Exception squaring off {symbol}: {e}"
+                        logger.error(err)
+                        results["errors"].append(err)
+                else:
+                    results["squaredoff"].append({"symbol": symbol, "qty": qty, "side": txn_type, "mock": True})
+
+        except Exception as e:
+            err = f"Position fetch failed: {e}"
+            logger.error(f"Kill Switch: {err}")
+            results["errors"].append(err)
+
+        # --- Step 2: Cancel all open/pending orders ---
+        try:
+            orders = self.get_all_orders()
+            for order in orders:
+                if order.get('orderStatus') not in CANCELLABLE:
+                    continue
+                order_id = order.get('orderId')
+                symbol = order.get('tradingSymbol', order_id)
+                logger.warning(f"Kill Switch: Cancelling order {order_id} ({symbol})")
+                resp = self.cancel_order(order_id)
+                if resp.get('success'):
+                    results["cancelled"].append({"order_id": order_id, "symbol": symbol})
+                else:
+                    err = f"Cancel failed for {order_id}: {resp.get('error')}"
+                    logger.error(err)
+                    results["errors"].append(err)
+        except Exception as e:
+            err = f"Order cancel sweep failed: {e}"
+            logger.error(f"Kill Switch: {err}")
+            results["errors"].append(err)
+
+        logger.warning(
+            f"Kill Switch complete — squared_off={len(results['squaredoff'])}, "
+            f"cancelled={len(results['cancelled'])}, errors={len(results['errors'])}"
+        )
+        return results
+
     def get_order_status(self, order_id):
         """
         Retrieves order status and details. Handles both SDK dict and raw list responses.
@@ -1144,11 +1247,12 @@ class DhanClient:
         # Validate prices: If they are Index prices (e.g. > 10000) for an Option order, reject.
         # This prevents DH-905 errors due to incorrect fallback.
         try:
-             tp = float(target_price)
-             if tp > 10000 and len(str(sec_id)) >= 5: # Likely option ID
-                 logger.error(f"ABNORMAL PRICE detected for Super Order: TGT={tp}. Likely Index spot passed to Option. REJECTING.")
-                 return {"success": False, "error": "Invalid Price: Index spot passed as Option price"}
-        except: pass
+            tp = float(target_price)
+            if tp > 10000 and len(str(sec_id)) >= 5:
+                logger.error(f"ABNORMAL PRICE detected for Super Order: TGT={tp}. Likely Index spot passed to Option. REJECTING.")
+                return {"success": False, "error": "Invalid Price: Index spot passed as Option price"}
+        except (TypeError, ValueError) as e:
+            logger.warning(f"Price validation skipped — could not cast target_price to float: {e}")
 
         # Round all prices to 0.05 tick size
         price = self._round_to_tick(price)

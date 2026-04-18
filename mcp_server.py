@@ -1,349 +1,263 @@
 import os
 import httpx
-import json
 from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Initialize FastMCP Server
 mcp = FastMCP("TradingAgent_AI_Bridge")
 
-# Configuration
 SECRET = os.getenv("WEBHOOK_SECRET")
-# Target points to Production VPS by default
 BASE_URL = os.getenv("TRADING_AGENT_URL", "http://65.20.83.74")
 
-async def call_api(endpoint: str, data: dict = None, method: str = "POST"):
-    """Internal helper to communicate with the TradingAgent Flask server."""
-    if data is None:
-        data = {}
-    data["secret"] = SECRET
-    
-    async with httpx.AsyncClient(timeout=10.0) as client:
+
+async def _call(endpoint: str, data: dict = None, method: str = "POST"):
+    """HTTP helper — injects secret and calls the Flask server."""
+    payload = dict(data or {})
+    payload["secret"] = SECRET
+    async with httpx.AsyncClient(timeout=15.0) as client:
         try:
             if method == "POST":
-                response = await client.post(f"{BASE_URL}{endpoint}", json=data)
+                resp = await client.post(f"{BASE_URL}{endpoint}", json=payload)
             else:
-                response = await client.get(f"{BASE_URL}{endpoint}", params=data)
-            
-            response.raise_for_status()
-            return response.json()
+                resp = await client.get(f"{BASE_URL}{endpoint}", params=payload)
+            resp.raise_for_status()
+            return resp.json()
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-@mcp.tool()
-async def get_trading_status(underlying: str = "NIFTY"):
-    """
-    Get the current trading status, including active positions, current trend, 
-    and NIFTY/BANKNIFTY range positions.
-    Active positions include boundary fields if set: `tgt_price`, `sl_price` 
-    for premium protective orders, or `idx_target_level`, `idx_sl_level` for 
-    Index-based Conditional GTT orders.
-    
-    IMPORTANT: The state object contains a `range_timestamp`. This timestamp points
-    to the exact time the price changed direction. You must compare this timestamp with
-    your previously cached timestamp. ONLY read the chart again if this timestamp has changed.
-    """
-    return await call_api("/get-state", {"underlying": underlying})
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SUPER ORDER TOOLS  (Premium-based Native Bracket Orders)
+# ─────────────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
-async def get_ltp(instrument: str = "NIFTY"):
-    """
-    Fetch the current Last Traded Price (LTP) for a specific index or security ID.
-    
-    Args:
-        instrument: Symbol name (NIFTY, BANKNIFTY) or Security ID (e.g., 100).
-    """
-    return await call_api("/get-ltp", {"instrument": instrument})
-
-@mcp.tool()
-async def get_itm_option(underlying: str = "NIFTY", side: str = "CE", spot_index: float = None):
-    """
-    Resolve the current ITM (In-The-Money) option contract for a given underlying and side.
-
-    Use this BEFORE placing any super order or margin query to get the exact
-    option symbol and security_id for the nearest ITM strike.
-
-    Lot sizes for reference:
-        NIFTY    = 75 units/lot   (step 50)
-        BANKNIFTY = 15 units/lot  (step 100)
-        FINNIFTY  = 40 units/lot  (step 50)
-
-    Args:
-        underlying:  Index symbol — NIFTY, BANKNIFTY, or FINNIFTY (default: NIFTY)
-        side:        Option type — CE (Call/bullish) or PE (Put/bearish) (default: CE)
-        spot_index:  Optional current spot price. If omitted the server fetches it live.
-
-    Returns:
-        security_id, symbol, strike, expiry, spot_index
-    """
-    payload = {"underlying": underlying, "side": side}
-    if spot_index is not None:
-        payload["spot_index"] = spot_index
-    return await call_api("/get-itm", payload)
-
-@mcp.tool()
-async def place_conditional_order(action: str, underlying: str = "NIFTY", quantity: int = 1, spot_index: float = None, sl_index: float = None, target_index: float = None):
-    """
-    Manually place a trade order (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL).
-    SL and Target are mandatory for CALL/PUT.
-    
-    Acceptance Criteria 1: Passing sl_index and target_index will automatically 
-    attach Index-based GTT protection to the new position.
-    
-    Args:
-        action: The trade action (CALL, PUT, EXIT_CALL, EXIT_PUT, EXIT_ALL)
-        underlying: The symbol to trade (NIFTY, BANKNIFTY)
-        quantity: Order quantity (default: 1 lot)
-        sl_price: Optional Premium SL (Legacy)
-        target_price: Optional Premium Target (Legacy)
-        sl_index: [REQUIRED] Index SL level (e.g., 23430). Must be < entry for BUY.
-        target_index: [REQUIRED] Index Target level (e.g., 23550).
-    """
-    return await call_api("/conditional-order", {
-        "action": action, 
-        "underlying": underlying, 
-        "quantity": quantity,
-        "spot_index": spot_index,
-        "sl_index": sl_index,
-        "target_index": target_index
-    })
-
-@mcp.tool()
-async def modify_index_gtt_levels(underlying: str, idx_target_level: float, idx_sl_level: float, quantity: int = None):
-    """
-    Set or update GTT triggers for an active NIFTY/BANKNIFTY position.
-    Triggers SELL on Option when Price crosses index level.
-
-    Args:
-        underlying: Symbol (NIFTY, BANKNIFTY)
-        idx_target_level: [REQUIRED] Index level for target exit (e.g., 23550.50)
-        idx_sl_level: [REQUIRED] Index level for stop loss exit (e.g., 23400.00)
-        quantity: Optional lot quantity (defaults to active position size)
-    """
-    return await call_api("/conditional-index-order", {
-        "underlying": underlying,
-        "idx_target_level": idx_target_level,
-        "idx_sl_level": idx_sl_level,
-        "quantity": quantity
-    })
-
-@mcp.tool()
-async def place_super_order(underlying: str, option: str, spot_price: float, target_price: float, sl_price: float, quantity: int = 1):
-    """
-    Places a Premium-based Super Order (Bracket Order).
-    The broker handles SL/Target natively as legs of the entry order.
-    
-    Args:
-        underlying: Symbol (NIFTY, BANKNIFTY)
-        option: The direct exact option symbol to trade (e.g. NIFTY24APR22500CE)
-        target_price: [REQUIRED] Premium target (e.g., 240)
-        sl_price: [REQUIRED] Premium SL (e.g., 140)
-        quantity: Lot size
-    """
-    return await call_api("/super-order", {
-        "underlying": underlying,
-        "option": option,
-        "spot_price": spot_price,
-        "target_price": target_price,
-        "sl_price": sl_price,
-        "quantity": quantity
-    })
-
-@mcp.tool()
-async def modify_super_order(underlying: str, tgt_price: float, sl_price: float):
-    """
-    Updates the target and sl legs of an active Premium-based Super Order natively.
-
-    Args:
-        underlying: Symbol (NIFTY, BANKNIFTY)
-        tgt_price: [REQUIRED] The new premium price level for target exit (e.g., 240.25)
-        sl_price: [REQUIRED] The new premium price level for stop loss exit (e.g., 150.00)
-    """
-    return await call_api("/update-super-order", {
-        "underlying": underlying,
-        "tgt_price": tgt_price,
-        "sl_price": sl_price
-    })
-
-@mcp.tool()
-async def cancel_target_stoploss(underlying: str = "NIFTY"):
-    """
-    Cancel all active GTT conditional orders for a given underlying.
-    """
-    return await call_api("/cancel-conditional-orders", {"underlying": underlying})
-
-@mcp.tool()
-async def get_fund_limits():
-    """
-    Retrieve the current available fund limits from Dhan.
-    Returns availableBalance, utilizedAmount, and withdrawableBalance.
-    """
-    # Note: Using POST internal proxy to manage SECRET safely
-    return await call_api("/fundlimit", method="POST")
-
-@mcp.tool()
-async def get_margin_requirement(security_id: str, exchange_segment: str, transaction_type: str, quantity: int, price: float = 0.0, product_type: str = "INTRADAY"):
-    """
-    Calculate the margin required for a specific order before placement.
-
-    ⚠️  IMPORTANT — Options Buying Capital Check:
-    For buying NIFTY/BANKNIFTY option contracts the required capital is simply:
-        premium_price × lot_size × quantity
-    Use `calculate_options_buy_cost` for that instead — it returns the correct
-    number without an API call.
-
-    This tool is for SELLING options or for equity/futures margin queries where
-    Dhan's margin API is meaningful.  Passing the INDEX security_id (e.g. '13'
-    for NIFTY or '25' for BANKNIFTY) will always return zeros because the index
-    itself is not a tradeable contract — you must pass the OPTION CONTRACT's
-    security_id (obtained from the scrip master or instrument resolver).
-    
-    Args:
-        security_id: Dhan Security ID of the OPTION CONTRACT (not the index).
-        exchange_segment: NSE_FNO, NSE_EQ, etc.
-        transaction_type: BUY or SELL
-        quantity: Order quantity (number of lots × lot_size)
-        price: Limit price (0 for MARKET)
-        product_type: INTRADAY, MARGIN, CNC, etc. (Default: INTRADAY)
-    """
-    payload = {
-        "security_id": security_id,
-        "exchange_segment": exchange_segment,
-        "transaction_type": transaction_type,
-        "quantity": quantity,
-        "price": price,
-        "product_type": product_type
-    }
-    return await call_api("/margincalculator", data=payload)
-
-@mcp.tool()
-async def get_option_margin_requirement(
-    underlying: str = "NIFTY",
-    side: str = "CE",
+async def place_super_order(
+    underlying: str,
+    side: str,
+    target_price: float,
+    sl_price: float,
     quantity: int = 1,
-    transaction_type: str = "BUY",
-    product_type: str = "INTRADAY",
-    spot_index: float = None,
-    security_id: str = None,
+    option: str = None,
 ):
     """
-    All-in-one margin check for an option contract.
-
-    Resolves the nearest ITM option for the given underlying + side, then
-    queries Dhan's margin calculator — all in a single tool call.
+    Place a Premium-based Native Super Order (bracket order).
+    The broker manages the SL and Target legs natively.
 
     Args:
-        underlying:       Index symbol — NIFTY, BANKNIFTY, or FINNIFTY (default: NIFTY)
-        side:             CE (Call) or PE (Put) (default: CE)
-        quantity:         Number of lots (default: 1)
-        transaction_type: BUY or SELL (default: BUY)
-        product_type:     INTRADAY, MARGIN, or CNC (default: INTRADAY)
-        spot_index:       Optional current spot price. Omit to let the server
-                          fetch it live.
-        security_id:      Optional — if you already know the contract's
-                          security_id (from get_itm_option) pass it here to
-                          skip the resolution step.
-
-    Returns:
-        Resolved contract details (symbol, strike, expiry, security_id) plus
-        margin fields from Dhan: totalMarginRequired, spanMargin,
-        exposureMargin, and available_balance for a go/no-go decision.
+        underlying:   Index — NIFTY, BANKNIFTY, or FINNIFTY.
+        side:         CALL (bullish) or PUT (bearish).
+        target_price: Premium target price (e.g. 240.0).
+        sl_price:     Premium stop-loss price (e.g. 140.0).
+        quantity:     Number of lots (default 1).
+        option:       Optional exact option symbol to trade (e.g. NIFTY24APR22500CE).
+                      If omitted the server resolves the nearest ITM automatically.
     """
-    # ── Step 1: resolve security_id if not supplied ──────────────────────────
-    if not security_id:
-        itm_payload = {"underlying": underlying, "side": side}
-        if spot_index is not None:
-            itm_payload["spot_index"] = spot_index
+    return await _call("/super-order", {
+        "underlying": underlying,
+        "side": side,
+        "target_price": target_price,
+        "sl_price": sl_price,
+        "quantity": quantity,
+        "option": option,
+    })
 
-        itm = await call_api("/get-itm", itm_payload)
-        if itm.get("status") != "success":
-            return {
-                "status": "error",
-                "step": "itm_resolution",
-                "message": itm.get("message", "Failed to resolve ITM contract"),
-            }
-
-        security_id = itm.get("security_id")
-        resolved = {
-            "underlying": underlying,
-            "side": side,
-            "strike": itm.get("strike"),
-            "expiry": itm.get("expiry"),
-            "symbol": itm.get("symbol"),
-            "security_id": security_id,
-            "spot_index": itm.get("spot_index"),
-        }
-    else:
-        resolved = {
-            "underlying": underlying,
-            "side": side,
-            "security_id": security_id,
-        }
-
-    # ── Step 2: fetch LTP for the option ────────────────────────────────────
-    ltp_resp = await call_api("/get-ltp", {"instrument": security_id})
-    if ltp_resp.get("status") != "success":
-        return {"status": "error", "step": "ltp_fetch", "message": ltp_resp.get("message", "Failed to fetch LTP")}
-    premium = ltp_resp.get("ltp", 0)
-
-    # ── Step 3: calculate cost ───────────────────────────────────────────────
-    lot_map = {"NIFTY": 65, "BANKNIFTY": 15, "FINNIFTY": 40}
-    lot_size = lot_map.get(underlying.upper(), 65)
-    total_units = quantity * lot_size
-    per_lot_cost = round(premium * lot_size, 2)
-    total_required = round(per_lot_cost * quantity, 2)
-
-    # ── Step 4: fetch available balance for a go/no-go decision ─────────────
-    funds_resp = await call_api("/fundlimit", method="POST")
-    available_balance = None
-    if funds_resp.get("status") == "success":
-        funds_data = funds_resp.get("data", {})
-        available_balance = funds_data.get("availabelBalance") or funds_data.get("availableBalance")
-
-    can_trade = (available_balance is not None) and (available_balance >= total_required)
-
-    return {
-        "status": "success",
-        "contract": resolved,
-        "quantity_lots": quantity,
-        "lot_size": lot_size,
-        "total_units": total_units,
-        "premium": premium,
-        "per_lot_cost": per_lot_cost,
-        "total_required": total_required,
-        "transaction_type": transaction_type,
-        "product_type": product_type,
-        "funds": {
-            "availableBalance": available_balance,
-            "can_trade": can_trade,
-        },
-    }
 
 @mcp.tool()
-async def get_performance_history():
+async def modify_super_order(
+    underlying: str,
+    target_price: float = None,
+    sl_price: float = None,
+):
     """
-    View the most recent historical trades and performance metadata.
+    Modify the Target and/or SL legs of an active Super Order.
+    At least one of target_price or sl_price must be provided.
+
+    Args:
+        underlying:   Index of the active position — NIFTY, BANKNIFTY, or FINNIFTY.
+        target_price: New premium target price (e.g. 280.0).
+        sl_price:     New premium stop-loss price (e.g. 160.0).
     """
-    return await call_api("/get-history")
+    if not target_price and not sl_price:
+        return {"status": "error", "message": "Provide at least one of target_price or sl_price"}
+    return await _call("/update-super-order", {
+        "underlying": underlying,
+        "target_price": target_price,
+        "sl_price": sl_price,
+    })
+
+
+@mcp.tool()
+async def cancel_super_order(underlying: str):
+    """
+    Cancel the pending (not yet filled) entry leg of a Super Order.
+    Use this when the entry order is still in TRANSIT/PENDING state.
+    For an already-filled position use exit_super_order instead.
+
+    Args:
+        underlying: Index of the pending order — NIFTY, BANKNIFTY, or FINNIFTY.
+    """
+    return await _call("/cancel-super-order", {"underlying": underlying})
+
+
+@mcp.tool()
+async def exit_super_order(underlying: str):
+    """
+    Exit (square off) an active Super Order position at market price.
+    Places an opposite MARKET order and cancels all remaining bracket legs.
+
+    Args:
+        underlying: Index of the active position — NIFTY, BANKNIFTY, or FINNIFTY.
+    """
+    return await _call("/exit-super-order", {"underlying": underlying})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CONDITIONAL ORDER TOOLS  (Index-level GTT / Polling-based Orders)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+async def place_conditional_order(
+    action: str,
+    underlying: str = "NIFTY",
+    quantity: int = 1,
+    sl_index: float = None,
+    target_index: float = None,
+    spot_index: float = None,
+):
+    """
+    Place a Conditional (GTT / index-level protected) order.
+
+    Actions:
+        CALL      — Buy a Call option. sl_index and target_index are REQUIRED.
+        PUT       — Buy a Put option. sl_index and target_index are REQUIRED.
+        EXIT_CALL — Close an active CALL position.
+        EXIT_PUT  — Close an active PUT position.
+
+    The SL and Target are expressed as INDEX price levels (not option premium).
+    A polling monitor exits the trade when the index crosses those levels.
+
+    Args:
+        action:       CALL | PUT | EXIT_CALL | EXIT_PUT
+        underlying:   NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
+        quantity:     Number of lots (default 1).
+        sl_index:     Index SL level. For CALL must be < spot; for PUT must be > spot.
+        target_index: Index target level.
+        spot_index:   Optional current index spot. Omit to fetch live.
+    """
+    return await _call("/conditional-order", {
+        "action": action,
+        "underlying": underlying,
+        "quantity": quantity,
+        "sl_index": sl_index,
+        "target_index": target_index,
+        "spot_index": spot_index,
+    })
+
+
+@mcp.tool()
+async def modify_conditional_order(
+    underlying: str,
+    target_level: float,
+    sl_level: float,
+    quantity: int = None,
+):
+    """
+    Update the Index SL and Target levels for an active Conditional position.
+    Replaces any existing GTT triggers with the new levels.
+
+    Args:
+        underlying:   Index of the active position — NIFTY, BANKNIFTY, or FINNIFTY.
+        target_level: New index target level (e.g. 23550.0).
+        sl_level:     New index stop-loss level (e.g. 23400.0).
+        quantity:     Optional lot quantity override (defaults to active position size).
+    """
+    return await _call("/conditional-index-order", {
+        "underlying": underlying,
+        "target_level": target_level,
+        "sl_level": sl_level,
+        "quantity": quantity,
+    })
+
+
+@mcp.tool()
+async def cancel_conditional_order(underlying: str):
+    """
+    Cancel the active GTT conditional orders (SL + Target alerts) for a position.
+    Does NOT close the option position itself — use exit_conditional_order for that.
+
+    Args:
+        underlying: Index — NIFTY, BANKNIFTY, or FINNIFTY.
+    """
+    return await _call("/cancel-conditional-orders", {"underlying": underlying})
+
+
+@mcp.tool()
+async def exit_conditional_order(underlying: str):
+    """
+    Exit (square off) an active Conditional Order position at market price.
+    Also cancels any live GTT triggers attached to it.
+
+    Args:
+        underlying: Index of the active position — NIFTY, BANKNIFTY, or FINNIFTY.
+    """
+    return await _call("/exit-conditional-order", {"underlying": underlying})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BROKER STATE — Positions & Orders
+# ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+async def get_positions():
+    """
+    Fetch all current open positions directly from Dhan.
+    Each position includes: tradingSymbol, securityId, exchangeSegment,
+    productType, netQty, buyAvg, sellAvg, unrealizedProfit, realizedProfit.
+    netQty > 0 = net long; netQty < 0 = net short; 0 = flat.
+    """
+    return await _call("/positions")
+
+
+@mcp.tool()
+async def get_orders():
+    """
+    Fetch the full order book from Dhan.
+    Each order includes: orderId, tradingSymbol, orderStatus, transactionType,
+    quantity, price, averageTradedPrice, orderType, productType, updateTime.
+
+    Possible orderStatus values:
+        TRANSIT, PENDING, PART_TRADED — still open / cancellable
+        TRADED                        — fully filled
+        CANCELLED, REJECTED, EXPIRED  — terminal states
+    """
+    return await _call("/orders")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CONTEXT & LOGS
+# ─────────────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
 async def get_activity_logs():
-    """
-    Retrieve recent system activity logs, signals, and ranking engine decisions.
-    """
-    return await call_api("/activity-logs")
+    """Retrieve recent system activity: signals received, orders placed, exits triggered."""
+    return await _call("/activity-logs")
+
 
 @mcp.tool()
 async def get_last_signal():
     """
-    Retrieve the most recent enriched signal received from TradingView.
-    Use this to get context for a trade decision if you've been notified 
-    of a new signal via SSE but don't have the data payload.
+    Retrieve the most recent enriched TradingView signal.
+    Use after an SSE notification to get the full payload if you don't have it.
     """
-    return await call_api("/last-signal", method="GET")
+    return await _call("/last-signal", method="GET")
+
+
+@mcp.tool()
+async def get_performance_history():
+    """View the last 50 completed trades and performance metadata."""
+    return await _call("/get-history")
+
 
 if __name__ == "__main__":
     mcp.run()
