@@ -14,6 +14,7 @@ from collections import deque
 from datetime import datetime
 import pytz
 from instrument_resolver import resolve_index_spot, resolve_call_itm, resolve_put_itm
+import trade_feed
 
 # Load Environment Variables
 load_dotenv()
@@ -120,6 +121,24 @@ except Exception as e:
     init_error = str(e)
     logger.error(f"⚠️ Initialization Failed: {e}")
     logger.warning("App will start in degraded mode. Please check environment variables.")
+
+# Trade Feed DB
+trade_feed.init_db()
+
+# Pending trade-feed id per underlying (bridges signal → order placement)
+_pending_trades: dict = {}
+
+def _set_pending_trade(underlying: str, trade_id: int):
+    if redis_client:
+        redis_client.set(f"pending_trade:{underlying}", trade_id, ex=300)
+    else:
+        _pending_trades[underlying] = trade_id
+
+def _get_pending_trade(underlying: str):
+    if redis_client:
+        v = redis_client.get(f"pending_trade:{underlying}")
+        return int(v) if v else None
+    return _pending_trades.get(underlying)
 
 # In-memory stores (persisted to JSON files for restart survival)
 _LEVELS_FILE = "levels.json"
@@ -271,10 +290,16 @@ def dhan_webhook():
         if super_order_engine and order_id:
             underlying = super_order_engine.find_underlying_by_order_id(order_id)
             if underlying:
+                state = super_order_engine._get_state(underlying)
+                feed_id = state.get('trade_feed_id')
                 if status in ['TRADED', 'FILLED'] and avg_price:
                     super_order_engine.update_entry_price(underlying, float(avg_price))
+                    if feed_id:
+                        trade_feed.update_trade(feed_id, entry_price=float(avg_price), status='ACTIVE')
                     logger.info(f"Webhook: entry_price updated for {underlying} → {avg_price}")
                 elif status in ['CANCELLED', 'REJECTED']:
+                    if feed_id:
+                        trade_feed.update_trade(feed_id, status='FAILED', comment=f'Order {status}')
                     super_order_engine._clear_state(underlying)
                     logger.info(f"Webhook: state cleared for {underlying} ({status})")
 
@@ -440,10 +465,27 @@ def webhook():
                 spot_index = resolve_index_spot(broker, underlying, leg)
                 specific_itm = resolve_call_itm(broker, underlying, spot_index) if is_buy else resolve_put_itm(broker, underlying, spot_index)
                 if not specific_itm:
+                    trade_feed.insert_trade(
+                        underlying=underlying,
+                        signal='BUY' if is_buy else 'SELL',
+                        index_price=spot_index if spot_index else None,
+                        status='FAILED',
+                        comment=f'Could not resolve {target_side} ITM contract'
+                    )
                     action = {"underlying": underlying, "action": "FAILED_CONTEXT_RESOLUTION", "reason": f"Failed to resolve {target_side} ITM contract"}
                     results.append(action)
                     failure_count += 1
                     continue
+
+            # Insert trade-feed record so the dashboard can track this signal
+            feed_id = trade_feed.insert_trade(
+                underlying=underlying,
+                signal='BUY' if is_buy else 'SELL',
+                index_price=spot_index if spot_index else None,
+                option_symbol=specific_itm.get('symbol') if specific_itm else None,
+                status='PENDING'
+            )
+            _set_pending_trade(underlying, feed_id)
 
             leg_data = {
                 "underlying": underlying,
@@ -453,7 +495,8 @@ def webhook():
                 "timeframe": timeframe,
                 "quantity": quantity,
                 "transaction_type": transaction_type,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "trade_feed_id": feed_id
             }
 
             if AI_IN_THE_LOOP:
@@ -637,6 +680,9 @@ def get_state():
         # Reconciliation: broker has no open position but state says active → SL/Target hit natively
         if state.get('side') in ['CALL', 'PUT'] and not sector_details:
             logger.warning(f"Reconciliation: state says {state.get('side')} for {underlying} but broker shows no open position. Clearing.")
+            feed_id = state.get('trade_feed_id')
+            if feed_id:
+                trade_feed.update_trade(feed_id, status='CLOSED', comment='SL / Target hit natively')
             _add_to_history({
                 "underlying": underlying,
                 "symbol": state.get('symbol'),
@@ -1127,6 +1173,7 @@ def set_super_order():
         if not itm:
             return jsonify({"status": "error", "message": f"Failed to resolve {side} ITM contract for {underlying}"}), 400
 
+        feed_id = _get_pending_trade(underlying)
         result = super_order_engine.place_super_order(
             underlying=underlying,
             side=side,
@@ -1135,6 +1182,16 @@ def set_super_order():
             target_price=float(target),
             stop_loss_price=float(sl),
         )
+        if result.get('success'):
+            # Persist feed_id in engine state so dhan_webhook and exit can find it
+            state = super_order_engine._get_state(underlying)
+            state['trade_feed_id'] = feed_id
+            super_order_engine._set_state(underlying, state)
+            if feed_id:
+                trade_feed.update_trade(feed_id, sl_price=float(sl), target_price=float(target), status='ACTIVE')
+        else:
+            if feed_id:
+                trade_feed.update_trade(feed_id, status='FAILED', comment=result.get('error', 'Place order failed'))
         code = 200 if result.get('success') else 400
         return jsonify(result), code
     except Exception as e:
@@ -1215,9 +1272,31 @@ def exit_super_order():
 
     underlying = data.get('underlying', 'NIFTY').upper()
     try:
-        # Capture state before exit for history recording
         pre_state = super_order_engine._get_state(underlying)
+        feed_id = pre_state.get('trade_feed_id')
+        sec_id = pre_state.get('security_id')
+        entry_price = float(pre_state.get('entry_price') or 0)
+        qty = int(pre_state.get('quantity') or 1)
+
+        # Approximate exit price via LTP before we place the market exit
+        approx_exit = None
+        if sec_id:
+            try:
+                approx_exit = broker.get_ltp(sec_id)
+            except Exception:
+                pass
+
         result = super_order_engine.exit_super_order(underlying)
+        if result.get('success'):
+            if feed_id:
+                exit_p = float(approx_exit) if approx_exit else None
+                profit = round((exit_p - entry_price) * qty, 2) if exit_p and entry_price else None
+                trade_feed.update_trade(feed_id,
+                    exit_price=exit_p,
+                    profit=profit,
+                    status='CLOSED',
+                    comment='Manual exit')
+
         if result.get('success') and pre_state.get('side') in ('CALL', 'PUT'):
             _add_to_history({
                 "underlying": underlying,
@@ -1295,6 +1374,20 @@ def get_broker_orders():
         return jsonify({"status": "success", "orders": orders}), 200
     except Exception as e:
         logger.error(f"Orders Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/trade-feed', methods=['POST'])
+def get_trade_feed():
+    """Returns the last 50 structured trade events for the dashboard feed table."""
+    data = request.get_json(force=True, silent=True) or {}
+    if data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    try:
+        trades = trade_feed.get_recent_trades(50)
+        return jsonify({"status": "success", "trades": trades}), 200
+    except Exception as e:
+        logger.error(f"Trade Feed Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

@@ -14,6 +14,7 @@ dhan_scrip_master.csv
 ai_context.txt
 levels.json
 trade_history.json
+trade_feed.db
 
 # Temp/ignored scripts
 check_import.py

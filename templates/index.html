@@ -819,37 +819,75 @@
             color: #000;
         }
 
-        /* AI LOGS */
-        .ai-log-list {
-            max-height: 200px;
+        /* TRADE FEED TABLE */
+        .feed-wrap {
+            overflow-x: auto;
             overflow-y: auto;
-            font-family: monospace;
-            font-size: 11px;
+            max-height: 380px;
+            border-radius: 10px;
+            border: 1px solid var(--glass-border);
         }
 
-        .ai-log-item {
-            padding: 8px;
-            border-bottom: 1px solid var(--glass-border);
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
+        .feed-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+            min-width: 560px;
         }
 
-        .ai-log-item:last-child {
-            border-bottom: none;
-        }
-
-        .log-allow {
-            color: var(--success);
-        }
-
-        .log-reject {
-            color: var(--danger);
-        }
-
-        .log-reason {
+        .feed-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #0d1829;
+            padding: 7px 8px;
+            text-align: left;
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
             color: var(--text-secondary);
+            border-bottom: 1px solid var(--glass-border);
+            white-space: nowrap;
         }
+
+        .feed-table tbody td {
+            padding: 8px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        .feed-table tbody tr:last-child td { border-bottom: none; }
+        .feed-table tbody tr:hover td { background: rgba(255,255,255,0.03); }
+
+        .feed-sig {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+        }
+        .feed-sig.BUY  { background: rgba(34,197,94,.15);  color: var(--success); }
+        .feed-sig.SELL { background: rgba(239,68,68,.15);   color: var(--danger);  }
+
+        .feed-status {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 8px;
+            font-weight: 700;
+            margin-top: 3px;
+        }
+        .feed-status.PENDING { background: rgba(245,158,11,.15); color: #f59e0b; }
+        .feed-status.ACTIVE  { background: rgba(0,242,254,.15);  color: var(--accent); }
+        .feed-status.CLOSED  { background: rgba(148,163,184,.12);color: var(--text-secondary); }
+        .feed-status.FAILED  { background: rgba(239,68,68,.12);  color: var(--danger); }
+
+        .feed-pnl.pos { color: var(--success); font-weight: 700; }
+        .feed-pnl.neg { color: var(--danger);  font-weight: 700; }
+        .feed-null    { color: rgba(255,255,255,0.2); }
 
         .footer {
             margin-top: 40px;
@@ -1126,18 +1164,32 @@
                     <button class="save-btn" onclick="saveLevels()">Save Levels</button>
                 </section>
 
-                <!-- ACTIVITY FEED -->
+                <!-- TRADE FEED -->
                 <section class="side-card">
-                    <div class="side-card-title form-group"
-                        style="margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                    <div class="side-card-title" style="margin-bottom: 12px;">
                         System Activity Feed
-                        <button class="settings-btn"
-                            style="padding: 2px 8px; font-size: 0.8rem; background: var(--border-color);"
-                            onclick="refreshAILogs()">↻</button>
+                        <button style="padding: 2px 8px; font-size: 0.75rem; background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border); border-radius: 6px; color: var(--text-secondary); cursor: pointer;" onclick="refreshTradeFeed()">↻</button>
                     </div>
-                    <div id="ai-logs" class="ai-log-list" style="font-family: monospace; font-size: 0.85rem;">
-                        <div class="ai-log-item" style="color: var(--text-secondary); text-align: center;">No activity
-                            yet.</div>
+                    <div class="feed-wrap">
+                        <table class="feed-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Signal</th>
+                                    <th>Index</th>
+                                    <th>Option</th>
+                                    <th>Entry</th>
+                                    <th>SL</th>
+                                    <th>Target</th>
+                                    <th>Exit</th>
+                                    <th>P&amp;L</th>
+                                    <th>Comment</th>
+                                </tr>
+                            </thead>
+                            <tbody id="feed-body">
+                                <tr><td colspan="10" style="text-align:center; padding: 20px; color: var(--text-secondary); font-style: italic;">No signals yet.</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </section>
 
@@ -1166,10 +1218,10 @@
                 document.getElementById('secret').value = savedSecret;
                 refreshState();
                 loadLevels();
-                refreshAILogs();
+                refreshTradeFeed();
             }
             setInterval(refreshState, 5000);
-            setInterval(refreshAILogs, 10000);
+            setInterval(refreshTradeFeed, 10000);
 
             // Handle Auth Success Redirect
             const params = new URLSearchParams(window.location.search);
@@ -1653,32 +1705,57 @@
                 else notify(data.message, 'error');
             } catch (err) { notify('Failed to save levels', 'error'); }
         }
-        async function refreshAILogs() {
+        function formatOptionSymbol(sym) {
+            if (!sym) return '<span class="feed-null">--</span>';
+            // NIFTY24APR22500CE → NIFTY APR24 22500 CE
+            const m = sym.match(/^([A-Z]+)(\d{2})([A-Z]{3})(\d+)(CE|PE)$/);
+            if (m) return `${m[1]} ${m[3]}${m[2]} ${m[4]} ${m[5]}`;
+            return sym;
+        }
+
+        function renderFeedRow(t) {
+            const dash = '<span class="feed-null">--</span>';
+            const fmt  = v => (v != null && v !== '') ? parseFloat(v).toFixed(2) : dash;
+            const time = t.created_at ? t.created_at.slice(11, 16) : '--';
+            const sig  = t.signal || '?';
+            const pnl  = t.profit != null
+                ? `<span class="feed-pnl ${t.profit >= 0 ? 'pos' : 'neg'}">${t.profit >= 0 ? '+' : ''}₹${parseFloat(t.profit).toFixed(0)}</span>`
+                : dash;
+            const comment = t.comment ? `<span style="color:var(--text-secondary)">${t.comment}</span>` : dash;
+            return `<tr>
+                <td>${time}</td>
+                <td>
+                    <span class="feed-sig ${sig}">${t.underlying} ${sig}</span><br>
+                    <span class="feed-status ${t.status}">${t.status}</span>
+                </td>
+                <td>${t.index_price != null ? parseFloat(t.index_price).toFixed(1) : dash}</td>
+                <td style="font-size:9px;white-space:normal;min-width:90px">${formatOptionSymbol(t.option_symbol)}</td>
+                <td>${fmt(t.entry_price)}</td>
+                <td>${fmt(t.sl_price)}</td>
+                <td>${fmt(t.target_price)}</td>
+                <td>${fmt(t.exit_price)}</td>
+                <td>${pnl}</td>
+                <td style="font-size:9px;white-space:normal;min-width:70px;color:var(--text-secondary)">${comment}</td>
+            </tr>`;
+        }
+
+        async function refreshTradeFeed() {
             const secret = document.getElementById('secret').value.trim();
             if (!secret) return;
             try {
-                const res = await fetch('/activity-logs', {
+                const res = await fetch('/trade-feed', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ secret })
                 });
                 const data = await res.json();
-
-                const container = document.getElementById('ai-logs');
-                if (data.status === 'success' && data.logs && data.logs.length > 0) {
-                    container.innerHTML = '';
-                    data.logs.forEach(log => {
-                        const div = document.createElement('div');
-                        div.className = 'ai-log-item';
-                        if (log.includes('🛑')) div.style.color = 'var(--danger)';
-                        else if (log.includes('✅')) div.style.color = 'var(--success)';
-                        else if (log.includes('❌')) div.style.color = 'var(--danger)';
-                        else if (log.includes('🧠')) div.style.color = 'var(--accent)';
-                        div.innerText = log;
-                        container.appendChild(div);
-                    });
+                const tbody = document.getElementById('feed-body');
+                if (data.status === 'success' && data.trades && data.trades.length > 0) {
+                    tbody.innerHTML = data.trades.map(renderFeedRow).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text-secondary);font-style:italic">No signals yet.</td></tr>';
                 }
-            } catch (err) { console.error('Failed to parse activity logs', err); }
+            } catch (err) { console.error('Trade feed fetch failed', err); }
         }
 
 
