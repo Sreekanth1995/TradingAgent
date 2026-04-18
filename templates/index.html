@@ -1716,7 +1716,9 @@
         function renderFeedRow(t) {
             const dash = '<span class="feed-null">--</span>';
             const fmt  = v => (v != null && v !== '') ? parseFloat(v).toFixed(2) : dash;
-            const time = t.created_at ? t.created_at.slice(11, 16) : '--';
+            const time = t.created_at
+                ? `<span style="font-size:9px;color:var(--text-secondary)">${t.created_at.slice(5,10)}</span><br>${t.created_at.slice(11,16)}`
+                : '--';
             const sig  = t.signal || '?';
             const pnl  = t.profit != null
                 ? `<span class="feed-pnl ${t.profit >= 0 ? 'pos' : 'neg'}">${t.profit >= 0 ? '+' : ''}₹${parseFloat(t.profit).toFixed(0)}</span>`
