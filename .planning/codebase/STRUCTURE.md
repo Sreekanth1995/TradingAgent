@@ -6,7 +6,7 @@
 - `broker_dhan.py`: Dhan API bridge.
 - `README.md`: Project overview and setup.
 - `HLD.md`: High-level design document.
-- `Procfile`: Railway deployment configuration.
+- `Procfile`: gunicorn entry point (used by systemd on Vultr).
 - `requirements.txt`: Python dependencies.
 
 ## Key Directories

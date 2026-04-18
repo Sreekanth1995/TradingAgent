@@ -14,6 +14,6 @@
 - **Fonts**: Google Fonts (Inter, Outfit).
 
 ## DevOps
-- **Deployment**: Railway.app (via `Procfile`).
+- **Deployment**: Vultr VPS (Ubuntu, systemd-managed gunicorn).
 - **Secret Management**: Python `python-dotenv`.
 - **Environment**: macOS (Development), Linux (Production).

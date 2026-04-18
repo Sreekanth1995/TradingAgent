@@ -226,7 +226,7 @@ def _save_context(text):
 @app.route('/health')
 def health():
     """
-    Health check endpoint for Railway and monitoring.
+    Health check endpoint for monitoring.
     """
     try:
         status = {

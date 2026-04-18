@@ -73,7 +73,7 @@ graph TD
 - **Frameworks**: Flask (API), Pytest (Testing)
 - **APIs**: DhanHQ (Official Broker SDK), TradingView Webhooks
 - **Database**: Redis (State Storage)
-- **Deployment**: Railway / Heroku (Procfile included)
+- **Deployment**: Vultr VPS (Ubuntu, systemd-managed gunicorn)
 
 ## 6. Testing & Backtesting
 The project includes a robust simulation environment (`simulate_trading.py`) that allows for:
