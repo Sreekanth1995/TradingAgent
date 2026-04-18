@@ -115,7 +115,30 @@ try:
 
     monitor_thread = threading.Thread(target=_protection_monitor_loop, daemon=True)
     monitor_thread.start()
-    
+
+    def _stale_pending_cleanup_loop():
+        """Mark PENDING feed records older than 5 minutes as having no AI callback."""
+        import sqlite3 as _sqlite3
+        while True:
+            time.sleep(60)
+            try:
+                from trade_feed import DB_PATH, IST
+                from datetime import timedelta
+                cutoff = (datetime.now(IST).replace(tzinfo=None) -
+                          timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')
+                with _sqlite3.connect(DB_PATH) as conn:
+                    conn.execute(
+                        "UPDATE trades SET status='CLOSED', comment='No callback from AI', "
+                        "updated_at=? WHERE status='PENDING' AND created_at < ?",
+                        (datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S'), cutoff)
+                    )
+                    conn.commit()
+            except Exception as e:
+                logger.error(f"Stale pending cleanup error: {e}")
+
+    cleanup_thread = threading.Thread(target=_stale_pending_cleanup_loop, daemon=True, name="stale-pending-cleanup")
+    cleanup_thread.start()
+
     logger.info("✅ System Initialized Successfully")
 except Exception as e:
     init_error = str(e)
@@ -1309,7 +1332,13 @@ def cancel_super_order():
 
     underlying = data.get('underlying', 'NIFTY').upper()
     try:
+        # Read feed_id before engine clears state
+        pre_state = super_order_engine._get_state(underlying)
+        feed_id = pre_state.get('trade_feed_id')
+
         result = super_order_engine.cancel_super_order(underlying)
+        if result.get('success') and feed_id:
+            trade_feed.update_trade(feed_id, status='CLOSED', comment='Super order cancelled')
         code = 200 if result.get('success') else 400
         return jsonify(result), code
     except Exception as e:
