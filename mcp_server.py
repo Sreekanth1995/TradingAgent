@@ -39,19 +39,22 @@ async def place_super_order(
     sl_price: float,
     quantity: int = 1,
     option: str = None,
+    trade_feed_id: int = None,
 ):
     """
     Place a Premium-based Native Super Order (bracket order).
     The broker manages the SL and Target legs natively.
 
     Args:
-        underlying:   Index — NIFTY, BANKNIFTY, or FINNIFTY.
-        side:         CALL (bullish) or PUT (bearish).
-        target_price: Premium target price (e.g. 240.0).
-        sl_price:     Premium stop-loss price (e.g. 140.0).
-        quantity:     Number of lots (default 1).
-        option:       Optional exact option symbol to trade (e.g. NIFTY24APR22500CE).
-                      If omitted the server resolves the nearest ITM automatically.
+        underlying:    Index — NIFTY, BANKNIFTY, or FINNIFTY.
+        side:          CALL (bullish) or PUT (bearish).
+        target_price:  Premium target price (e.g. 240.0).
+        sl_price:      Premium stop-loss price (e.g. 140.0).
+        quantity:      Number of lots (default 1).
+        option:        Optional exact option symbol (e.g. NIFTY24APR22500CE).
+                       If omitted the server resolves the nearest ITM automatically.
+        trade_feed_id: ID from the signal payload — pass it back so the dashboard
+                       feed row is correctly linked to this order.
     """
     return await _call("/super-order", {
         "underlying": underlying,
@@ -60,6 +63,7 @@ async def place_super_order(
         "sl_price": sl_price,
         "quantity": quantity,
         "option": option,
+        "trade_feed_id": trade_feed_id,
     })
 
 
@@ -124,6 +128,7 @@ async def place_conditional_order(
     sl_index: float = None,
     target_index: float = None,
     spot_index: float = None,
+    trade_feed_id: int = None,
 ):
     """
     Place a Conditional (GTT / index-level protected) order.
@@ -138,12 +143,14 @@ async def place_conditional_order(
     A polling monitor exits the trade when the index crosses those levels.
 
     Args:
-        action:       CALL | PUT | EXIT_CALL | EXIT_PUT
-        underlying:   NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
-        quantity:     Number of lots (default 1).
-        sl_index:     Index SL level. For CALL must be < spot; for PUT must be > spot.
-        target_index: Index target level.
-        spot_index:   Optional current index spot. Omit to fetch live.
+        action:        CALL | PUT | EXIT_CALL | EXIT_PUT
+        underlying:    NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
+        quantity:      Number of lots (default 1).
+        sl_index:      Index SL level. For CALL must be < spot; for PUT must be > spot.
+        target_index:  Index target level.
+        spot_index:    Optional current index spot. Omit to fetch live.
+        trade_feed_id: ID from the signal payload — pass it back so the dashboard
+                       feed row is correctly linked to this order.
     """
     return await _call("/conditional-order", {
         "action": action,
@@ -152,6 +159,7 @@ async def place_conditional_order(
         "sl_index": sl_index,
         "target_index": target_index,
         "spot_index": spot_index,
+        "trade_feed_id": trade_feed_id,
     })
 
 

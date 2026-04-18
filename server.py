@@ -160,7 +160,7 @@ _pending_trades: dict = {}
 
 def _set_pending_trade(underlying: str, trade_id: int):
     if redis_client:
-        redis_client.set(f"pending_trade:{underlying}", trade_id, ex=300)
+        redis_client.set(f"pending_trade:{underlying}", trade_id, ex=900)
     else:
         _pending_trades[underlying] = trade_id
 
@@ -991,6 +991,11 @@ def conditional_order():
         if not itm or not idx_sec_id:
             return jsonify({"status": "error", "message": "Failed to resolve ITM contract or Index ID"}), 400
 
+        # Prefer explicit feed_id passed by Claude; fall back to Redis lookup
+        feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)
+        if not feed_id:
+            logger.warning(f"/conditional-order: no trade_feed_id for {underlying} — feed record will be orphaned")
+
         leg_data = {
             "underlying": underlying,
             "itm": itm,
@@ -998,7 +1003,8 @@ def conditional_order():
             "quantity": int(data.get('quantity', 1)),
             "spot_index": spot_index,
             "sl_index": data.get('sl_index'),
-            "target_index": data.get('target_index')
+            "target_index": data.get('target_index'),
+            "trade_feed_id": feed_id,
         }
         
         # Mandatory Validation for Manual Entries (AC 6)
@@ -1220,7 +1226,11 @@ def set_super_order():
         if not itm:
             return jsonify({"status": "error", "message": f"Failed to resolve {side} ITM contract for {underlying}"}), 400
 
-        feed_id = _get_pending_trade(underlying)
+        # Prefer explicit feed_id passed by Claude; fall back to Redis lookup
+        feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)
+        if not feed_id:
+            logger.warning(f"/super-order: no trade_feed_id for {underlying} — feed record will be orphaned")
+
         result = super_order_engine.place_super_order(
             underlying=underlying,
             side=side,
