@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 
 from dhanhq import dhanhq
+from dhanhq.orderupdate import OrderSocket
 
 # Define constants locally as they are missing in dhanhq 2.0.2
 class ExchangeSegment:
@@ -102,6 +103,55 @@ class DhanClient:
         if self.client_id and DHAN_AVAILABLE and not self.dry_run:
             self.dhan = dhanhq(self.client_id, self.access_token)
             logger.info("✅ Dhan client reinitialized with new token.")
+
+    def start_order_update_listener(self, on_update):
+        """Start Dhan Live Order Update WebSocket in a daemon thread.
+
+        on_update(order_id, status, avg_price) is called for each order event.
+        Reconnects automatically on disconnect with exponential backoff.
+        """
+        if not self.client_id or not self.access_token or self.dry_run:
+            logger.warning("Order update listener skipped (no credentials or dry-run mode).")
+            return
+
+        import asyncio
+
+        class _AppSocket(OrderSocket):
+            def __init__(self_, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self_._on_update = on_update
+
+            async def handle_order_update(self_, order_update):
+                try:
+                    if order_update.get('Type') == 'order_alert':
+                        data = order_update.get('Data', {})
+                        order_id = str(data.get('orderNo', ''))
+                        status = data.get('status', '')
+                        avg_price = data.get('averageTradedPrice') or data.get('tradedPrice')
+                        if order_id:
+                            self_._on_update(order_id, status, avg_price)
+                except Exception as e:
+                    logger.error(f"Order update handler error: {e}")
+
+        def _run():
+            import asyncio as _asyncio
+            backoff = 5
+            while True:
+                try:
+                    sock = _AppSocket(self.client_id, self.access_token)
+                    loop = _asyncio.new_event_loop()
+                    _asyncio.set_event_loop(loop)
+                    loop.run_until_complete(sock.connect_order_update())
+                except Exception as e:
+                    logger.warning(f"Order update WS disconnected: {e}. Reconnecting in {backoff}s…")
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 120)
+                else:
+                    backoff = 5
+
+        t = threading.Thread(target=_run, daemon=True, name="dhan-order-ws")
+        t.start()
+        logger.info("✅ Dhan Live Order Update listener started.")
 
     def get_index_id(self, symbol):
         """Returns standard Dhan Security ID for indices."""

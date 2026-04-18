@@ -4,155 +4,269 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Agent | Admin Dashboard v2.0</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@400;500;600&display=swap"
-        rel="stylesheet">
+    <title>Trading Agent | NIFTY Control Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #030712;
-            --glass: rgba(255, 255, 255, 0.03);
-            --glass-strong: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --accent: #00f2fe;
-            --accent-glow: rgba(0, 242, 254, 0.3);
-            --success: #22c55e;
-            --danger: #ef4444;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
+            --bg:           #050914;
+            --surface-0:    #080f1e;
+            --surface-1:    #0c1628;
+            --surface-2:    #111d35;
+            --surface-3:    rgba(255,255,255,0.04);
+            --border:       rgba(99,179,237,0.10);
+            --border-strong:rgba(99,179,237,0.22);
+            --accent:       #38bdf8;
+            --accent-dim:   rgba(56,189,248,0.12);
+            --accent-glow:  rgba(56,189,248,0.25);
+            --success:      #10b981;
+            --success-dim:  rgba(16,185,129,0.12);
+            --success-glow: rgba(16,185,129,0.25);
+            --danger:       #f43f5e;
+            --danger-dim:   rgba(244,63,94,0.12);
+            --danger-glow:  rgba(244,63,94,0.25);
+            --amber:        #f59e0b;
+            --text-primary: #e2e8f0;
+            --text-secondary:#64748b;
+            --text-muted:   #334155;
+            --mono:         'JetBrains Mono', monospace;
+            --display:      'Outfit', sans-serif;
+            --body:         'Inter', sans-serif;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: var(--body);
             background: var(--bg);
-            background-image: radial-gradient(circle at 50% 0%, #1e293b, var(--bg));
+            background-image:
+                radial-gradient(ellipse 80% 50% at 50% -10%, rgba(56,189,248,0.06), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 80%, rgba(16,185,129,0.04), transparent);
             color: var(--text-primary);
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
             overflow-x: hidden;
         }
 
-        .dashboard-container {
-            width: 100%;
-            max-width: 900px;
-            background: var(--glass);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 32px;
-            padding: 40px;
-            box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.5);
-            animation: fadeIn 0.8s ease-out;
-            position: relative;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px) scale(0.98);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        /* HEADER */
-        .header {
+        /* ─── TOP BAR ─── */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 32px;
+            padding: 12px 32px;
+            background: rgba(5,9,20,0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
         }
 
-        .header h1 {
-            font-family: 'Outfit', sans-serif;
-            font-size: 24px;
-            background: linear-gradient(to right, #fff, #94a3b8);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-mark {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--display);
+            font-weight: 800;
+            font-size: 14px;
+            color: #000;
+            flex-shrink: 0;
+        }
+
+        .brand-name {
+            font-family: var(--display);
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
             letter-spacing: -0.02em;
         }
 
-        .header p {
-            font-size: 13px;
+        .brand-sub {
+            font-size: 11px;
             color: var(--text-secondary);
-            margin-top: 4px;
+            margin-top: 1px;
         }
 
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .range-pills {
+            display: flex;
+            gap: 8px;
+        }
+
+        .range-pill {
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            transition: all 0.3s;
+        }
+
+        .range-pill.ABOVE { color: var(--success); border-color: rgba(16,185,129,0.3); background: var(--success-dim); }
+        .range-pill.BELOW { color: var(--danger);  border-color: rgba(244,63,94,0.3);  background: var(--danger-dim); }
+        .range-pill.INSIDE { color: var(--amber);  border-color: rgba(245,158,11,0.3);  background: rgba(245,158,11,0.08); }
+
         .connect-btn {
-            background: rgba(0, 242, 254, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--accent-dim);
             color: var(--accent);
-            border: 1px solid var(--accent-glow);
-            padding: 8px 16px;
-            border-radius: 12px;
-            font-size: 13px;
+            border: 1px solid var(--border-strong);
+            padding: 7px 16px;
+            border-radius: 8px;
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            white-space: nowrap;
+            transition: all 0.25s ease;
+            letter-spacing: 0.01em;
+        }
+
+        .connect-btn::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 6px var(--accent);
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
         }
 
         .connect-btn:hover {
             background: var(--accent);
             color: #000;
+            border-color: var(--accent);
             box-shadow: 0 0 20px var(--accent-glow);
-            transform: translateY(-2px);
         }
 
-        /* AUTH BAR */
-        .auth-bar {
-            margin-bottom: 32px;
+        /* ─── AUTH BAR ─── */
+        .auth-strip {
+            padding: 12px 32px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface-0);
         }
 
-        .auth-bar input {
+        .auth-strip input {
             width: 100%;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid var(--glass-border);
-            border-radius: 14px;
-            padding: 14px;
-            color: #fff;
-            font-size: 13px;
+            max-width: 480px;
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text-primary);
+            font-family: var(--mono);
+            font-size: 12px;
+            transition: all 0.25s;
+            display: block;
+            margin: 0 auto;
             text-align: center;
-            transition: all 0.3s ease;
         }
 
-        .auth-bar input:focus {
+        .auth-strip input:focus {
             outline: none;
             border-color: var(--accent);
-            box-shadow: 0 0 15px var(--accent-glow);
+            background: var(--surface-2);
+            box-shadow: 0 0 0 3px var(--accent-dim);
         }
 
-        /* MONITOR CARD */
-        .monitor-card {
-            background: var(--glass-strong);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
+        .auth-strip input::placeholder { color: var(--text-muted); }
+
+        /* ─── MAIN LAYOUT ─── */
+        .main-content {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 0;
+            min-height: calc(100vh - 120px);
+        }
+
+        @media (max-width: 900px) {
+            .main-content { grid-template-columns: 1fr; }
+        }
+
+        /* ─── LEFT PANEL ─── */
+        .panel-left {
+            border-right: 1px solid var(--border);
             padding: 24px;
-            margin-bottom: 32px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .monitor-header {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
+            flex-direction: column;
+            gap: 16px;
         }
 
-        .monitor-label {
+        /* ─── RIGHT PANEL ─── */
+        .panel-right {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+        }
+
+        /* ─── SECTION LABELS ─── */
+        .section-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ─── SECTOR CARDS ─── */
+        .command-center { display: flex; flex-direction: column; gap: 12px; }
+
+        .command-sector {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: border-color 0.3s;
+        }
+
+        .command-sector:has(.pos-active-label[style*="display: block"]) {
+            border-color: var(--border-strong);
+        }
+
+        .sector-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sector-title {
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
@@ -160,90 +274,287 @@
             color: var(--text-secondary);
         }
 
+        .sector-body { padding: 16px 18px; }
 
-        .monitor-grid {
+        .btn-group {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: start;
         }
 
-        .monitor-item label {
-            display: block;
-            font-size: 11px;
+        .indicator-box { position: relative; }
+
+        .btn {
+            border: none;
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 13px;
+            font-family: var(--display);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+            letter-spacing: 0.02em;
+        }
+
+        .btn-buy-call {
+            background: var(--success-dim);
+            color: var(--success);
+            border: 1px solid rgba(16,185,129,0.25);
+        }
+
+        .btn-buy-call:hover {
+            background: var(--success);
+            color: #000;
+            box-shadow: 0 4px 20px var(--success-glow);
+            transform: translateY(-1px);
+        }
+
+        .btn-buy-put {
+            background: var(--danger-dim);
+            color: var(--danger);
+            border: 1px solid rgba(244,63,94,0.25);
+        }
+
+        .btn-buy-put:hover {
+            background: var(--danger);
+            color: #fff;
+            box-shadow: 0 4px 20px var(--danger-glow);
+            transform: translateY(-1px);
+        }
+
+        .btn-exit {
+            background: var(--surface-2);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 14px 18px;
+            font-size: 12px;
+            width: auto;
+            flex-shrink: 0;
+        }
+
+        .btn-exit:hover {
+            background: var(--surface-3);
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+
+        .btn:disabled {
+            opacity: 0.2;
+            filter: grayscale(1);
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* ─── PnL OVERLAY ─── */
+        .sector-pnl-overlay {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .sector-pnl-main {
+            text-align: center;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .pnl-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
             color: var(--text-secondary);
             margin-bottom: 4px;
         }
 
-        .monitor-value {
-            font-family: 'Outfit', sans-serif;
-            font-size: 26px;
+        .pnl-value-large {
+            font-family: var(--mono);
+            font-size: 28px;
             font-weight: 700;
+            line-height: 1;
         }
 
-        #val-trend.CALL {
-            color: var(--success);
+        .sector-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
         }
 
-        #val-trend.PUT {
-            color: var(--danger);
-        }
+        .stat-item { display: flex; flex-direction: column; gap: 2px; }
 
-        .monitor-value.ABOVE {
-            color: var(--success);
-        }
-
-        .monitor-value.BELOW {
-            color: var(--danger);
-        }
-
-        .monitor-value.INSIDE {
+        .stat-label {
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
             color: var(--text-secondary);
         }
 
-        /* POSITION CARDS */
+        .stat-item > span {
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        /* ─── ACTIVE BADGE ─── */
+        .pos-active-label {
+            display: none;
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--success);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            background: var(--success-dim);
+            border: 1px solid rgba(16,185,129,0.25);
+            padding: 3px 8px;
+            border-radius: 20px;
+            white-space: nowrap;
+            animation: pulse-badge 2s infinite;
+        }
+
+        @keyframes pulse-badge {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        /* ─── CONDITIONAL GTT ─── */
+        .cond-panel {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .cond-panel-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .cond-row {
+            display: grid;
+            grid-template-columns: 52px 1fr;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .cond-label {
+            font-size: 11px;
+            font-weight: 700;
+            font-family: var(--mono);
+        }
+
+        .cond-label.target { color: var(--success); }
+        .cond-label.sl     { color: var(--danger); }
+
+        .cond-input {
+            background: var(--surface-0);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 7px 10px;
+            color: var(--text-primary);
+            font-family: var(--mono);
+            font-size: 12px;
+            width: 100%;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .cond-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--surface-1);
+        }
+
+        .cond-btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .cond-set-btn {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid var(--border-strong);
+            padding: 8px;
+            border-radius: 7px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .cond-set-btn:hover { background: var(--accent); color: #000; }
+
+        .btn-modify-gtt {
+            background: rgba(245,158,11,0.08);
+            color: var(--amber);
+            border: 1px solid rgba(245,158,11,0.25);
+            padding: 8px;
+            border-radius: 7px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: none;
+        }
+
+        .btn-modify-gtt:enabled {
+            border-style: solid;
+            background: rgba(245,158,11,0.12);
+        }
+
+        .cond-status {
+            margin-top: 6px;
+            font-size: 10px;
+            font-family: var(--mono);
+            color: var(--text-secondary);
+            min-height: 14px;
+        }
+
+        /* ─── ACTIVE POSITIONS ─── */
+        #active-positions-container {
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
         #active-positions-list {
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            width: 100%;
+            gap: 10px;
         }
 
         .position-card {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--glass-border);
-            border-radius: 14px;
+            background: var(--surface-0);
+            border: 1px solid var(--border);
+            border-radius: 12px;
             padding: 14px;
             display: flex;
             flex-direction: column;
             gap: 10px;
-            transition: all 0.3s ease;
+            transition: border-color 0.3s;
             animation: slideIn 0.3s ease-out;
         }
 
         @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
 
-        .position-card:hover {
-            background: rgba(255, 255, 255, 0.07);
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .position-card.profit {
-            border-left: 4px solid var(--success);
-        }
-
-        .position-card.loss {
-            border-left: 4px solid var(--danger);
-        }
+        .position-card.profit { border-left: 3px solid var(--success); }
+        .position-card.loss   { border-left: 3px solid var(--danger); }
 
         .pos-header {
             display: flex;
@@ -252,547 +563,180 @@
         }
 
         .pos-symbol {
+            font-family: var(--mono);
             font-size: 13px;
-            font-weight: 800;
-            color: #fff;
-            letter-spacing: 0.02em;
+            font-weight: 700;
+            color: var(--text-primary);
         }
 
         .pos-side-badge {
             font-size: 9px;
             padding: 3px 8px;
-            border-radius: 6px;
-            font-weight: 900;
+            border-radius: 20px;
+            font-weight: 700;
             letter-spacing: 0.05em;
         }
 
-        .pos-side-badge.CALL {
-            background: rgba(34, 197, 94, 0.15);
-            color: var(--success);
-            border: 1px solid rgba(34, 197, 94, 0.2);
-        }
-
-        .pos-side-badge.PUT {
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--danger);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-        }
+        .pos-side-badge.CALL { background: var(--success-dim); color: var(--success); border: 1px solid rgba(16,185,129,0.2); }
+        .pos-side-badge.PUT  { background: var(--danger-dim);  color: var(--danger);  border: 1px solid rgba(244,63,94,0.2); }
 
         .pos-pnl-main {
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 10px 0;
-            border-bottom: 1px dashed var(--glass-border);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
         }
 
         .pos-pnl-label {
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 700;
             color: var(--text-secondary);
             text-transform: uppercase;
-            margin-bottom: 2px;
+            letter-spacing: 0.08em;
+            margin-bottom: 4px;
         }
 
         .pos-pnl-amt {
-            font-size: 28px;
-            font-weight: 800;
-            font-family: 'Outfit', sans-serif;
+            font-family: var(--mono);
+            font-size: 26px;
+            font-weight: 700;
         }
 
-        .pos-pnl-amt.profit {
-            color: var(--success);
-            text-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
-        }
-
-        .pos-pnl-amt.loss {
-            color: var(--danger);
-            text-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
-        }
+        .pos-pnl-amt.profit { color: var(--success); text-shadow: 0 0 20px var(--success-glow); }
+        .pos-pnl-amt.loss   { color: var(--danger);  text-shadow: 0 0 20px var(--danger-glow); }
 
         .pos-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            font-size: 11px;
+            gap: 10px;
         }
 
-        .pos-stat {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
+        .pos-stat { display: flex; flex-direction: column; gap: 2px; }
 
         .pos-stat label {
-            color: var(--text-secondary);
             font-size: 9px;
-            font-weight: 700;
+            font-weight: 600;
+            color: var(--text-secondary);
             text-transform: uppercase;
+            letter-spacing: 0.06em;
         }
 
         .pos-stat span {
-            color: #fff;
-            font-weight: 700;
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
         }
+
+        .monitor-value.ABOVE { color: var(--success); }
+        .monitor-value.BELOW { color: var(--danger); }
+        .monitor-value.INSIDE { color: var(--amber); }
 
         .no-positions {
-            padding: 30px;
+            padding: 24px;
             text-align: center;
-            color: var(--text-secondary);
+            color: var(--text-muted);
             font-size: 12px;
-            font-style: italic;
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 12px;
-            border: 1px dashed var(--glass-border);
+            border: 1px dashed var(--border);
+            border-radius: 10px;
         }
 
-        .monitor-symbol {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px dashed var(--glass-border);
-            font-size: 12px;
-            color: var(--text-secondary);
-            font-family: monospace;
-            text-align: center;
-        }
-
-        /* TRADE HISTORY */
-        .history-container {
-            margin-top: 24px;
-            padding-top: 24px;
-            border-top: 1px solid var(--glass-border);
-        }
-
-        .history-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            max-height: 400px;
-            overflow-y: auto;
-            padding-right: 4px;
-        }
-
-        .history-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 12px;
-            font-size: 12px;
-            transition: all 0.2s;
-        }
-
-        .history-card:hover {
-            background: rgba(255, 255, 255, 0.06);
-        }
-
-        .hist-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .hist-symbol {
-            font-weight: 700;
-            color: #fff;
-        }
-
-        .hist-time {
-            font-size: 10px;
-            color: var(--text-secondary);
-        }
-
-        .hist-badges {
-            display: flex;
-            gap: 6px;
-        }
-
-        .badge {
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
-        .badge-target {
-            background: rgba(34, 197, 94, 0.15);
-            color: var(--success);
-        }
-
-        .badge-sl {
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--danger);
-        }
-
-        .badge-call {
-            background: rgba(0, 242, 254, 0.1);
-            color: var(--accent);
-        }
-
-        .badge-put {
-            background: rgba(255, 170, 0, 0.1);
-            color: orange;
-        }
-
-        .hist-grid {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 8px;
-        }
-
-        .hist-stats {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .hist-stats label {
-            font-size: 9px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-        }
-
-        .hist-stats span {
-            font-weight: 700;
-            color: #fff;
-        }
-
-        .hist-pnl {
-            text-align: right;
-        }
-
-        .pnl-val {
-            font-size: 14px;
-            font-weight: 800;
-        }
-
-        .pnl-val.profit {
-            color: var(--success);
-        }
-
-        .pnl-val.loss {
-            color: var(--danger);
-        }
-
-        /* COMMAND SECTORS */
-        .command-center {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            margin-bottom: 32px;
-        }
-
-        .command-sector {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 20px;
-        }
-
-        .sector-title {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-secondary);
-            margin-bottom: 14px;
-            text-transform: uppercase;
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 12px;
-        }
-
-        .indicator-box {
-            position: relative;
-            flex: 2;
-        }
-
-        .btn {
-            border: none;
-            border-radius: 14px;
-            padding: 16px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            width: 100%;
-        }
-
-        .btn-buy-call {
-            background: rgba(34, 197, 94, 0.1);
-            color: var(--success);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-        }
-
-        .btn-buy-call:hover {
-            background: var(--success);
-            color: #000;
-            box-shadow: 0 0 25px rgba(34, 197, 94, 0.3);
-        }
-
-        .btn-buy-put {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--danger);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-
-        .btn-buy-put:hover {
-            background: var(--danger);
-            color: #000;
-            box-shadow: 0 0 25px rgba(239, 68, 68, 0.3);
-        }
-
-        .btn-exit {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
-            color: #fff;
-            border: 1px solid var(--glass-border);
-        }
-
-        .btn-exit:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-1px);
-        }
-
-        .btn:disabled {
-            opacity: 0.1;
-            filter: grayscale(1);
-            cursor: not-allowed;
-            transform: none !important;
-            box-shadow: none !important;
-        }
-
-        .btn-modify-gtt {
-            background: rgba(0, 242, 254, 0.05);
-            color: var(--accent);
-            border: 1px dashed var(--accent-glow);
-            padding: 8px;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: none; /* Only show when needed */
-        }
-
-        .btn-modify-gtt:enabled {
-            border-style: solid;
-            background: rgba(0, 242, 254, 0.15);
-        }
-
-        /* IN-CARD P&L DISPLAY */
-        .sector-pnl-overlay {
-            background: rgba(0, 0, 0, 0.6);
-            border-radius: 16px;
-            padding: 16px;
-            margin-top: 10px;
-            display: none; /* Show when position active */
-            border: 1px solid var(--glass-border);
-            animation: fadeIn 0.3s ease;
-        }
-
-        .sector-pnl-main {
-            text-align: center;
-            margin-bottom: 12px;
-        }
-
-        .pnl-label {
-            font-size: 10px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-        }
-
-        .pnl-value-large {
-            font-size: 32px;
-            font-weight: 800;
-            font-family: 'Outfit', sans-serif;
-        }
-
-        .sector-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            font-size: 11px;
-        }
-
-        .stat-item {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .stat-label {
-            color: var(--text-secondary);
-            font-size: 9px;
-        }
-
-        /* BUBBLE INDICATOR */
-        .pos-active-label {
-            position: absolute;
-            top: -24px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 10px;
-            font-weight: 800;
-            color: var(--success);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            background: rgba(34, 197, 94, 0.1);
-            padding: 4px 10px;
-            border-radius: 6px;
-            border: 1px solid rgba(34, 197, 94, 0.2);
-            display: none;
-            white-space: nowrap;
-            animation: label-glow 2s infinite;
-            z-index: 10;
-        }
-
-        @keyframes label-glow {
-            0% {
-                opacity: 0.6;
-                box-shadow: 0 0 5px rgba(34, 197, 94, 0.1);
-            }
-
-            50% {
-                opacity: 1;
-                box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
-            }
-
-            100% {
-                opacity: 0.6;
-                box-shadow: 0 0 5px rgba(34, 197, 94, 0.1);
-            }
-        }
-
-        /* EMERGENCY */
+        /* ─── EMERGENCY BUTTON ─── */
         .emergency-btn {
-            background: linear-gradient(135deg, #ef4444 0%, #7f1d1d 100%);
-            color: #fff;
-            padding: 20px;
-            font-size: 15px;
+            background: linear-gradient(135deg, rgba(244,63,94,0.15), rgba(127,29,29,0.3));
+            color: var(--danger);
+            padding: 16px;
+            font-size: 13px;
+            font-family: var(--display);
             font-weight: 800;
-            border-radius: 18px;
-            border: none;
+            border-radius: 12px;
+            border: 1px solid rgba(244,63,94,0.3);
             width: 100%;
             cursor: pointer;
-            box-shadow: 0 10px 40px rgba(239, 68, 68, 0.3);
             transition: all 0.3s ease;
+            letter-spacing: 0.02em;
         }
 
         .emergency-btn:hover {
-            transform: scale(1.02);
-            filter: brightness(1.2);
-            box-shadow: 0 15px 50px rgba(239, 68, 68, 0.5);
+            background: var(--danger);
+            color: #fff;
+            border-color: var(--danger);
+            box-shadow: 0 8px 30px var(--danger-glow);
+            transform: translateY(-1px);
         }
 
-        /* STATUS MESSAGES */
-        #status-msg {
-            margin-top: 24px;
-            padding: 12px;
-            border-radius: 10px;
-            font-size: 13px;
-            text-align: center;
-            display: none;
-            animation: slideUp 0.3s ease;
+        /* ─── RIGHT PANEL CARDS ─── */
+        .panel-card {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
         }
 
-        @keyframes slideUp {
-            from {
-                transform: translateY(10px);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
+        .panel-card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .msg-success {
-            background: rgba(34, 197, 94, 0.1);
-            color: var(--success);
-            border: 1px solid rgba(34, 197, 94, 0.2);
-        }
-
-        .msg-error {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--danger);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-        }
-
-        /* AI SECTIONS */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-        }
-
-        @media (max-width: 800px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .side-card {
-            background: var(--glass-strong);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 24px;
-        }
-
-        .side-card-title {
-            font-size: 13px;
+        .panel-card-title {
+            font-size: 11px;
             font-weight: 700;
-            color: var(--accent);
-            margin-bottom: 16px;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            color: var(--accent);
         }
 
-        /* PRICE LEVELS */
+        .panel-card-body { padding: 16px 18px; }
+
+        /* ─── PRICE LEVELS ─── */
         .level-row {
             display: grid;
-            grid-template-columns: 60px 1fr 1fr;
+            grid-template-columns: 64px 1fr 1fr;
             gap: 8px;
             margin-bottom: 8px;
             align-items: center;
         }
 
         .level-label {
+            font-family: var(--mono);
             font-size: 11px;
-            font-weight: 700;
+            font-weight: 600;
             color: var(--text-secondary);
         }
 
         .level-input {
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid var(--glass-border);
-            border-radius: 8px;
+            background: var(--surface-0);
+            border: 1px solid var(--border);
+            border-radius: 7px;
             padding: 8px;
-            color: #fff;
+            color: var(--text-primary);
+            font-family: var(--mono);
             font-size: 12px;
             width: 100%;
             text-align: center;
+            transition: all 0.2s;
         }
 
         .level-input:focus {
             outline: none;
             border-color: var(--accent);
+            background: var(--surface-1);
         }
 
         .add-level-btn {
             background: transparent;
-            border: 1px dashed var(--glass-border);
+            border: 1px dashed var(--border);
             color: var(--text-secondary);
             width: 100%;
             padding: 8px;
-            border-radius: 8px;
+            border-radius: 7px;
             cursor: pointer;
-            margin: 8px 0 16px 0;
+            font-size: 11px;
             transition: all 0.2s;
         }
 
@@ -802,30 +746,39 @@
         }
 
         .save-btn {
-            background: rgba(0, 242, 254, 0.1);
+            background: var(--accent-dim);
             color: var(--accent);
-            border: 1px solid var(--accent-glow);
+            border: 1px solid var(--border-strong);
             padding: 10px;
-            border-radius: 10px;
+            border-radius: 8px;
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
             width: 100%;
             transition: all 0.2s;
+            margin-top: 8px;
         }
 
-        .save-btn:hover {
-            background: var(--accent);
-            color: #000;
+        .save-btn:hover { background: var(--accent); color: #000; }
+
+        .refresh-btn {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: all 0.2s;
         }
 
-        /* TRADE FEED TABLE */
+        .refresh-btn:hover { color: var(--text-primary); border-color: var(--border-strong); }
+
+        /* ─── TRADE FEED TABLE ─── */
         .feed-wrap {
             overflow-x: auto;
             overflow-y: auto;
-            max-height: 380px;
-            border-radius: 10px;
-            border: 1px solid var(--glass-border);
+            max-height: 360px;
         }
 
         .feed-table {
@@ -839,38 +792,40 @@
             position: sticky;
             top: 0;
             z-index: 1;
-            background: #0d1829;
-            padding: 7px 8px;
+            background: var(--surface-2);
+            padding: 8px 10px;
             text-align: left;
             font-size: 8px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.1em;
             color: var(--text-secondary);
-            border-bottom: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--border);
             white-space: nowrap;
         }
 
         .feed-table tbody td {
-            padding: 8px 8px;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
             vertical-align: middle;
             white-space: nowrap;
+            font-family: var(--mono);
         }
 
         .feed-table tbody tr:last-child td { border-bottom: none; }
-        .feed-table tbody tr:hover td { background: rgba(255,255,255,0.03); }
+        .feed-table tbody tr:hover td { background: rgba(56,189,248,0.03); }
 
         .feed-sig {
             display: inline-block;
             padding: 2px 7px;
             border-radius: 4px;
             font-size: 9px;
-            font-weight: 800;
+            font-weight: 700;
             letter-spacing: 0.04em;
         }
-        .feed-sig.BUY  { background: rgba(34,197,94,.15);  color: var(--success); }
-        .feed-sig.SELL { background: rgba(239,68,68,.15);   color: var(--danger);  }
+
+        .feed-sig.BUY  { background: var(--success-dim); color: var(--success); }
+        .feed-sig.SELL { background: var(--danger-dim);  color: var(--danger); }
 
         .feed-status {
             display: inline-block;
@@ -880,194 +835,266 @@
             font-weight: 700;
             margin-top: 3px;
         }
-        .feed-status.PENDING { background: rgba(245,158,11,.15); color: #f59e0b; }
-        .feed-status.ACTIVE  { background: rgba(0,242,254,.15);  color: var(--accent); }
-        .feed-status.CLOSED  { background: rgba(148,163,184,.12);color: var(--text-secondary); }
-        .feed-status.FAILED  { background: rgba(239,68,68,.12);  color: var(--danger); }
+
+        .feed-status.PENDING { background: rgba(245,158,11,.12); color: var(--amber); }
+        .feed-status.ACTIVE  { background: var(--accent-dim);    color: var(--accent); }
+        .feed-status.CLOSED  { background: var(--surface-2);     color: var(--text-secondary); }
+        .feed-status.FAILED  { background: var(--danger-dim);    color: var(--danger); }
 
         .feed-pnl.pos { color: var(--success); font-weight: 700; }
         .feed-pnl.neg { color: var(--danger);  font-weight: 700; }
-        .feed-null    { color: rgba(255,255,255,0.2); }
+        .feed-null    { color: var(--text-muted); }
 
-        .footer {
-            margin-top: 40px;
-            text-align: center;
-            font-size: 11px;
-            color: var(--text-secondary);
-            letter-spacing: 0.05em;
+        /* ─── HISTORY CARDS ─── */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 320px;
+            overflow-y: auto;
         }
 
-        /* CONDITIONAL ORDERS */
-        .cond-panel {
-            margin-top: 14px;
-            padding-top: 14px;
-            border-top: 1px dashed var(--glass-border);
+        .history-card {
+            background: var(--surface-0);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 12px;
+            transition: border-color 0.2s;
         }
 
-        .cond-panel-title {
-            font-size: 10px;
-            font-weight: 700;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            margin-bottom: 10px;
-        }
+        .history-card:hover { border-color: var(--border-strong); }
 
-        .cond-row {
-            display: grid;
-            grid-template-columns: 55px 1fr 1fr;
-            gap: 8px;
+        .hist-header {
+            display: flex;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 8px;
         }
 
-        .cond-label {
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .cond-label.target {
-            color: var(--success);
-        }
-
-        .cond-label.sl {
-            color: var(--danger);
-        }
-
-        .cond-input {
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--glass-border);
-            border-radius: 8px;
-            padding: 8px;
-            color: #fff;
+        .hist-symbol {
+            font-family: var(--mono);
             font-size: 12px;
-            width: 100%;
-            text-align: center;
-        }
-
-        .cond-input:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        .cond-btn-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-top: 6px;
-        }
-
-        .cond-set-btn {
-            background: rgba(0, 242, 254, 0.1);
-            color: var(--accent);
-            border: 1px solid var(--accent-glow);
-            padding: 8px;
-            border-radius: 8px;
-            font-size: 11px;
             font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
+            color: var(--text-primary);
         }
 
-        .cond-set-btn:hover {
-            background: var(--accent);
-            color: #000;
-        }
-
-        .cond-cancel-btn {
-            background: rgba(239, 68, 68, 0.08);
-            color: var(--danger);
-            border: 1px solid rgba(239, 68, 68, 0.25);
-            padding: 8px;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .cond-cancel-btn:hover {
-            background: var(--danger);
-            color: #fff;
-        }
-
-        .cond-status {
-            margin-top: 6px;
+        .hist-time {
+            font-family: var(--mono);
             font-size: 10px;
-            font-family: monospace;
             color: var(--text-secondary);
-            min-height: 14px;
+        }
+
+        .hist-badges {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .badge-target { background: var(--success-dim); color: var(--success); border: 1px solid rgba(16,185,129,0.2); }
+        .badge-sl     { background: var(--danger-dim);  color: var(--danger);  border: 1px solid rgba(244,63,94,0.2); }
+        .badge-call   { background: var(--accent-dim);  color: var(--accent);  border: 1px solid rgba(56,189,248,0.2); }
+        .badge-put    { background: rgba(245,158,11,0.1); color: var(--amber); border: 1px solid rgba(245,158,11,0.2); }
+
+        .hist-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 8px;
+            align-items: end;
+        }
+
+        .hist-stats { display: flex; flex-direction: column; gap: 2px; }
+
+        .hist-stats label {
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .hist-stats span {
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .hist-pnl { text-align: right; }
+        .hist-pnl label {
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .pnl-val {
+            font-family: var(--mono);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .pnl-val.profit { color: var(--success); }
+        .pnl-val.loss   { color: var(--danger); }
+
+        /* ─── STATUS MESSAGE ─── */
+        #status-msg {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            display: none;
+            animation: slideUp 0.3s ease;
+            z-index: 999;
+            backdrop-filter: blur(12px);
+            white-space: nowrap;
+        }
+
+        @keyframes slideUp {
+            from { transform: translate(-50%, 10px); opacity: 0; }
+            to   { transform: translate(-50%, 0);    opacity: 1; }
+        }
+
+        .msg-success {
+            background: rgba(16,185,129,0.15);
+            color: var(--success);
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+
+        .msg-error {
+            background: var(--danger-dim);
+            color: var(--danger);
+            border: 1px solid rgba(244,63,94,0.3);
+        }
+
+        /* ─── ANIMATIONS ─── */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .panel-left, .panel-right {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* ─── SCROLLBARS ─── */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+        /* ─── FOOTER ─── */
+        .footer {
+            padding: 16px 32px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            font-family: var(--mono);
         }
     </style>
 </head>
 
 <body>
-    <div class="dashboard-container">
-        <header class="header">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+        <div class="topbar-brand">
+            <div class="brand-mark">TA</div>
             <div>
-                <h1>Trading Agent</h1>
-                <p>NIFTY Live Control Hub v2.0</p>
-                <div id="range-tracker-summary" style="font-size: 10px; display: flex; gap: 10px; margin-top: 8px;">
-                    <span id="range-NIFTY" class="monitor-label">NIFTY: --</span>
-                    <span id="range-BANKNIFTY" class="monitor-label">BNIFTY: --</span>
-                </div>
+                <div class="brand-name">Trading Agent</div>
+                <div class="brand-sub">NIFTY Live Control Hub v2.0</div>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <div class="range-pills" id="range-tracker-summary">
+                <span id="range-NIFTY" class="range-pill">NIFTY: --</span>
+                <span id="range-BANKNIFTY" class="range-pill">BNIFTY: --</span>
             </div>
             <button id="btn-connect-dhan" class="connect-btn" onclick="authConnect()"
-                aria-label="Connect Dhan broker account" data-action="connect-dhan">Connect Dhan</button>
-        </header>
+                aria-label="Connect Dhan broker account" data-action="connect-dhan">
+                Connect Dhan
+            </button>
+        </div>
+    </header>
 
-        <section class="auth-bar" aria-label="Authentication">
-            <input type="password" id="secret" name="webhook-secret"
-                placeholder="Enter Webhook Secret to Enable Controls" aria-label="Webhook Secret"
-                autocomplete="current-password">
-        </section>
+    <!-- AUTH STRIP -->
+    <section class="auth-strip" aria-label="Authentication">
+        <input type="password" id="secret" name="webhook-secret"
+            placeholder="Enter Webhook Secret to Enable Controls"
+            aria-label="Webhook Secret" autocomplete="current-password">
+    </section>
 
-        <div class="dashboard-grid">
-            <!-- Left Column: Controls -->
-            <div class="col-controls">
-                <section id="command-center" class="command-center" aria-label="NIFTY Trade Controls">
-                    <!-- CALL SECTOR -->
-                    <div id="sector-call" class="command-sector" data-sector="CALL" aria-label="NIFTY CALL CE Controls">
-                        <div class="sector-title">NIFTY CALL (CE)</div>
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+
+        <!-- LEFT: CONTROLS -->
+        <div class="panel-left">
+            <div class="section-label">Trade Controls</div>
+
+            <section id="command-center" class="command-center" aria-label="NIFTY Trade Controls">
+
+                <!-- CALL SECTOR -->
+                <div id="sector-call" class="command-sector" data-sector="CALL" aria-label="NIFTY CALL CE Controls">
+                    <div class="sector-head">
+                        <span class="sector-title">NIFTY CALL (CE)</span>
+                        <div id="stat-CALL" class="pos-active-label" aria-live="polite" data-status="call-active">
+                            CALL ACTIVE
+                        </div>
+                    </div>
+                    <div class="sector-body">
                         <div class="btn-group">
                             <div class="indicator-box">
-                                <div id="stat-CALL" class="pos-active-label" aria-live="polite"
-                                    data-status="call-active">CALL POSITION ACTIVE</div>
                                 <button id="btn-buy-call" class="btn btn-buy-call"
                                     onclick="agentAPI.sendUIAction('CALL')" data-action="buy-call"
                                     aria-label="Buy NIFTY Call option">BUY CALL</button>
-                                
-                                <div id="pnl-CALL" class="sector-pnl-overlay">
+
+                                <div id="pnl-CALL" class="sector-pnl-overlay" style="margin-top:10px">
                                     <div class="sector-pnl-main">
                                         <div class="pnl-label">NIFTY CALL CE PnL</div>
                                         <div id="pnl-amt-CALL" class="pnl-value-large">+₹0</div>
-                                        <div id="pnl-pct-CALL" style="font-size: 12px;">+0%</div>
+                                        <div id="pnl-pct-CALL" style="font-family:var(--mono);font-size:11px;color:var(--text-secondary);margin-top:2px">+0%</div>
                                     </div>
                                     <div class="sector-stats">
                                         <div class="stat-item"><span class="stat-label">Entry</span><span id="entry-CALL">--</span></div>
                                         <div class="stat-item"><span class="stat-label">LTP</span><span id="ltp-CALL">--</span></div>
                                         <div class="stat-item"><span class="stat-label">Qty</span><span id="qty-CALL">--</span></div>
-                                        <div class="stat-item"><span class="stat-label">Symbol</span><span id="sym-CALL" style="font-size: 8px;">--</span></div>
+                                        <div class="stat-item"><span class="stat-label">Symbol</span><span id="sym-CALL" style="font-size:9px">--</span></div>
                                     </div>
                                 </div>
                             </div>
-                            <button id="btn-exit-call" class="btn btn-exit" onclick="agentAPI.sendUIAction('EXIT_CALL')"
+                            <button id="btn-exit-call" class="btn btn-exit"
+                                onclick="agentAPI.sendUIAction('EXIT_CALL')"
                                 data-action="exit-call" aria-label="Exit NIFTY Call position">EXIT</button>
                         </div>
-                        <!-- Conditional Orders: CALL -->
+
                         <div class="cond-panel">
                             <div class="cond-panel-title">Index Conditional GTT</div>
                             <div class="cond-row">
                                 <span class="cond-label target">Target</span>
-                                <input type="number" id="call-target" class="cond-input" placeholder="Price" step="0.5"
-                                    aria-label="Call target price">
-                                <span style="font-size:10px;color:var(--text-secondary)">UP</span>
+                                <input type="number" id="call-target" class="cond-input" placeholder="Price" step="0.5" aria-label="Call target price">
                             </div>
                             <div class="cond-row">
                                 <span class="cond-label sl">SL</span>
-                                <input type="number" id="call-sl" class="cond-input" placeholder="Price" step="0.5"
-                                    aria-label="Call stop loss price">
-                                <span style="font-size:10px;color:var(--text-secondary)">DOWN</span>
+                                <input type="number" id="call-sl" class="cond-input" placeholder="Price" step="0.5" aria-label="Call stop loss price">
                             </div>
                             <div class="cond-btn-row">
                                 <button id="btn-set-call" class="cond-set-btn" onclick="setConditionalOrders('CALL')">Apply GTT</button>
@@ -1076,48 +1103,51 @@
                             <div id="cond-status-call" class="cond-status"></div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- PUT SECTOR -->
-                    <div id="sector-put" class="command-sector" data-sector="PUT" aria-label="NIFTY PUT PE Controls">
-                        <div class="sector-title">NIFTY PUT (PE)</div>
+                <!-- PUT SECTOR -->
+                <div id="sector-put" class="command-sector" data-sector="PUT" aria-label="NIFTY PUT PE Controls">
+                    <div class="sector-head">
+                        <span class="sector-title">NIFTY PUT (PE)</span>
+                        <div id="stat-PUT" class="pos-active-label" aria-live="polite" data-status="put-active">
+                            PUT ACTIVE
+                        </div>
+                    </div>
+                    <div class="sector-body">
                         <div class="btn-group">
                             <div class="indicator-box">
-                                <div id="stat-PUT" class="pos-active-label" aria-live="polite" data-status="put-active">
-                                    PUT POSITION ACTIVE</div>
-                                <button id="btn-buy-put" class="btn btn-buy-put" onclick="agentAPI.sendUIAction('PUT')"
-                                    data-action="buy-put" aria-label="Buy NIFTY Put option">BUY PUT</button>
-                                
-                                <div id="pnl-PUT" class="sector-pnl-overlay">
+                                <button id="btn-buy-put" class="btn btn-buy-put"
+                                    onclick="agentAPI.sendUIAction('PUT')" data-action="buy-put"
+                                    aria-label="Buy NIFTY Put option">BUY PUT</button>
+
+                                <div id="pnl-PUT" class="sector-pnl-overlay" style="margin-top:10px">
                                     <div class="sector-pnl-main">
                                         <div class="pnl-label">NIFTY PUT PE PnL</div>
                                         <div id="pnl-amt-PUT" class="pnl-value-large">+₹0</div>
-                                        <div id="pnl-pct-PUT" style="font-size: 12px;">+0%</div>
+                                        <div id="pnl-pct-PUT" style="font-family:var(--mono);font-size:11px;color:var(--text-secondary);margin-top:2px">+0%</div>
                                     </div>
                                     <div class="sector-stats">
                                         <div class="stat-item"><span class="stat-label">Entry</span><span id="entry-PUT">--</span></div>
                                         <div class="stat-item"><span class="stat-label">LTP</span><span id="ltp-PUT">--</span></div>
                                         <div class="stat-item"><span class="stat-label">Qty</span><span id="qty-PUT">--</span></div>
-                                        <div class="stat-item"><span class="stat-label">Symbol</span><span id="sym-PUT" style="font-size: 8px;">--</span></div>
+                                        <div class="stat-item"><span class="stat-label">Symbol</span><span id="sym-PUT" style="font-size:9px">--</span></div>
                                     </div>
                                 </div>
                             </div>
-                            <button id="btn-exit-put" class="btn btn-exit" onclick="agentAPI.sendUIAction('EXIT_PUT')"
+                            <button id="btn-exit-put" class="btn btn-exit"
+                                onclick="agentAPI.sendUIAction('EXIT_PUT')"
                                 data-action="exit-put" aria-label="Exit NIFTY Put position">EXIT</button>
                         </div>
-                        <!-- Conditional Orders: PUT -->
+
                         <div class="cond-panel">
                             <div class="cond-panel-title">Index Conditional GTT</div>
                             <div class="cond-row">
                                 <span class="cond-label target">Target</span>
-                                <input type="number" id="put-target" class="cond-input" placeholder="Price" step="0.5"
-                                    aria-label="Put target price">
-                                <span style="font-size:10px;color:var(--text-secondary)">UP</span>
+                                <input type="number" id="put-target" class="cond-input" placeholder="Price" step="0.5" aria-label="Put target price">
                             </div>
                             <div class="cond-row">
                                 <span class="cond-label sl">SL</span>
-                                <input type="number" id="put-sl" class="cond-input" placeholder="Price" step="0.5"
-                                    aria-label="Put stop loss price">
-                                <span style="font-size:10px;color:var(--text-secondary)">DOWN</span>
+                                <input type="number" id="put-sl" class="cond-input" placeholder="Price" step="0.5" aria-label="Put stop loss price">
                             </div>
                             <div class="cond-btn-row">
                                 <button id="btn-set-put" class="cond-set-btn" onclick="setConditionalOrders('PUT')">Apply GTT</button>
@@ -1126,89 +1156,100 @@
                             <div id="cond-status-put" class="cond-status"></div>
                         </div>
                     </div>
-                </section>
-                
-                <!-- ACTIVE POSITIONS SUMMARY -->
-                <div id="active-positions-container" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--glass-border); display: none;">
-                    <div class="sector-title">Active Multi-Index Positions</div>
-                    <div id="active-positions-list"></div>
                 </div>
 
+            </section>
 
-                <button id="btn-exit-all" class="emergency-btn" onclick="agentAPI.emergencyExit()"
-                    data-action="exit-all" aria-label="Emergency exit all positions and reset">
-                    🚨 EXIT ALL POSITIONS &amp; RESET RANKS
-                </button>
+            <!-- ACTIVE POSITIONS -->
+            <div id="active-positions-container" style="display:none">
+                <div class="section-label" style="margin-bottom:12px">Active Positions</div>
+                <div id="active-positions-list"></div>
             </div>
 
-            <!-- Right Column: AI & Levels -->
-            <div class="col-ai">
-                <!-- PRICE LEVELS STUDIO -->
-                <section class="side-card">
-                    <div class="side-card-title">Price Levels Studio</div>
+            <!-- EMERGENCY EXIT -->
+            <button id="btn-exit-all" class="emergency-btn" onclick="agentAPI.emergencyExit()"
+                data-action="exit-all" aria-label="Emergency exit all positions and reset">
+                🚨 EXIT ALL POSITIONS &amp; RESET RANKS
+            </button>
+        </div>
 
-                    <button class="add-level-btn" onclick="addLevelRow('UTP')" style="margin-bottom: 8px;">+ Add Upper
-                        Level (UTP)</button>
+        <!-- RIGHT: DATA & LEVELS -->
+        <div class="panel-right">
+
+            <!-- PRICE LEVELS STUDIO -->
+            <div class="panel-card">
+                <div class="panel-card-head">
+                    <span class="panel-card-title">Price Levels Studio</span>
+                </div>
+                <div class="panel-card-body">
+                    <button class="add-level-btn" onclick="addLevelRow('UTP')" style="margin-bottom:8px">+ Add Upper Level (UTP)</button>
                     <div id="utp-container"></div>
 
-                    <div class="level-row" style="margin-top: 8px; margin-bottom: 8px;">
+                    <div class="level-row" style="margin:10px 0">
                         <span class="level-label">TP0 Base</span>
                         <input type="number" id="tp0-low" class="level-input" placeholder="Low">
                         <input type="number" id="tp0-high" class="level-input" placeholder="High">
                     </div>
 
                     <div id="ltp-container"></div>
-                    <button class="add-level-btn" onclick="addLevelRow('LTP')" style="margin-top: 8px;">+ Add Lower
-                        Level (LTP)</button>
-
+                    <button class="add-level-btn" onclick="addLevelRow('LTP')" style="margin-top:8px">+ Add Lower Level (LTP)</button>
                     <button class="save-btn" onclick="saveLevels()">Save Levels</button>
-                </section>
-
-                <!-- TRADE FEED -->
-                <section class="side-card">
-                    <div class="side-card-title" style="margin-bottom: 12px;">
-                        System Activity Feed
-                        <button style="padding: 2px 8px; font-size: 0.75rem; background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border); border-radius: 6px; color: var(--text-secondary); cursor: pointer;" onclick="refreshTradeFeed()">↻</button>
-                    </div>
-                    <div class="feed-wrap">
-                        <table class="feed-table">
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Signal</th>
-                                    <th>Index</th>
-                                    <th>Option</th>
-                                    <th>Entry</th>
-                                    <th>SL</th>
-                                    <th>Target</th>
-                                    <th>Exit</th>
-                                    <th>P&amp;L</th>
-                                    <th>Comment</th>
-                                </tr>
-                            </thead>
-                            <tbody id="feed-body">
-                                <tr><td colspan="10" style="text-align:center; padding: 20px; color: var(--text-secondary); font-style: italic;">No signals yet.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- PERFORMANCE HISTORY -->
-                <section class="side-card">
-                    <div class="side-card-title">Live Performance History</div>
-                    <div id="history-list" class="history-list">
-                        <div class="no-positions" style="padding: 15px;">No historical trades recorded yet.</div>
-                    </div>
-                </section>
+                </div>
             </div>
+
+            <!-- SYSTEM ACTIVITY FEED -->
+            <div class="panel-card">
+                <div class="panel-card-head">
+                    <span class="panel-card-title">System Activity Feed</span>
+                    <button class="refresh-btn" onclick="refreshTradeFeed()">↻ Refresh</button>
+                </div>
+                <div class="feed-wrap">
+                    <table class="feed-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Signal</th>
+                                <th>Index</th>
+                                <th>Option</th>
+                                <th>Entry</th>
+                                <th>SL</th>
+                                <th>Target</th>
+                                <th>Exit</th>
+                                <th>P&amp;L</th>
+                                <th>Comment</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feed-body">
+                            <tr>
+                                <td colspan="10" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic;font-family:var(--body)">
+                                    No signals yet.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PERFORMANCE HISTORY -->
+            <div class="panel-card">
+                <div class="panel-card-head">
+                    <span class="panel-card-title">Live Performance History</span>
+                </div>
+                <div class="panel-card-body">
+                    <div id="history-list" class="history-list">
+                        <div class="no-positions">No historical trades recorded yet.</div>
+                    </div>
+                </div>
+            </div>
+
         </div>
-
-        <div id="status-msg" role="alert" aria-live="assertive"></div>
-
-        <footer class="footer">
-            Precision Trading v2.1 • OpenAI Enhanced
-        </footer>
     </div>
+
+    <div id="status-msg" role="alert" aria-live="assertive"></div>
+
+    <footer class="footer">
+        Precision Trading v2.1 &nbsp;·&nbsp; OpenAI Enhanced &nbsp;·&nbsp; NIFTY Options Desk
+    </footer>
 
     <script>
         // Initialization & Polling
@@ -1275,39 +1316,27 @@
                     </div>
                     <div class="pos-pnl-main">
                         <span class="pos-pnl-label">Net PnL</span>
-                        <span class="pos-pnl-amt ${pnlClass}">${sign}${pos.pnl_abs}</span>
-                        <span style="font-size: 10px; color: ${isProfit ? 'var(--success)' : 'var(--danger)'}">${sign}${pos.pnl_pct}%</span>
+                        <span class="pos-pnl-amt ${pnlClass}">${sign}₹${pos.pnl_abs}</span>
+                        <span style="font-family:var(--mono);font-size:10px;color:${isProfit ? 'var(--success)' : 'var(--danger)'};margin-top:2px">${sign}${pos.pnl_pct}%</span>
                     </div>
                     <div class="pos-grid">
-                        <div class="pos-stat">
-                            <label>Quantity</label>
-                            <span>${pos.quantity}</span>
-                        </div>
-                        <div class="pos-stat">
-                            <label>Entry</label>
-                            <span>₹${pos.entry_price}</span>
-                        </div>
-                        <div class="pos-stat">
-                            <label>LTP</label>
-                            <span>₹${pos.ltp}</span>
-                        </div>
-                        <div class="pos-stat">
-                            <label>Range</label>
-                            <span class="monitor-value ${pos.range_position}">${pos.range_position}</span>
-                        </div>
+                        <div class="pos-stat"><label>Quantity</label><span>${pos.quantity}</span></div>
+                        <div class="pos-stat"><label>Entry</label><span>₹${pos.entry_price}</span></div>
+                        <div class="pos-stat"><label>LTP</label><span>₹${pos.ltp}</span></div>
+                        <div class="pos-stat"><label>Range</label><span class="monitor-value ${pos.range_position}">${pos.range_position}</span></div>
                     </div>
                     ${pos.idx_target_level ? `
-                    <div class="cond-panel" style="margin-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 8px;">
+                    <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
                         <div class="cond-panel-title">Index GTT Active</div>
-                        <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px">
                             <span style="color:var(--success)">TGT: ${pos.idx_target_level}</span>
                             <span style="color:var(--danger)">SL: ${pos.idx_sl_level}</span>
                         </div>
                     </div>` : ''}
                     ${pos.conditional_target_price ? `
-                    <div class="cond-panel" style="margin-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 8px;">
+                    <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
                         <div class="cond-panel-title">Premium GTT Active</div>
-                        <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px">
                             <span style="color:var(--success)">TGT: ₹${pos.conditional_target_price}</span>
                             <span style="color:var(--danger)">SL: ₹${pos.conditional_sl_price}</span>
                         </div>
@@ -1329,13 +1358,13 @@
                         <span class="hist-symbol">${trade.symbol}</span>
                         <span class="hist-time">${trade.exit_time}</span>
                     </div>
-                    <div class="hist-badges" style="margin-bottom: 8px;">
+                    <div class="hist-badges">
                         <span class="badge ${sideClass}">${trade.side}</span>
                         <span class="badge ${badgeClass}">${trade.reason.replace('_', ' ')}</span>
                     </div>
                     <div class="hist-grid">
                         <div class="hist-stats">
-                            <label>Entry/Exit</label>
+                            <label>Entry / Exit</label>
                             <span>₹${trade.entry_price} → ₹${trade.exit_price}</span>
                         </div>
                         <div class="hist-pnl">
@@ -1352,7 +1381,7 @@
             if (history && history.length > 0) {
                 histEl.innerHTML = history.map(t => renderHistoryCard(t)).join('');
             } else {
-                histEl.innerHTML = '<div class="no-positions" style="padding: 15px;">No historical trades recorded yet.</div>';
+                histEl.innerHTML = '<div class="no-positions">No historical trades recorded yet.</div>';
             }
         }
 
@@ -1382,7 +1411,7 @@
             sectors.forEach(s => {
                 const pnlEl = document.getElementById(`pnl-${s}`);
                 const buyEl = document.getElementById(`btn-buy-${s.toLowerCase()}`);
-                
+
                 if ((s === 'CALL' && callActive) || (s === 'PUT' && putActive)) {
                     if (sector) {
                         pnlEl.style.display = 'block';
@@ -1394,7 +1423,7 @@
                         amtEl.style.color = isProfit ? 'var(--success)' : 'var(--danger)';
                         document.getElementById(`pnl-pct-${s}`).textContent = `${sign}${sector.pnl_pct}%`;
                         document.getElementById(`pnl-pct-${s}`).style.color = isProfit ? 'var(--success)' : 'var(--danger)';
-                        
+
                         document.getElementById(`entry-${s}`).textContent = `₹${sector.entry_price}`;
                         document.getElementById(`ltp-${s}`).textContent = `₹${sector.ltp}`;
                         document.getElementById(`qty-${s}`).textContent = sector.quantity;
@@ -1409,7 +1438,7 @@
             // 4. Update Global Active Positions List
             const positionsListEl = document.getElementById('active-positions-list');
             const positionsContainer = document.getElementById('active-positions-container');
-            
+
             if (data.active_positions && data.active_positions.length > 0) {
                 positionsContainer.style.display = 'block';
                 positionsListEl.innerHTML = data.active_positions.map(p => renderPositionCard(p)).join('');
@@ -1417,16 +1446,16 @@
                 positionsContainer.style.display = 'none';
             }
 
-            // 5. Update Range Tracker Summary (Header)
+            // 5. Update Range Tracker Pills (Header)
             for (const [symbol, pos] of Object.entries(rangeTracker)) {
                 const el = document.getElementById(`range-${symbol}`);
                 if (el) {
                     el.textContent = `${symbol}: ${pos}`;
-                    el.className = 'monitor-label ' + pos;
+                    el.className = 'range-pill ' + pos;
                 }
             }
 
-            // 5. Sync GTT inputs with current state if they match or are active
+            // 6. Sync GTT inputs with current state if they match or are active
             const activePrefix = activeSide === 'PUT' ? 'put' : 'call';
             if (activeSide !== 'NONE' && sector) {
                 const tInp = document.getElementById(`${activePrefix}-target`);
@@ -1434,18 +1463,17 @@
                 const stEl = document.getElementById(`cond-status-${activePrefix}`);
                 const modBtn = document.getElementById(`btn-modify-${activePrefix}`);
                 const setBtn = document.getElementById(`btn-set-${activePrefix}`);
-                
+
                 const tLbl = document.querySelector(`#sector-${activePrefix} .cond-label.target`);
                 const sLbl = document.querySelector(`#sector-${activePrefix} .cond-label.sl`);
                 const pnlTitle = document.querySelector(`#sector-${activePrefix} .cond-panel-title`);
 
-                // Ensure labels stay clean since title indicates type
                 if (tLbl) tLbl.textContent = 'Target';
                 if (sLbl) sLbl.textContent = 'SL';
 
                 if (sector.idx_target_level) {
-                    if (pnlTitle) pnlTitle.innerHTML = 'Index Conditional GTT <span style="color:var(--success); font-size:9px">(ACTIVE)</span>';
-                    
+                    if (pnlTitle) pnlTitle.innerHTML = 'Index Conditional GTT <span style="color:var(--success);font-size:9px">(ACTIVE)</span>';
+
                     if (tInp && !tInp.getAttribute('data-active')) {
                         tInp.value = sector.idx_target_level;
                         tInp.setAttribute('data-active', sector.idx_target_level);
@@ -1455,7 +1483,7 @@
                         sInp.setAttribute('data-active', sector.idx_sl_level);
                     }
                     stEl.textContent = `✅ Index GTT — T:${sector.idx_target_level} SL:${sector.idx_sl_level}`;
-                    
+
                     setBtn.style.display = 'none';
                     const currentT = parseFloat(tInp.value);
                     const currentS = parseFloat(sInp.value);
@@ -1466,17 +1494,17 @@
                         modBtn.style.display = 'none';
                     }
                 } else if (sector.tgt_price) {
-                    if (pnlTitle) pnlTitle.innerHTML = 'Super Order Bracket <span style="color:var(--success); font-size:9px">(ACTIVE)</span>';
-                    
+                    if (pnlTitle) pnlTitle.innerHTML = 'Super Order Bracket <span style="color:var(--success);font-size:9px">(ACTIVE)</span>';
+
                     tInp.value = sector.tgt_price;
                     sInp.value = sector.sl_price;
                     stEl.textContent = `✅ Premium Bracket — T:₹${sector.tgt_price} SL:₹${sector.sl_price}`;
-                    
+
                     setBtn.style.display = 'none';
-                    modBtn.style.display = 'none'; // Editing simulated super order natively via UI can be disabled here
+                    modBtn.style.display = 'none';
                 } else {
-                    if (pnlTitle) pnlTitle.innerHTML = 'Order Protections <span style="color:var(--danger); font-size:9px">(PENDING)</span>';
-                    
+                    if (pnlTitle) pnlTitle.innerHTML = 'Order Protections <span style="color:var(--danger);font-size:9px">(PENDING)</span>';
+
                     tInp.value = '';
                     sInp.value = '';
                     tInp.placeholder = 'Pending';
@@ -1486,7 +1514,6 @@
                     modBtn.style.display = 'none';
                 }
             } else {
-                // No GTT active
                 ['call', 'put'].forEach(p => {
                     const stEl = document.getElementById(`cond-status-${p}`);
                     if (stEl) stEl.textContent = '';
@@ -1494,12 +1521,12 @@
                     if (setBtn) setBtn.style.display = 'block';
                     const modBtn = document.getElementById(`btn-modify-${p}`);
                     if (modBtn) modBtn.style.display = 'none';
-                    
+
                     const tLbl = document.querySelector(`#sector-${p} .cond-label.target`);
                     const sLbl = document.querySelector(`#sector-${p} .cond-label.sl`);
                     if (tLbl) tLbl.textContent = 'Target';
                     if (sLbl) sLbl.textContent = 'SL';
-                    
+
                     const pnlTitle = document.querySelector(`#sector-${p} .cond-panel-title`);
                     if (pnlTitle) pnlTitle.textContent = 'Index Conditional GTT';
                 });
@@ -1518,18 +1545,18 @@
                 if (!target || !sl) {
                     return notify('⚠️ AC 6: Index SL and Target are MANDATORY to Buy', 'error');
                 }
-                
-                const body = { 
-                    secret, 
-                    underlying: 'NIFTY', 
-                    action: action, 
+
+                const body = {
+                    secret,
+                    underlying: 'NIFTY',
+                    action: action,
                     quantity: 1,
                     target_index: parseFloat(target),
                     sl_index: parseFloat(sl)
                 };
-                
+
                 if (!skipConfirm && !confirm(`Buy NIFTY ${action} with SL:${sl} / TGT:${target}?`)) return;
-                
+
                 notify(`🚀 Sending Signal: BUY ${action}...`, 'success');
                 try {
                     const response = await fetch('/conditional-order', {
@@ -1659,18 +1686,14 @@
                     Object.keys(l)
                         .filter(k => k.startsWith('UTP'))
                         .sort((a, b) => parseInt(a.replace('UTP', '')) - parseInt(b.replace('UTP', '')))
-                        .forEach(k => {
-                            addLevelRow('UTP', l[k].low, l[k].high);
-                        });
+                        .forEach(k => { addLevelRow('UTP', l[k].low, l[k].high); });
 
                     document.getElementById('ltp-container').innerHTML = '';
                     ltpCount = 0;
                     Object.keys(l)
                         .filter(k => k.startsWith('LTP'))
                         .sort((a, b) => parseInt(a.replace('LTP', '')) - parseInt(b.replace('LTP', '')))
-                        .forEach(k => {
-                            addLevelRow('LTP', l[k].low, l[k].high);
-                        });
+                        .forEach(k => { addLevelRow('LTP', l[k].low, l[k].high); });
                 }
             } catch (err) { console.error('Failed to load levels', err); }
         }
@@ -1705,9 +1728,9 @@
                 else notify(data.message, 'error');
             } catch (err) { notify('Failed to save levels', 'error'); }
         }
+
         function formatOptionSymbol(sym) {
             if (!sym) return '<span class="feed-null">--</span>';
-            // NIFTY24APR22500CE → NIFTY APR24 22500 CE
             const m = sym.match(/^([A-Z]+)(\d{2})([A-Z]{3})(\d+)(CE|PE)$/);
             if (m) return `${m[1]} ${m[3]}${m[2]} ${m[4]} ${m[5]}`;
             return sym;
@@ -1755,11 +1778,10 @@
                 if (data.status === 'success' && data.trades && data.trades.length > 0) {
                     tbody.innerHTML = data.trades.map(renderFeedRow).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text-secondary);font-style:italic">No signals yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic;font-family:var(--body)">No signals yet.</td></tr>';
                 }
             } catch (err) { console.error('Trade feed fetch failed', err); }
         }
-
 
         async function setConditionalOrders(side, opts = {}) {
             const secret = document.getElementById('secret').value.trim();
@@ -1782,11 +1804,10 @@
                 });
                 const data = await resp.json();
                 if (data.status === 'success') {
-                    // Reset detection state
                     document.getElementById(`${prefix}-target`).setAttribute('data-active', target);
                     document.getElementById(`${prefix}-sl`).setAttribute('data-active', sl);
                     document.getElementById(`btn-modify-${prefix}`).style.display = 'none';
-                    
+
                     statusEl.textContent = `✅ GTT ${opts.modify ? 'Modified' : 'Set'} — T:${target} SL:${sl}`;
                     notify(`✅ GTT orders updated for ${side}`, 'success');
                     refreshState();
@@ -1838,26 +1859,15 @@
          * ─────────────────────────────────────────────────────────────
          * AI agents can interact with the dashboard via this global object.
          * All actions bypass the confirm() dialog when called programmatically.
-         *
-         * Usage examples:
-         *   window.agentAPI.setSecret('YOUR_SECRET')
-         *   await window.agentAPI.sendUIAction('CALL')     // Buy NIFTY Call
-         *   await window.agentAPI.sendUIAction('PUT')      // Buy NIFTY Put
-         *   await window.agentAPI.sendUIAction('EXIT_CALL')
-         *   await window.agentAPI.sendUIAction('EXIT_PUT')
-         *   await window.agentAPI.emergencyExit()          // Exit all positions
-         *   window.agentAPI.getState()                     // Get current UI state
-         *   await window.agentAPI.setConditionalOrders('CALL', { target_price: 250, sl_price: 150 })
-         *   await window.agentAPI.cancelConditionalOrders('CALL')
          */
         window.agentAPI = {
             setSecret: (s) => { document.getElementById('secret').value = s; localStorage.setItem('agent_secret', s); },
             sendUIAction: (action) => sendUIAction(action, true),
             emergencyExit: () => emergencyExit(true),
             getState: () => ({
-                trend: document.getElementById('val-trend').textContent,
-                quantity: document.getElementById('val-qty').textContent,
-                symbol: document.getElementById('val-symbol').textContent,
+                trend: document.getElementById('val-trend')?.textContent,
+                quantity: document.getElementById('val-qty')?.textContent,
+                symbol: document.getElementById('val-symbol')?.textContent,
                 callActive: document.getElementById('stat-CALL').style.display !== 'none',
                 putActive: document.getElementById('stat-PUT').style.display !== 'none',
                 statusMsg: document.getElementById('status-msg').textContent
@@ -1872,18 +1882,18 @@
             const el = document.getElementById(id);
             if (el) {
                 el.addEventListener('input', () => {
-                   const prefix = id.split('-')[0];
-                   const modBtn = document.getElementById(`btn-modify-${prefix}`);
-                   const target = document.getElementById(`${prefix}-target`);
-                   const sl = document.getElementById(`${prefix}-sl`);
-                   
-                   const tActive = parseFloat(target.getAttribute('data-active'));
-                   const sActive = parseFloat(sl.getAttribute('data-active'));
-                   
-                   if (tActive && sActive) {
-                       const changed = (parseFloat(target.value) !== tActive || parseFloat(sl.value) !== sActive);
-                       modBtn.style.display = changed ? 'block' : 'none';
-                   }
+                    const prefix = id.split('-')[0];
+                    const modBtn = document.getElementById(`btn-modify-${prefix}`);
+                    const target = document.getElementById(`${prefix}-target`);
+                    const sl = document.getElementById(`${prefix}-sl`);
+
+                    const tActive = parseFloat(target.getAttribute('data-active'));
+                    const sActive = parseFloat(sl.getAttribute('data-active'));
+
+                    if (tActive && sActive) {
+                        const changed = (parseFloat(target.value) !== tActive || parseFloat(sl.value) !== sActive);
+                        modBtn.style.display = changed ? 'block' : 'none';
+                    }
                 });
             }
         });

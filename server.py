@@ -125,6 +125,36 @@ except Exception as e:
 # Trade Feed DB
 trade_feed.init_db()
 
+def _handle_live_order_update(order_id: str, status: str, avg_price):
+    """Callback from Dhan Live Order Update WebSocket."""
+    try:
+        if not super_order_engine:
+            return
+        underlying = super_order_engine.find_underlying_by_order_id(order_id)
+        if not underlying:
+            return
+        state = super_order_engine._get_state(underlying)
+        feed_id = state.get('trade_feed_id')
+        logger.info(f"📡 Live Order Update: {order_id} {status} avg={avg_price} → {underlying}")
+        if status in ('TRADED', 'FILLED', 'PART_TRADED') and avg_price:
+            price = float(avg_price)
+            super_order_engine.update_entry_price(underlying, price)
+            if feed_id:
+                trade_feed.update_trade(feed_id, entry_price=price, status='ACTIVE')
+        elif status in ('CANCELLED', 'REJECTED'):
+            if feed_id:
+                trade_feed.update_trade(feed_id, status='FAILED', comment=f'Order {status}')
+            super_order_engine._clear_state(underlying)
+    except Exception as e:
+        logger.error(f"Live order update handler error: {e}")
+
+# Start Live Order Update WebSocket listener
+if broker and not getattr(broker, 'dry_run', True):
+    try:
+        broker.start_order_update_listener(_handle_live_order_update)
+    except Exception as e:
+        logger.warning(f"Could not start order update listener: {e}")
+
 # Pending trade-feed id per underlying (bridges signal → order placement)
 _pending_trades: dict = {}
 
