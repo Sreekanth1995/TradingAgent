@@ -8,7 +8,7 @@
 SERVER_IP="65.20.83.74"
 SERVER_USER="root"
 APP_DIR="/opt/trading-agent"
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo ""
 echo "=================================================="

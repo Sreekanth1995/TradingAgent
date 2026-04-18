@@ -2,12 +2,21 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
-dhan_scrip_master.csv
-test_signals.py
-server.log
-server.pid
-*.csv
-check_import.py
-test_token_refresh.py
+venv/
 *.log
+*.pid
+
+# Broker data
+dhan_scrip_master.csv
+*.csv
+
+# Runtime state (generated at runtime, not committed)
+ai_context.txt
+levels.json
+trade_history.json
+
+# Temp/ignored scripts
+check_import.py
+test_signals.py
+test_token_refresh.py
 deploy_automated.exp
