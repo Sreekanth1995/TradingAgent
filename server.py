@@ -499,6 +499,15 @@ def webhook():
             current_side = current_state.get('side', 'NONE')
             is_exit = (is_sell and current_side == 'CALL') or (is_buy and current_side == 'PUT')
 
+            # Guard: skip same-direction signal when position already open
+            same_direction = (is_buy and current_side == 'CALL') or (is_sell and current_side == 'PUT')
+            if same_direction:
+                msg = f"SKIPPED: {transaction_type} signal for {underlying} — {current_side} position already open"
+                logger.info(msg)
+                _add_activity_log(msg, "⏭️ ")
+                results.append({"status": "ignored", "action": "SAME_DIRECTION_SKIP", "message": msg})
+                continue
+
             spot_index = 0
             specific_itm = None
 
@@ -575,6 +584,8 @@ def webhook():
                 "underlying": underlying,
                 "target_side": target_side,
                 "itm": specific_itm,
+                "option_symbol": specific_itm.get("symbol") if specific_itm else None,
+                "tv_symbol": specific_itm.get("tv_symbol") if specific_itm else None,
                 "spot_index": spot_index,
                 "timeframe": timeframe,
                 "quantity": quantity,

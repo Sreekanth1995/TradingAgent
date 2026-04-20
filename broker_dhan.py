@@ -314,11 +314,17 @@ class DhanClient:
             sec_id = self._get_security_id(underlying, strike, side, expiry)
             if sec_id:
                 logger.info(f"Selected ITM for {underlying} ({side}): {strike} Exp: {expiry} -> ID: {sec_id}")
+                # TradingView format: NSE:NIFTY260421P24150 (underlying + YYMMDD + C/P + strike)
+                exp_dt = expiry.replace("-", "")  # YYYYMMDD
+                tv_exp = exp_dt[2:]  # YYMMDD
+                tv_cp = "C" if side == "CE" else "P"
+                tv_symbol = f"NSE:{underlying}{tv_exp}{tv_cp}{int(strike)}"
                 return {
                     "security_id": sec_id,
                     "strike": strike,
                     "expiry": expiry,
-                    "symbol": f"{underlying}_{int(strike)}_{side}"
+                    "symbol": f"{underlying}_{int(strike)}_{side}",
+                    "tv_symbol": tv_symbol,
                 }
             else:
                 logger.error(f"Could not find exact ITM contract for {underlying} {strike} {side} {expiry}")
