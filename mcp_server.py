@@ -39,6 +39,7 @@ async def place_super_order(
     sl_price: float,
     quantity: int = 1,
     option: str = None,
+    security_id: str = None,
     trade_feed_id: int = None,
 ):
     """
@@ -51,8 +52,10 @@ async def place_super_order(
         target_price:  Premium target price (e.g. 240.0).
         sl_price:      Premium stop-loss price (e.g. 140.0).
         quantity:      Number of lots (default 1).
-        option:        Optional exact option symbol (e.g. NIFTY24APR22500CE).
-                       If omitted the server resolves the nearest ITM automatically.
+        option:        Option symbol from signal — signal.option_symbol (e.g. NIFTY_24150_PE).
+                       Pass this to skip server-side ITM re-resolution.
+        security_id:   Security ID from signal — signal.itm.security_id.
+                       Pass alongside option to skip ITM re-resolution entirely.
         trade_feed_id: ID from the signal payload — pass it back so the dashboard
                        feed row is correctly linked to this order.
     """
@@ -63,6 +66,7 @@ async def place_super_order(
         "sl_price": sl_price,
         "quantity": quantity,
         "option": option,
+        "security_id": security_id,
         "trade_feed_id": trade_feed_id,
     })
 

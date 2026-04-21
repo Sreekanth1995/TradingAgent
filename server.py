@@ -1291,10 +1291,17 @@ def set_super_order():
         return jsonify({"status": "error", "message": "side must be CALL or PUT"}), 400
 
     try:
-        spot_index = resolve_index_spot(broker, underlying, data)
-        itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
-        if not itm:
-            return jsonify({"status": "error", "message": f"Failed to resolve {side} ITM contract for {underlying}"}), 400
+        option_symbol = data.get('option')
+        security_id = data.get('security_id')
+
+        if option_symbol and security_id:
+            # ITM already resolved in webhook — use directly, skip broker API call
+            itm = {"symbol": option_symbol, "security_id": security_id}
+        else:
+            spot_index = resolve_index_spot(broker, underlying, data)
+            itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
+            if not itm:
+                return jsonify({"status": "error", "message": f"Failed to resolve {side} ITM contract for {underlying}"}), 400
 
         # Prefer explicit feed_id passed by Claude; fall back to Redis lookup
         feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)
