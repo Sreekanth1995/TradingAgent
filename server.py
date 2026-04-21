@@ -497,6 +497,26 @@ def webhook():
             # Pre-check state: exits don't need ITM resolution (0 API calls)
             current_state = super_order_engine._get_state(underlying)
             current_side = current_state.get('side', 'NONE')
+
+            # Guard: if engine thinks a position is open, verify via broker.
+            # Broker closes positions natively (SL/TP); engine state can go stale.
+            if current_side != 'NONE' and broker:
+                try:
+                    live_positions = broker.get_positions() or []
+                    underlying_upper = underlying.upper()
+                    has_live = any(
+                        p.get('netQty', 0) != 0 and underlying_upper in p.get('tradingSymbol', '')
+                        for p in live_positions
+                    )
+                    if not has_live:
+                        logger.info(f"Stale engine state for {underlying} ({current_side}) — no live position at broker. Clearing.")
+                        _add_activity_log(f"Stale state cleared for {underlying} ({current_side}) — broker has no open position", "🧹 ")
+                        super_order_engine._clear_state(underlying)
+                        current_side = 'NONE'
+                        current_state = {'side': 'NONE'}
+                except Exception as e:
+                    logger.warning(f"Position verification failed for {underlying}: {e}")
+
             is_exit = (is_sell and current_side == 'CALL') or (is_buy and current_side == 'PUT')
 
             # Guard: skip same-direction signal when position already open
