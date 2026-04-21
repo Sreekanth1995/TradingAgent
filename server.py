@@ -583,6 +583,8 @@ def webhook():
             leg_data = {
                 "underlying": underlying,
                 "target_side": target_side,
+                "is_exit": is_exit,
+                "exit_side": current_side if is_exit else None,
                 "itm": specific_itm,
                 "option_symbol": specific_itm.get("symbol") if specific_itm else None,
                 "tv_symbol": specific_itm.get("tv_symbol") if specific_itm else None,
