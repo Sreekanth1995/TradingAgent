@@ -589,7 +589,7 @@ def webhook():
                 "spot_index": spot_index,
                 "timeframe": timeframe,
                 "quantity": quantity,
-                "transaction_type": transaction_type,
+                "transaction_type": "BUY",
                 "timestamp": datetime.now().isoformat(),
                 "trade_feed_id": feed_id
             }
