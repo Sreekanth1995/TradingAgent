@@ -16,12 +16,13 @@ class ConditionalOrderEngine:
     Manages GTT (Good Till Triggered) and Alert-based Conditional Orders 
     for Index levels and Premium bounds.
     """
-    def __init__(self, broker=None, is_dry_run=False, redis_client=None):
+    def __init__(self, broker=None, is_dry_run=False, redis_client=None, activity_log_fn=None):
         self.broker = broker
         self.is_dry_run = is_dry_run
         self.r = redis_client
         self.use_redis = False
         self.memory_store = {}
+        self._activity_log_fn = activity_log_fn  # injected to avoid circular import from server
 
         if self.r:
             try:
@@ -58,7 +59,7 @@ class ConditionalOrderEngine:
         if self.use_redis:
             self.r.setex(key, ttl, json.dumps(metadata))
         else:
-            self.memory_store[key] = metadata
+            self.memory_store[key] = {"data": metadata, "expires_at": time.time() + ttl}
         logger.info(f"Stored pending Protection for Order {order_id}: {metadata}")
 
     def get_pending_protection(self, order_id):
@@ -70,17 +71,20 @@ class ConditionalOrderEngine:
                 self.r.delete(key)
                 return json.loads(val)
         else:
-            val = self.memory_store.get(key)
-            if val:
-                del self.memory_store[key]
-                return val
+            entry = self.memory_store.get(key)
+            if entry:
+                if time.time() < entry["expires_at"]:
+                    del self.memory_store[key]
+                    return entry["data"]
+                else:
+                    del self.memory_store[key]  # expired — evict
         return None
 
     def cancel_active_conditional_orders(self, underlying, state=None):
         """Cancels associated Dhan Alert triggers (GTT) if they exist in state."""
         if state is None:
             state = self._get_state(underlying)
-            
+
         alert_keys = (
             'conditional_target_alert_id', 'conditional_sl_alert_id',
             'idx_target_alert_id', 'idx_sl_alert_id'
@@ -88,10 +92,15 @@ class ConditionalOrderEngine:
         for key in alert_keys:
             alert_id = state.get(key)
             if alert_id:
-                logger.info(f"Cleanup: Cancelling conditional order {alert_id} for {underlying}")
-                self.broker.cancel_conditional_order(alert_id)
-                state[key] = None
-                
+                try:
+                    logger.info(f"Cleanup: Cancelling conditional order {alert_id} for {underlying}")
+                    self.broker.cancel_conditional_order(alert_id)
+                except Exception as e:
+                    logger.warning(f"Failed to cancel alert {alert_id} for {underlying}: {e}")
+                finally:
+                    # Always clear the ID from state so stale IDs don't accumulate
+                    state[key] = None
+
         self._set_state(underlying, state)
 
     def _clear_state(self, underlying):
@@ -153,11 +162,10 @@ class ConditionalOrderEngine:
                 if sec_id:
                     # Clean up conditional orders immediately
                     self.cancel_active_conditional_orders(underlying, state)
-                    
-                    # Ensure position is sold
+
                     sym = state.get('symbol')
                     qty_lots = state.get('quantity', 1)
-                    
+
                     order_payload = {
                         'security_id': sec_id,
                         'quantity': qty_lots,
@@ -165,10 +173,13 @@ class ConditionalOrderEngine:
                         'order_type': 'MARKET',
                         'product_type': 'MARGIN'
                     }
-                    self.broker.place_order(sym, order_payload)
+                    exit_resp = self.broker.place_order(sym, order_payload)
+                    if not (exit_resp.get('success') or exit_resp.get('order_id')):
+                        logger.error(f"Exit order failed for {underlying}: {exit_resp.get('error')}")
+                        return {"status": "error", "message": f"Exit order failed: {exit_resp.get('error')}"}
                 self._clear_state(underlying)
                 return {"status": "success", "action": f"CLOSED_CONDITIONAL_{target_side}"}
-            return {"status": "error", "message": "No matching position to exist"}
+            return {"status": "error", "message": "No matching position to exit"}
             
         return {"status": "error", "message": "Unsupported signal type"}
 
@@ -213,15 +224,16 @@ class ConditionalOrderEngine:
                 trigger_sec_id=idx_sec_id
             )
             
+            gtt_degraded = False
             if not sl_res.get('success'):
                 logger.warning(f"GTT SL placement failed ({sl_res.get('error')}). Using Polling Protection Fallback.")
+                gtt_degraded = True
             else:
-                sl_alert_id = sl_res.get('alert_id')
-                state['idx_sl_alert_id'] = sl_alert_id
-            
-            # Place Target Dummy GTT if possible
+                state['idx_sl_alert_id'] = sl_res.get('alert_id')
+
+            # Place Target Dummy GTT if possible (uses LiquidBees sec_id=11006 as a sentinel instrument)
             tgt_res = self.broker.place_conditional_order(
-                sec_id="11006", # LiquidBees
+                sec_id="11006",
                 exchange_seg="NSE_EQ",
                 quantity=1,
                 operator=tgt_op,
@@ -230,21 +242,24 @@ class ConditionalOrderEngine:
                 product_type="CNC",
                 trigger_sec_id=idx_sec_id
             )
-            
+
             if not tgt_res.get('success'):
                 logger.warning(f"GTT Target placement failed ({tgt_res.get('error')}). Using Polling Protection Fallback.")
+                gtt_degraded = True
             else:
                 state['idx_target_alert_id'] = tgt_res.get('alert_id')
 
-            # MANDATORY: Save levels to state regardless of broker error for polling monitor
+            # MANDATORY: Save levels + degraded flag to state regardless of broker error
             state['idx_target_level'] = float(target_level)
             state['idx_sl_level'] = float(sl_level)
+            state['gtt_degraded'] = gtt_degraded
             self._set_state(underlying, state)
 
             return {
-                "status": "success", 
-                "message": "Boundaries saved. Polling Protection Active.",
-                "gtt_error": sl_res.get('error') if not sl_res.get('success') else None
+                "status": "success",
+                "message": "Boundaries saved. Polling Protection Active." if gtt_degraded else "Boundaries saved. GTT + Polling Protection Active.",
+                "gtt_degraded": gtt_degraded,
+                "gtt_error": (sl_res.get('error') or tgt_res.get('error')) if gtt_degraded else None,
             }
         except Exception as e:
             logger.error(f"Internal Boundary Setting Error: {e}")
@@ -298,8 +313,8 @@ class ConditionalOrderEngine:
                     if hit:
                         msg = f"🛡️ [POLLING MONITOR] {underlying} Index {reason} at {current_ltp}! (Tgt={target_level}, SL={sl_level})"
                         logger.info(msg)
-                        from server import _add_activity_log
-                        _add_activity_log(msg, "🚨 ")
+                        if self._activity_log_fn:
+                            self._activity_log_fn(msg, "🚨 ")
                         
                         # Trigger exit signal
                         exit_signal = "LONG_EXIT" if side == 'CALL' else "SHORT_EXIT"
@@ -351,13 +366,14 @@ class ConditionalOrderEngine:
             # This logic avoids hardcoding index names
             active_keys = (self.r.keys("cond_state:*") if self.use_redis else self.memory_store.keys())
             
+            target_found = False
             for key in active_keys:
                 # Extract underlying from key (state:SYMBOL or cond_state:SYMBOL)
-                underlying = key.split(':')[-1]
+                underlying = key.split(':')[-1] if isinstance(key, str) else key.decode().split(':')[-1]
                 state = self._get_state(underlying)
                 # Match target alert ID
                 is_target_hit = (state.get('idx_target_alert_id') == alert_id)
-                
+
                 if is_target_hit:
                     logger.info(f"Target Alert Hit for {underlying}! Triggering SL modification.")
                     # Use SL ID from user_note if available (stateless) or dictionary state fallback
