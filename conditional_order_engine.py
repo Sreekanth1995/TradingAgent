@@ -159,24 +159,27 @@ class ConditionalOrderEngine:
             if state.get('side') == target_side:
                 logger.info(f"Conditional Engine: Exiting {target_side} for {underlying}")
                 sec_id = state.get('security_id')
-                if sec_id:
-                    # Clean up conditional orders immediately
-                    self.cancel_active_conditional_orders(underlying, state)
+                if not sec_id:
+                    return {"status": "error", "message": f"Cannot exit {underlying}: no security_id in state — manual intervention required"}
 
-                    sym = state.get('symbol')
-                    qty_lots = state.get('quantity', 1)
+                # Clean up conditional orders immediately
+                self.cancel_active_conditional_orders(underlying, state)
 
-                    order_payload = {
-                        'security_id': sec_id,
-                        'quantity': qty_lots,
-                        'transaction_type': 'SELL',
-                        'order_type': 'MARKET',
-                        'product_type': 'MARGIN'
-                    }
-                    exit_resp = self.broker.place_order(sym, order_payload)
-                    if not (exit_resp.get('success') or exit_resp.get('order_id')):
-                        logger.error(f"Exit order failed for {underlying}: {exit_resp.get('error')}")
-                        return {"status": "error", "message": f"Exit order failed: {exit_resp.get('error')}"}
+                sym = state.get('symbol')
+                qty_lots = state.get('quantity', 1)
+
+                order_payload = {
+                    'security_id': sec_id,
+                    'quantity': qty_lots,
+                    'transaction_type': 'SELL',
+                    'order_type': 'MARKET',
+                    'product_type': 'MARGIN'
+                }
+                exit_resp = self.broker.place_order(sym, order_payload)
+                if not (exit_resp.get('success') or exit_resp.get('order_id')):
+                    logger.error(f"Exit order failed for {underlying}: {exit_resp.get('error')}")
+                    return {"status": "error", "message": f"Exit order failed: {exit_resp.get('error')}"}
+
                 self._clear_state(underlying)
                 return {"status": "success", "action": f"CLOSED_CONDITIONAL_{target_side}"}
             return {"status": "error", "message": "No matching position to exit"}
@@ -271,14 +274,13 @@ class ConditionalOrderEngine:
         This bypasses the need for broker-side GTT Alerts.
         """
         try:
-            active_keys = []
             if self.use_redis:
                 active_keys = self.r.keys("cond_state:*")
             else:
-                active_keys = list(self.memory_store.keys())
+                active_keys = [k for k in self.memory_store if k.startswith("cond_state:")]
 
             for key in active_keys:
-                underlying = key.split(':')[-1] if ':' in key else key
+                underlying = (key.decode() if isinstance(key, bytes) else key).split(':')[-1]
                 state = self._get_state(underlying)
                 
                 if state.get('side', 'NONE') == 'NONE': continue
@@ -375,22 +377,23 @@ class ConditionalOrderEngine:
                 is_target_hit = (state.get('idx_target_alert_id') == alert_id)
 
                 if is_target_hit:
-                    logger.info(f"Target Alert Hit for {underlying}! Triggering SL modification.")
+                    logger.info(f"Target Alert Hit for {underlying}! Trailing SL to target level (breakeven).")
                     # Use SL ID from user_note if available (stateless) or dictionary state fallback
                     sl_alert_id = user_note if (user_note and len(user_note) > 5) else state.get('idx_sl_alert_id')
-                    
+
                     if sl_alert_id:
-                        idx_id = state.get('idx_sec_id')
-                        current_idx_ltp = self.broker.get_ltp(idx_id, exchange_segment="IDX_I") if idx_id else None
-                        
-                        if current_idx_ltp:
-                            # Update SL dynamically tracking market movements
+                        # Trail SL to the target level that was just hit — locks in profit at T1
+                        # Using live LTP here would fire the SL immediately on the next tick
+                        trail_level = state.get('idx_target_level')
+                        if trail_level is not None:
                             res = self.broker.modify_conditional_order(
                                 alert_id=sl_alert_id,
                                 quantity=state.get('quantity', 1) * self.broker.lot_map.get(str(state.get('security_id')), 1),
-                                comparing_value=current_idx_ltp
+                                comparing_value=float(trail_level)
                             )
-                            logger.info(f"SL Modification result for {underlying} using ID {sl_alert_id}: {res}")
+                            logger.info(f"SL trailed to T1={trail_level} for {underlying} (alert {sl_alert_id}): {res}")
+                        else:
+                            logger.warning(f"Cannot trail SL for {underlying}: idx_target_level missing from state")
                     
                     state['idx_target_alert_id'] = None
                     self._set_state(underlying, state)

@@ -1033,7 +1033,7 @@ def conditional_order():
     if not data or data.get('secret') != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     
-    underlying = data.get('underlying', 'NIFTY')
+    underlying = data.get('underlying', 'NIFTY').upper()
     action = data.get('action') # 'CALL', 'PUT', 'EXIT_CALL', 'EXIT_PUT'
     
     mapping = {
@@ -1085,14 +1085,20 @@ def conditional_order():
 
             try:
                 sl_idx_val = float(leg_data['sl_index'])
-                tgt_idx_val = float(leg_data['target_index'])  # noqa: F841 — reserved for future range checks
+                tgt_idx_val = float(leg_data['target_index'])
             except (TypeError, ValueError) as e:
                 return jsonify({"status": "error", "message": f"Invalid SL/Target index value: {e}"}), 400
 
-            if signal_type == 'B' and sl_idx_val >= spot_index:
-                return jsonify({"status": "error", "message": f"Stop Loss Index ({sl_idx_val}) must be less than current Index price ({spot_index})"}), 400
-            if signal_type == 'S' and sl_idx_val <= spot_index:
-                return jsonify({"status": "error", "message": f"Stop Loss Index ({sl_idx_val}) must be greater than current Index price ({spot_index})"}), 400
+            if signal_type == 'B':
+                if sl_idx_val >= spot_index:
+                    return jsonify({"status": "error", "message": f"CALL SL ({sl_idx_val}) must be below spot ({spot_index})"}), 400
+                if tgt_idx_val <= spot_index:
+                    return jsonify({"status": "error", "message": f"CALL Target ({tgt_idx_val}) must be above spot ({spot_index})"}), 400
+            if signal_type == 'S':
+                if sl_idx_val <= spot_index:
+                    return jsonify({"status": "error", "message": f"PUT SL ({sl_idx_val}) must be above spot ({spot_index})"}), 400
+                if tgt_idx_val >= spot_index:
+                    return jsonify({"status": "error", "message": f"PUT Target ({tgt_idx_val}) must be below spot ({spot_index})"}), 400
 
         # Execute Order via Conditional Engine
         res = conditional_engine.handle_signal(signal_type, leg_data)
