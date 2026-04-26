@@ -226,7 +226,9 @@ class ConditionalOrderEngine:
             # Cleanup existing GTTs
             self.cancel_active_conditional_orders(underlying, state)
 
-            # Place SL GTT FIRST to get its ID
+            entry_id = state.get('entry_id')  # buy order ID passed as userNote for tracking
+
+            # Place SL GTT — SELL option when index crosses sl_level
             sl_res = self.broker.place_conditional_order(
                 sec_id=opt_sec_id,
                 exchange_seg="NSE_FNO",
@@ -235,9 +237,10 @@ class ConditionalOrderEngine:
                 comparing_value=float(sl_level),
                 transaction_type="SELL",
                 product_type="MARGIN",
-                trigger_sec_id=idx_sec_id
+                trigger_sec_id=idx_sec_id,
+                user_note=entry_id,
             )
-            
+
             gtt_degraded = False
             if not sl_res.get('success'):
                 logger.warning(f"GTT SL placement failed ({sl_res.get('error')}). Using Polling Protection Fallback.")
@@ -245,16 +248,17 @@ class ConditionalOrderEngine:
             else:
                 state['idx_sl_alert_id'] = sl_res.get('alert_id')
 
-            # Place Target Dummy GTT if possible (uses LiquidBees sec_id=11006 as a sentinel instrument)
+            # Place Target GTT — SELL option when index crosses target_level
             tgt_res = self.broker.place_conditional_order(
-                sec_id="11006",
-                exchange_seg="NSE_EQ",
-                quantity=1,
+                sec_id=opt_sec_id,
+                exchange_seg="NSE_FNO",
+                quantity=actual_qty,
                 operator=tgt_op,
                 comparing_value=float(target_level),
-                transaction_type="BUY",
-                product_type="CNC",
-                trigger_sec_id=idx_sec_id
+                transaction_type="SELL",
+                product_type="MARGIN",
+                trigger_sec_id=idx_sec_id,
+                user_note=entry_id,
             )
 
             if not tgt_res.get('success'):
@@ -400,23 +404,14 @@ class ConditionalOrderEngine:
                     break
 
                 if is_target_hit:
-                    logger.info(f"Target Alert Hit for {underlying}! Trailing SL to target level (breakeven).")
-                    sl_alert_id = user_note if (user_note and len(user_note) > 5) else state.get('idx_sl_alert_id')
-
-                    if sl_alert_id:
-                        trail_level = state.get('idx_target_level')
-                        if trail_level is not None:
-                            res = self.broker.modify_conditional_order(
-                                alert_id=sl_alert_id,
-                                quantity=state.get('quantity', 1) * self.broker.lot_map.get(str(state.get('security_id')), 1),
-                                comparing_value=float(trail_level)
-                            )
-                            logger.info(f"SL trailed to T1={trail_level} for {underlying} (alert {sl_alert_id}): {res}")
-                        else:
-                            logger.warning(f"Cannot trail SL for {underlying}: idx_target_level missing from state")
-
-                    state['idx_target_alert_id'] = None
-                    self._set_state(underlying, state)
+                    # Target GTT is now a real SELL on the option — broker already closed
+                    # the position. Cancel the SL GTT to prevent a naked short, then
+                    # clear state so the polling monitor skips this underlying.
+                    msg = f"GTT Target fired for {underlying} (alert {alert_id}). Cancelling SL GTT and clearing state."
+                    logger.info(msg)
+                    if self._activity_log_fn:
+                        self._activity_log_fn(msg, "🎯 ")
+                    self._clear_state(underlying)  # cancels SL GTT + wipes state
                     alert_handled = True
                     break
 
