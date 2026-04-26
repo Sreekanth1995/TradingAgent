@@ -365,25 +365,34 @@ class ConditionalOrderEngine:
             logger.info(f"Dhan Postback received. alertId: {alert_id}, userNote: {user_note}")
             
             # Identify which instrument this belongs to by checking active states
-            # This logic avoids hardcoding index names
-            active_keys = (self.r.keys("cond_state:*") if self.use_redis else self.memory_store.keys())
-            
-            target_found = False
+            active_keys = (self.r.keys("cond_state:*") if self.use_redis
+                           else [k for k in self.memory_store if k.startswith("cond_state:")])
+
+            alert_handled = False
             for key in active_keys:
-                # Extract underlying from key (state:SYMBOL or cond_state:SYMBOL)
-                underlying = key.split(':')[-1] if isinstance(key, str) else key.decode().split(':')[-1]
+                underlying = (key.decode() if isinstance(key, bytes) else key).split(':')[-1]
                 state = self._get_state(underlying)
-                # Match target alert ID
+
                 is_target_hit = (state.get('idx_target_alert_id') == alert_id)
+                is_sl_hit     = (state.get('idx_sl_alert_id') == alert_id)
+
+                if is_sl_hit:
+                    # Broker executed the SELL on the option via GTT SL.
+                    # Clear engine state immediately so the polling monitor does not
+                    # attempt a second exit on the already-closed position.
+                    msg = f"GTT SL fired for {underlying} (alert {alert_id}). Clearing state."
+                    logger.info(msg)
+                    if self._activity_log_fn:
+                        self._activity_log_fn(msg, "🛑 ")
+                    self._clear_state(underlying)
+                    alert_handled = True
+                    break
 
                 if is_target_hit:
                     logger.info(f"Target Alert Hit for {underlying}! Trailing SL to target level (breakeven).")
-                    # Use SL ID from user_note if available (stateless) or dictionary state fallback
                     sl_alert_id = user_note if (user_note and len(user_note) > 5) else state.get('idx_sl_alert_id')
 
                     if sl_alert_id:
-                        # Trail SL to the target level that was just hit — locks in profit at T1
-                        # Using live LTP here would fire the SL immediately on the next tick
                         trail_level = state.get('idx_target_level')
                         if trail_level is not None:
                             res = self.broker.modify_conditional_order(
@@ -394,14 +403,14 @@ class ConditionalOrderEngine:
                             logger.info(f"SL trailed to T1={trail_level} for {underlying} (alert {sl_alert_id}): {res}")
                         else:
                             logger.warning(f"Cannot trail SL for {underlying}: idx_target_level missing from state")
-                    
+
                     state['idx_target_alert_id'] = None
                     self._set_state(underlying, state)
-                    target_found = True
+                    alert_handled = True
                     break
-            
-            if not target_found:
-                 logger.debug(f"AlertId {alert_id} not mapped to any active target.")
+
+            if not alert_handled:
+                logger.debug(f"AlertId {alert_id} not mapped to any active SL or target alert.")
 
             return {"status": "success"}
 
