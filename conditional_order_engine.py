@@ -203,7 +203,18 @@ class ConditionalOrderEngine:
             if not idx_sec_id or not opt_sec_id:
                 return {"status": "error", "message": "Could not resolve Index or Option security IDs from state"}
 
-            lot_size = self.broker.lot_map.get(str(opt_sec_id), 1)
+            lot_size = self.broker.lot_map.get(str(opt_sec_id))
+            if not lot_size:
+                msg = f"lot_map miss for sec_id={opt_sec_id} ({underlying}) — cannot place GTT SL with correct quantity. Falling back to polling-only protection."
+                logger.error(msg)
+                if self._activity_log_fn:
+                    self._activity_log_fn(msg, "⚠️ ")
+                # Save levels so polling monitor can still protect the position
+                state['idx_target_level'] = float(target_level)
+                state['idx_sl_level'] = float(sl_level)
+                state['gtt_degraded'] = True
+                self._set_state(underlying, state)
+                return {"status": "error", "message": msg, "gtt_degraded": True}
             actual_qty = qty * lot_size
             side = state.get('side') # CALL or PUT
             
