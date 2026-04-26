@@ -268,18 +268,18 @@ class DhanClient:
         for key in self.scrip_map.keys():
             if key[0] == symbol:
                 expiries.add(key[3])
-        
+
         if not expiries:
             return None
-            
+
         # Get only today's or future expiries using IST
         from datetime import datetime
         import pytz
         IST = pytz.timezone('Asia/Kolkata')
         today_str = datetime.now(IST).strftime('%Y-%m-%d')
-        
+
         future_expiries = [e for e in expiries if e >= today_str]
-        
+
         if not future_expiries:
             logger.warning(f"No future expiries found for {symbol} among {len(expiries)} total. Using earliest available.")
             return sorted(list(expiries))[0]
@@ -289,6 +289,88 @@ class DhanClient:
         # Return the first one (nearest)
         return sorted_exp[0]
 
+    def get_next_expiry(self, symbol):
+        """
+        Returns the second-nearest future expiry for a symbol.
+        Used on expiry day to trade next week's contracts and avoid expiry-day risk.
+        Falls back to nearest expiry if only one future expiry exists.
+        """
+        expiries = set()
+        for key in self.scrip_map.keys():
+            if key[0] == symbol:
+                expiries.add(key[3])
+
+        if not expiries:
+            return None
+
+        import pytz
+        IST = pytz.timezone('Asia/Kolkata')
+        today_str = datetime.now(IST).strftime('%Y-%m-%d')
+
+        sorted_future = sorted(e for e in expiries if e >= today_str)
+
+        if len(sorted_future) >= 2:
+            return sorted_future[1]
+        elif sorted_future:
+            logger.warning(f"Only one future expiry for {symbol}; using it as next expiry fallback.")
+            return sorted_future[0]
+
+        logger.warning(f"No future expiries found for {symbol}. Using latest available.")
+        return sorted(expiries)[-1]
+
+    def calculate_lots_by_margin(self, security_id, transaction_type='BUY', ltp=0):
+        """
+        Computes the maximum number of lots tradeable given available margin.
+        Fetches fund limits and margin required for 1 lot, then returns floor(available / per_lot).
+        Returns at least 1 lot on any failure.
+        """
+        try:
+            fund_resp = self.get_fund_limits()
+            if fund_resp.get('status') != 'success':
+                logger.warning(f"Fund limits unavailable ({fund_resp}); defaulting to 1 lot.")
+                return 1
+
+            fund_data = fund_resp.get('data', {})
+            # Dhan API has a typo: 'availabelBalance'; also accept the correct spelling
+            available = float(
+                fund_data.get('availabelBalance') or
+                fund_data.get('availableBalance') or 0
+            )
+            if available <= 0:
+                logger.warning(f"Available margin is {available}; defaulting to 1 lot.")
+                return 1
+
+            lot_size = self.lot_map.get(str(security_id), 1)
+
+            margin_resp = self.margin_calculator({
+                'security_id': security_id,
+                'exchange_segment': ExchangeSegment.NSE_FNO,
+                'transaction_type': transaction_type,
+                'quantity': lot_size,  # 1 lot in actual units
+                'product_type': 'INTRADAY',
+                'price': ltp,
+            })
+
+            if margin_resp.get('status') != 'success':
+                logger.warning(f"Margin calc failed ({margin_resp}); defaulting to 1 lot.")
+                return 1
+
+            margin_per_lot = float(margin_resp.get('data', {}).get('totalMarginRequired', 0))
+            if margin_per_lot <= 0:
+                logger.warning(f"Margin per lot = {margin_per_lot} for {security_id}; defaulting to 1 lot.")
+                return 1
+
+            max_lots = int(available / margin_per_lot)
+            lots = max(1, max_lots)
+            logger.info(
+                f"Margin-based qty [{security_id}]: available={available:.0f}, "
+                f"per_lot={margin_per_lot:.0f}, lots={lots}"
+            )
+            return lots
+
+        except Exception as e:
+            logger.error(f"calculate_lots_by_margin error: {e}")
+            return 1
 
     def get_itm_contract(self, underlying, side, spot_price):
         """
@@ -306,7 +388,11 @@ class DhanClient:
             else:
                 strike = atm_strike + 50
                 
-            expiry = self.get_nearest_expiry(underlying)
+            if self.is_expiry_day(underlying):
+                expiry = self.get_next_expiry(underlying)
+                logger.info(f"Expiry day for {underlying} — using next-week expiry: {expiry}")
+            else:
+                expiry = self.get_nearest_expiry(underlying)
             if not expiry:
                 logger.error(f"No expiry found for {underlying}")
                 return None

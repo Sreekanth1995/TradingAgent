@@ -563,6 +563,17 @@ def webhook():
                     failure_count += 1
                     continue
 
+                # Calculate quantity based on available margin
+                sec_id = specific_itm.get('security_id')
+                opt_ltp = broker.get_ltp(sec_id) or 0
+                margin_qty = broker.calculate_lots_by_margin(sec_id, 'BUY', opt_ltp)
+                if margin_qty != quantity:
+                    _add_activity_log(
+                        f"Margin-based qty for {underlying}: {margin_qty} lots "
+                        f"(webhook sent {quantity})", "💰 "
+                    )
+                quantity = margin_qty
+
             # 4. Deduplication Check — placed after spot validation so a bad payload
             #    (missing price) does not consume the dedup window and block valid retries.
             sig_key = f"dedup:{underlying}_{transaction_type}"
@@ -603,8 +614,6 @@ def webhook():
             leg_data = {
                 "underlying": underlying,
                 "target_side": target_side,
-                "is_exit": is_exit,
-                "exit_side": current_side if is_exit else None,
                 "itm": specific_itm,
                 "option_symbol": specific_itm.get("symbol") if specific_itm else None,
                 "tv_symbol": specific_itm.get("tv_symbol") if specific_itm else None,
