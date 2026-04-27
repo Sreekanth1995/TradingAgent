@@ -988,9 +988,9 @@ def get_margin():
                 "available_balance": available,
             }), 400
 
-        margin_per_lot = float((margin_resp.get('data') or {}).get('totalMarginRequired') or 0)
+        margin_per_lot = float((margin_resp.get('data') or {}).get('totalMargin') or 0)
         if margin_per_lot <= 0:
-            logger.error(f"get-margin: totalMarginRequired=0 despite success. margin_resp={margin_resp}")
+            logger.error(f"get-margin: totalMargin=0 despite success. margin_resp={margin_resp}")
             return jsonify({
                 "status": "error",
                 "message": "Margin calculator returned 0. Check security_id or LTP.",

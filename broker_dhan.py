@@ -367,7 +367,7 @@ class DhanClient:
                 logger.warning(f"Margin calc failed ({margin_resp}); defaulting to 1 lot.")
                 return 1
 
-            margin_per_lot = float(margin_resp.get('data', {}).get('totalMarginRequired', 0))
+            margin_per_lot = float(margin_resp.get('data', {}).get('totalMargin', 0))
             if margin_per_lot <= 0:
                 logger.warning(f"Margin per lot = {margin_per_lot} for {security_id}; defaulting to 1 lot.")
                 return 1
@@ -795,7 +795,7 @@ class DhanClient:
         if self.dry_run:
             # Simple mock calculation: 5000 per lot (quantity)
             qty = int(order_data.get('quantity', 1))
-            return {"status": "success", "data": {"totalMarginRequired": qty * 5000.0}}
+            return {"status": "success", "data": {"totalMargin": qty * 5000.0}}
             
         if self.dhan:
             try:
@@ -834,7 +834,7 @@ class DhanClient:
         """
         if self.dry_run:
             total = sum(int(o.get('quantity', 1)) * 4500.0 for o in orders_list)
-            return {"status": "success", "data": {"totalMarginRequired": total}}
+            return {"status": "success", "data": {"totalMargin": total}}
 
         if not self.access_token:
              return {"status": "error", "message": "Missing info"}

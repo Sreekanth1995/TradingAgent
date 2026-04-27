@@ -315,7 +315,7 @@ class MockDhanClient:
         return {
             "status": "success",
             "data": {
-                "totalMarginRequired": round(margin, 2),
+                "totalMargin": round(margin, 2),
                 "brokerage": 20.0,
                 "leverage": "1x"
             }
@@ -327,7 +327,7 @@ class MockDhanClient:
         return {
             "status": "success",
             "data": {
-                "totalMarginRequired": round(total, 2),
+                "totalMargin": round(total, 2),
                 "orderCount": len(orders_list)
             }
         }
