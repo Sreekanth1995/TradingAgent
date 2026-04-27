@@ -901,6 +901,71 @@ def get_itm():
         logger.error(f"Get ITM Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/get-margin', methods=['POST'])
+def get_margin():
+    """
+    Returns available balance and per-lot margin for the current ITM option.
+    Payload: { secret, underlying, side }
+    """
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY').upper()
+    side = data.get('side', 'PUT').upper()
+
+    try:
+        # 1. Available balance
+        fund_resp = broker.get_fund_limits()
+        fund_data = (fund_resp.get('data') or {})
+        available = float(
+            fund_data.get('availabelBalance') or
+            fund_data.get('availableBalance') or 0
+        )
+
+        # 2. Resolve ITM contract
+        spot_index = resolve_index_spot(broker, underlying, {})
+        itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
+        if not itm:
+            return jsonify({"status": "error", "message": f"Could not resolve ITM contract for {underlying} {side}"}), 400
+
+        sec_id = itm['security_id']
+        lot_size = broker.lot_map.get(str(sec_id), 1)
+
+        # 3. Margin per lot via Dhan margin calculator
+        ltp = broker.get_ltp(sec_id) or 0
+        margin_resp = broker.margin_calculator({
+            'security_id': sec_id,
+            'exchange_segment': 'NSE_FNO',
+            'transaction_type': 'BUY',
+            'quantity': lot_size,
+            'product_type': 'INTRADAY',
+            'price': ltp,
+        })
+        margin_per_lot = float((margin_resp.get('data') or {}).get('totalMarginRequired') or 0)
+
+        import math
+        suggested_lots = max(1, math.floor(available * 0.8 / margin_per_lot)) if margin_per_lot > 0 else 1
+
+        return jsonify({
+            "status": "success",
+            "underlying": underlying,
+            "side": side,
+            "symbol": itm['symbol'],
+            "lot_size": lot_size,
+            "ltp": ltp,
+            "available_balance": available,
+            "margin_per_lot": margin_per_lot,
+            "suggested_lots": suggested_lots,
+        }), 200
+    except Exception as e:
+        logger.error(f"Get Margin Error: {traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route('/fundlimit', methods=['POST', 'GET'])
 def fund_limit():
     """

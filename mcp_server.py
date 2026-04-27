@@ -247,6 +247,38 @@ async def get_orders():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# MARGIN & FUNDS
+# ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+async def get_margin(underlying: str = "NIFTY", side: str = "PUT"):
+    """
+    Returns available balance and the margin required for 1 lot of the current
+    ITM option. Use this before placing an order to decide how many lots to buy.
+
+    Workflow:
+        1. Call get_margin(underlying, side) to get available_balance and
+           margin_per_lot.
+        2. Compute lots = floor(available_balance / margin_per_lot).
+           Use at most ~80 % of available balance to leave a buffer.
+        3. Pass the result as the quantity argument to place_conditional_order
+           or place_super_order.
+
+    Args:
+        underlying: NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
+        side:       CALL or PUT — determines which ITM strike to price.
+
+    Returns:
+        available_balance  — free cash available for new positions (INR).
+        margin_per_lot     — margin required for 1 lot of the ITM option (INR).
+        suggested_lots     — floor(available_balance * 0.8 / margin_per_lot).
+        symbol             — ITM option symbol that was priced.
+        lot_size           — contract lot size for this option.
+    """
+    return await _call("/get-margin", {"underlying": underlying, "side": side})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CONTEXT & LOGS
 # ─────────────────────────────────────────────────────────────────────────────
 
