@@ -5,6 +5,7 @@ import logging
 import threading
 import time
 import queue
+import traceback
 from flask import Flask, request, jsonify, render_template, Response
 from dotenv import load_dotenv
 from super_order_engine import SuperOrderEngine
@@ -13,7 +14,7 @@ from broker_dhan import DhanClient
 from collections import deque
 from datetime import datetime
 import pytz
-from instrument_resolver import resolve_index_spot, resolve_call_itm, resolve_put_itm, calculate_quantity_from_margin
+from instrument_resolver import resolve_index_spot, resolve_call_itm, resolve_put_itm
 import trade_feed
 
 # Load Environment Variables
@@ -563,8 +564,6 @@ def webhook():
                     failure_count += 1
                     continue
 
-                quantity = calculate_quantity_from_margin(broker, specific_itm)
-
             # 4. Deduplication Check — placed after spot validation so a bad payload
             #    (missing price) does not consume the dedup window and block valid retries.
             sig_key = f"dedup:{underlying}_{transaction_type}"
@@ -1067,13 +1066,11 @@ def conditional_order():
         if not feed_id:
             logger.warning(f"/conditional-order: no trade_feed_id for {underlying} — feed record will be orphaned")
 
-        quantity = calculate_quantity_from_margin(broker, itm)
-
         leg_data = {
             "underlying": underlying,
             "itm": itm,
             "idx_sec_id": idx_sec_id,
-            "quantity": quantity,
+            "quantity": int(data.get('quantity') or 1),
             "spot_index": spot_index,
             "sl_index": data.get('sl_index'),
             "target_index": data.get('target_index'),
@@ -1121,8 +1118,9 @@ def conditional_order():
             
         return jsonify(res), 200
     except Exception as e:
-        logger.error(f"Conditional Order Error: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        tb = traceback.format_exc()
+        logger.error(f"Conditional Order Error: {e}\n{tb}")
+        return jsonify({"status": "error", "message": str(e), "traceback": tb}), 500
 
 @app.route('/level-hit', methods=['POST'])
 def level_hit():
@@ -1296,7 +1294,7 @@ def set_super_order():
             if not itm:
                 return jsonify({"status": "error", "message": f"Failed to resolve {side} ITM contract for {underlying}"}), 400
 
-        quantity = calculate_quantity_from_margin(broker, itm)
+        quantity = int(data.get('quantity') or 1)
 
         # Prefer explicit feed_id passed by Claude; fall back to Redis lookup
         feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)

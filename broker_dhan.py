@@ -544,26 +544,10 @@ class DhanClient:
                              return {"success": True, "order_id": resp.get('data', {}).get('orderId'), "error": None}
                      
                      return {"success": False, "order_id": None, "error": resp.get('remarks', 'Authentication Failed')}
-                elif resp.status_code == 500:
-                     logger.warning(f"Order Placement: 500 Internal Server Error from Dhan. Retrying in 2s... | Body: {resp.text[:200]}")
-                     time.sleep(2)
-                     resp = self.dhan.place_order(
-                        security_id=sec_id,
-                        exchange_segment=ExchangeSegment.NSE_FNO,
-                        transaction_type=transaction_type,
-                        quantity=final_qty,
-                        order_type=order_type,
-                        product_type=ProductType.INTRADAY,
-                        price=price,
-                        trigger_price=trigger_price,
-                        validity=Validity.DAY
-                     )
-                     if resp.get('status') == 'success':
-                         return {"success": True, "order_id": resp.get('data', {}).get('orderId'), "error": None}
-                     logger.error(f"Order Placement: Retry after 500 also failed: {resp}")
-                     return {"success": False, "order_id": None, "error": resp.get('remarks', 'Dhan 500 after retry')}
                 else:
-                     return {"success": False, "order_id": None, "error": resp.get('remarks', 'Unknown Error')}
+                     err = resp.get('remarks') or resp.get('errorCode') or str(resp)
+                     logger.error(f"Order Placement failed: {err} | full response: {resp}")
+                     return {"success": False, "order_id": None, "error": err}
             else:
                 # Mock Mode
                 return {"success": True, "order_id": "mock_id_999", "error": None}

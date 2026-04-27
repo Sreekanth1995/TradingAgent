@@ -56,11 +56,14 @@ class ConditionalOrderEngine:
         Stores SL/Target levels for an order that hasn't filled yet.
         """
         key = f"pending_prot:{order_id}"
-        if self.use_redis:
-            self.r.setex(key, ttl, json.dumps(metadata))
-        else:
-            self.memory_store[key] = {"data": metadata, "expires_at": time.time() + ttl}
-        logger.info(f"Stored pending Protection for Order {order_id}: {metadata}")
+        try:
+            if self.use_redis:
+                self.r.setex(key, ttl, json.dumps(metadata))
+            else:
+                self.memory_store[key] = {"data": metadata, "expires_at": time.time() + ttl}
+            logger.info(f"Stored pending Protection for Order {order_id}: {metadata}")
+        except Exception as e:
+            logger.error(f"Failed to store pending protection for {order_id}: {e} — GTT will not auto-arm on fill")
 
     def get_pending_protection(self, order_id):
         """Retrieves and clears pending protection."""
@@ -115,76 +118,85 @@ class ConditionalOrderEngine:
         Independent entry/exit logic for Conditional Engine.
         Places basic entry orders without Super Order brackets.
         """
-        underlying = leg_data.get('underlying', 'BASE')
-        state = self._get_state(underlying)
-        
-        # Access provided Context
-        itm = leg_data.get('itm')
-        idx_sec_id = leg_data.get('idx_sec_id')
-        spot_index = float(leg_data.get('spot_index', 0.0))
-        
-        if signal_type in ['B', 'S']:
-            if not itm:
-                return {"status": "error", "message": f"Missing ITM context for {underlying} {signal_type}"}
-                
-            symbol = itm['symbol']
-            sec_id = itm['security_id']
-            qty = leg_data.get('quantity', 1)
-            
-            order_payload = itm.copy()
-            order_payload.update({
-                'quantity': qty,
-                'order_type': 'MARKET',
-                'price': 0.0
-            })
-            
-            logger.info(f"Conditional Engine: Placing Naked Entry for {symbol}")
-            resp = self.broker.place_buy_order(symbol, order_payload)
-            if resp.get('success') or resp.get('order_id'):
-                state.update({
-                    'side': 'CALL' if signal_type == 'B' else 'PUT',
-                    'symbol': symbol,
-                    'security_id': sec_id,
-                    'idx_sec_id': idx_sec_id,
-                    'entry_id': resp.get('order_id'),
+        try:
+            underlying = leg_data.get('underlying', 'BASE')
+            state = self._get_state(underlying)
+
+            # Access provided Context
+            itm = leg_data.get('itm')
+            idx_sec_id = leg_data.get('idx_sec_id')
+            spot_index = float(leg_data.get('spot_index', 0.0))
+
+            if signal_type in ['B', 'S']:
+                if not itm:
+                    return {"status": "error", "message": f"Missing ITM context for {underlying} {signal_type}"}
+
+                symbol = itm.get('symbol') or itm.get('tradingSymbol')
+                sec_id = itm.get('security_id')
+                if not symbol or not sec_id:
+                    return {"status": "error", "message": f"ITM dict missing symbol or security_id: {itm}"}
+                qty = leg_data.get('quantity', 1)
+
+                order_payload = itm.copy()
+                order_payload.update({
                     'quantity': qty,
-                    'last_signal': signal_type
-                })
-                self._set_state(underlying, state)
-                return {"status": "success", "order_id": resp.get('order_id'), "symbol": symbol, "action": "OPENED_CONDITIONAL"}
-            return {"status": "error", "message": f"Entry failed: {resp.get('error')}"}
-            
-        elif signal_type in ['LONG_EXIT', 'SHORT_EXIT']:
-            target_side = 'CALL' if signal_type == 'LONG_EXIT' else 'PUT'
-            if state.get('side') == target_side:
-                logger.info(f"Conditional Engine: Exiting {target_side} for {underlying}")
-                sec_id = state.get('security_id')
-                if not sec_id:
-                    return {"status": "error", "message": f"Cannot exit {underlying}: no security_id in state — manual intervention required"}
-
-                # Clean up conditional orders immediately
-                self.cancel_active_conditional_orders(underlying, state)
-
-                sym = state.get('symbol')
-                qty_lots = state.get('quantity', 1)
-
-                order_payload = {
-                    'security_id': sec_id,
-                    'quantity': qty_lots,
-                    'transaction_type': 'SELL',
                     'order_type': 'MARKET',
-                    'product_type': 'MARGIN'
-                }
-                exit_resp = self.broker.place_order(sym, order_payload)
-                if not (exit_resp.get('success') or exit_resp.get('order_id')):
-                    logger.error(f"Exit order failed for {underlying}: {exit_resp.get('error')}")
-                    return {"status": "error", "message": f"Exit order failed: {exit_resp.get('error')}"}
+                    'price': 0.0
+                })
 
-                self._clear_state(underlying)
-                return {"status": "success", "action": f"CLOSED_CONDITIONAL_{target_side}"}
-            return {"status": "error", "message": "No matching position to exit"}
-            
-        return {"status": "error", "message": "Unsupported signal type"}
+                logger.info(f"Conditional Engine: Placing Naked Entry for {symbol}")
+                resp = self.broker.place_buy_order(symbol, order_payload)
+                if not isinstance(resp, dict):
+                    return {"status": "error", "message": f"Unexpected broker response type: {type(resp)}"}
+                if resp.get('success') or resp.get('order_id'):
+                    state.update({
+                        'side': 'CALL' if signal_type == 'B' else 'PUT',
+                        'symbol': symbol,
+                        'security_id': sec_id,
+                        'idx_sec_id': idx_sec_id,
+                        'entry_id': resp.get('order_id'),
+                        'quantity': qty,
+                        'last_signal': signal_type
+                    })
+                    self._set_state(underlying, state)
+                    return {"status": "success", "order_id": resp.get('order_id'), "symbol": symbol, "action": "OPENED_CONDITIONAL"}
+                return {"status": "error", "message": f"Entry failed: {resp.get('error')}"}
+
+            elif signal_type in ['LONG_EXIT', 'SHORT_EXIT']:
+                target_side = 'CALL' if signal_type == 'LONG_EXIT' else 'PUT'
+                if state.get('side') == target_side:
+                    logger.info(f"Conditional Engine: Exiting {target_side} for {underlying}")
+                    sec_id = state.get('security_id')
+                    if not sec_id:
+                        return {"status": "error", "message": f"Cannot exit {underlying}: no security_id in state — manual intervention required"}
+
+                    # Clean up conditional orders immediately
+                    self.cancel_active_conditional_orders(underlying, state)
+
+                    sym = state.get('symbol')
+                    qty_lots = state.get('quantity', 1)
+
+                    order_payload = {
+                        'security_id': sec_id,
+                        'quantity': qty_lots,
+                        'transaction_type': 'SELL',
+                        'order_type': 'MARKET',
+                        'product_type': 'MARGIN'
+                    }
+                    exit_resp = self.broker.place_order(sym, order_payload)
+                    if not (exit_resp.get('success') or exit_resp.get('order_id')):
+                        logger.error(f"Exit order failed for {underlying}: {exit_resp.get('error')}")
+                        return {"status": "error", "message": f"Exit order failed: {exit_resp.get('error')}"}
+
+                    self._clear_state(underlying)
+                    return {"status": "success", "action": f"CLOSED_CONDITIONAL_{target_side}"}
+                return {"status": "error", "message": "No matching position to exit"}
+
+            return {"status": "error", "message": "Unsupported signal type"}
+        except Exception as e:
+            import traceback
+            logger.error(f"handle_signal error ({signal_type}): {e}\n{traceback.format_exc()}")
+            return {"status": "error", "message": f"handle_signal exception: {e}"}
 
     # --- Core Logic ---
     def set_index_boundaries(self, underlying, target_level, sl_level, quantity=None):
