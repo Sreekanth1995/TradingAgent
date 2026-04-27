@@ -51,6 +51,11 @@ class DhanClient:
         
         # Redis for Token Persistence
         self.r = redis_client
+
+        # LTP cache: {(security_id, exchange_segment): (price, timestamp)}
+        # Prevents rate-limit (429) when polling monitor + margin calls fire concurrently.
+        self._ltp_cache = {}
+        self._ltp_cache_ttl = 2.0  # seconds
         
         if self.r:
             try:
@@ -629,7 +634,14 @@ class DhanClient:
         """
         Fetches the Last Traded Price (LTP) using Dhan API v2.
         Falls back to NSE public API for index prices when Dhan is unavailable.
+        Results are cached for _ltp_cache_ttl seconds to avoid 429 rate-limits.
         """
+        cache_key = (str(security_id), exchange_segment)
+        cached = self._ltp_cache.get(cache_key)
+        if cached:
+            price, ts = cached
+            if time.time() - ts < self._ltp_cache_ttl:
+                return price
         # For index LTP requests (IDX_I segment), always try NSE public fallback
         # since it works without authentication
         if exchange_segment == "IDX_I":
@@ -654,6 +666,7 @@ class DhanClient:
                             inst_data = seg_data.get(str(security_id), {})
                             price = inst_data.get('last_price')
                             if price and float(price) > 0:
+                                self._ltp_cache[cache_key] = (float(price), time.time())
                                 return float(price)
                     except Exception as e:
                         logger.warning(f"Dhan index LTP failed: {e}")
@@ -661,6 +674,7 @@ class DhanClient:
                 # Always fall back to NSE public API for index prices
                 price = self.get_index_spot_fallback(sym)
                 if price:
+                    self._ltp_cache[cache_key] = (price, time.time())
                     return price
             logger.error(f"Index LTP unavailable for ID {security_id}")
             return None
@@ -714,9 +728,13 @@ class DhanClient:
                 logger.error(f"get_ltp direct exception: {e}")
                 return None, False
 
+        def _cache_and_return(p):
+            self._ltp_cache[cache_key] = (float(p), time.time())
+            return float(p)
+
         price, is_auth_err = _try_direct(headers)
         if price is not None:
-            return price
+            return _cache_and_return(price)
 
         # On auth error, try syncing a fresher token from Redis then retry
         if is_auth_err:
@@ -725,7 +743,7 @@ class DhanClient:
                 headers['access-token'] = self.access_token
                 price, _ = _try_direct(headers)
                 if price is not None:
-                    return price
+                    return _cache_and_return(price)
 
         # Fallback: SDK quote_data uses the SDK's own session (separate token management)
         if self.dhan:
@@ -737,7 +755,7 @@ class DhanClient:
                     price = inst.get('last_price') or inst.get('lastTradedPrice')
                     if price:
                         logger.info(f"get_ltp: SDK quote_data fallback → {security_id}={price}")
-                        return float(price)
+                        return _cache_and_return(price)
                 logger.error(f"get_ltp: SDK fallback also failed: {qresp}")
             except Exception as e:
                 logger.error(f"get_ltp SDK fallback exception: {e}")
