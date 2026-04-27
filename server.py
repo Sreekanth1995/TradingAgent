@@ -1179,23 +1179,71 @@ def conditional_order():
     signal_type = mapping.get(action)
     if not signal_type:
         return jsonify({"status": "error", "message": f"Invalid action: {action}"}), 400
-        
+
+    is_exit = signal_type in ('LONG_EXIT', 'SHORT_EXIT')
+
     try:
-        # 1. Resolve spot first — guard before any ITM resolution
+        # --- EXIT PATH: no ITM resolution needed, use security_id from state ---
+        if is_exit:
+            res = conditional_engine.handle_signal(signal_type, {'underlying': underlying})
+            code = 200 if res.get('status') == 'success' else 400
+            return jsonify(res), code
+
+        # --- ENTRY PATH ---
+
+        # 1. Quantity validation
+        raw_qty = data.get('quantity')
+        quantity = int(raw_qty or 1)
+        if quantity <= 0:
+            return jsonify({"status": "error", "message": f"quantity must be a positive integer, got {quantity}"}), 400
+
+        # 2. Resolve spot — guard before ITM resolution and SL/Target validation
         spot_index = resolve_index_spot(broker, underlying, data)
         if spot_index <= 0:
             return jsonify({"status": "error", "message": "Could not determine current index spot price. Cannot validate SL/Target."}), 400
 
+        # 3. Guard against duplicate open position
+        existing_state = conditional_engine._get_state(underlying)
+        if existing_state.get('side', 'NONE') != 'NONE':
+            return jsonify({
+                "status": "error",
+                "message": f"{underlying} already has an open {existing_state['side']} position. Exit it first."
+            }), 400
+
+        # 4. Validate SL / Target
+        sl_index = data.get('sl_index')
+        target_index = data.get('target_index')
+        if not sl_index or not target_index:
+            label = "CALL" if signal_type == 'B' else "PUT"
+            return jsonify({"status": "error", "message": f"Manual {label} requires Index Stop Loss and Target levels"}), 400
+
+        try:
+            sl_idx_val = float(sl_index)
+            tgt_idx_val = float(target_index)
+        except (TypeError, ValueError) as e:
+            return jsonify({"status": "error", "message": f"Invalid SL/Target index value: {e}"}), 400
+
+        if signal_type == 'B':
+            if sl_idx_val >= spot_index:
+                return jsonify({"status": "error", "message": f"CALL SL ({sl_idx_val}) must be below spot ({spot_index})"}), 400
+            if tgt_idx_val <= spot_index:
+                return jsonify({"status": "error", "message": f"CALL Target ({tgt_idx_val}) must be above spot ({spot_index})"}), 400
+        else:
+            if sl_idx_val <= spot_index:
+                return jsonify({"status": "error", "message": f"PUT SL ({sl_idx_val}) must be above spot ({spot_index})"}), 400
+            if tgt_idx_val >= spot_index:
+                return jsonify({"status": "error", "message": f"PUT Target ({tgt_idx_val}) must be below spot ({spot_index})"}), 400
+
+        # 5. Resolve ITM contract and index security ID
         index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"}
         idx_sec_id = index_ids.get(underlying.upper())
-
         side = 'CALL' if signal_type == 'B' else 'PUT'
         itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
 
         if not itm or not idx_sec_id:
             return jsonify({"status": "error", "message": "Failed to resolve ITM contract or Index ID"}), 400
 
-        # Prefer explicit feed_id passed by Claude; fall back to Redis lookup
+        # 6. Prefer explicit feed_id passed by Claude; fall back to Redis lookup
         feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)
         if not feed_id:
             logger.warning(f"/conditional-order: no trade_feed_id for {underlying} — feed record will be orphaned")
@@ -1204,53 +1252,32 @@ def conditional_order():
             "underlying": underlying,
             "itm": itm,
             "idx_sec_id": idx_sec_id,
-            "quantity": int(data.get('quantity') or 1),
+            "quantity": quantity,
             "spot_index": spot_index,
-            "sl_index": data.get('sl_index'),
-            "target_index": data.get('target_index'),
+            "sl_index": sl_index,
+            "target_index": target_index,
             "trade_feed_id": feed_id,
         }
 
-        if signal_type in ('B', 'S'):
-            if not leg_data.get('sl_index') or not leg_data.get('target_index'):
-                label = "CALL" if signal_type == 'B' else "PUT"
-                return jsonify({"status": "error", "message": f"Manual {label} requires Index Stop Loss and Target levels"}), 400
-
-            try:
-                sl_idx_val = float(leg_data['sl_index'])
-                tgt_idx_val = float(leg_data['target_index'])
-            except (TypeError, ValueError) as e:
-                return jsonify({"status": "error", "message": f"Invalid SL/Target index value: {e}"}), 400
-
-            if signal_type == 'B':
-                if sl_idx_val >= spot_index:
-                    return jsonify({"status": "error", "message": f"CALL SL ({sl_idx_val}) must be below spot ({spot_index})"}), 400
-                if tgt_idx_val <= spot_index:
-                    return jsonify({"status": "error", "message": f"CALL Target ({tgt_idx_val}) must be above spot ({spot_index})"}), 400
-            if signal_type == 'S':
-                if sl_idx_val <= spot_index:
-                    return jsonify({"status": "error", "message": f"PUT SL ({sl_idx_val}) must be above spot ({spot_index})"}), 400
-                if tgt_idx_val >= spot_index:
-                    return jsonify({"status": "error", "message": f"PUT Target ({tgt_idx_val}) must be below spot ({spot_index})"}), 400
-
-        # Execute Order via Conditional Engine
+        # 7. Execute entry
         res = conditional_engine.handle_signal(signal_type, leg_data)
-        
-        # Acceptance Criteria: Defer GTT placement until order is TRADED (Fill-Triggered)
-        if res.get('status') == 'success' and signal_type in ['B', 'S'] and leg_data.get('sl_index') and leg_data.get('target_index'):
+
+        # 8. Defer GTT placement until order fill confirmation (postback)
+        if res.get('status') == 'success':
             order_id = res.get('order_id')
             if order_id:
                 logger.info(f"Deferring GTT placement for Order {order_id} until fill confirmation.")
-                pending_meta = {
+                conditional_engine.store_pending_protection(order_id, {
                     "underlying": underlying,
-                    "target_level": leg_data['target_index'],
-                    "sl_level": leg_data['sl_index'],
-                    "quantity": leg_data['quantity']
-                }
-                conditional_engine.store_pending_protection(order_id, pending_meta)
+                    "target_level": target_index,
+                    "sl_level": sl_index,
+                    "quantity": quantity,
+                })
                 res['gtt_status'] = {"status": "pending", "message": "Queued for fill trigger"}
-            
-        return jsonify(res), 200
+
+        code = 200 if res.get('status') == 'success' else 400
+        return jsonify(res), code
+
     except Exception as e:
         tb = traceback.format_exc()
         logger.error(f"Conditional Order Error: {e}\n{tb}")

@@ -170,7 +170,7 @@ class ConditionalOrderEngine:
                     if not sec_id:
                         return {"status": "error", "message": f"Cannot exit {underlying}: no security_id in state — manual intervention required"}
 
-                    # Clean up conditional orders immediately
+                    # Cancel GTTs before placing the exit order
                     self.cancel_active_conditional_orders(underlying, state)
 
                     sym = state.get('symbol')
@@ -181,15 +181,16 @@ class ConditionalOrderEngine:
                         'quantity': qty_lots,
                         'transaction_type': 'SELL',
                         'order_type': 'MARKET',
-                        'product_type': 'MARGIN'
+                        'product_type': 'INTRADAY',
                     }
                     exit_resp = self.broker.place_order(sym, order_payload)
                     if not (exit_resp.get('success') or exit_resp.get('order_id')):
                         logger.error(f"Exit order failed for {underlying}: {exit_resp.get('error')}")
                         return {"status": "error", "message": f"Exit order failed: {exit_resp.get('error')}"}
 
+                    # Clear state only after exit order is successfully submitted
                     self._clear_state(underlying)
-                    return {"status": "success", "action": f"CLOSED_CONDITIONAL_{target_side}"}
+                    return {"status": "success", "action": f"CLOSED_CONDITIONAL_{target_side}", "exit_order_id": exit_resp.get('order_id')}
                 return {"status": "error", "message": "No matching position to exit"}
 
             return {"status": "error", "message": "Unsupported signal type"}
