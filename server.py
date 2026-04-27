@@ -13,7 +13,7 @@ from broker_dhan import DhanClient
 from collections import deque
 from datetime import datetime
 import pytz
-from instrument_resolver import resolve_index_spot, resolve_call_itm, resolve_put_itm
+from instrument_resolver import resolve_index_spot, resolve_call_itm, resolve_put_itm, calculate_quantity_from_margin
 import trade_feed
 
 # Load Environment Variables
@@ -563,16 +563,7 @@ def webhook():
                     failure_count += 1
                     continue
 
-                # Calculate quantity based on available margin
-                sec_id = specific_itm.get('security_id')
-                opt_ltp = broker.get_ltp(sec_id) or 0
-                margin_qty = broker.calculate_lots_by_margin(sec_id, 'BUY', opt_ltp)
-                if margin_qty != quantity:
-                    _add_activity_log(
-                        f"Margin-based qty for {underlying}: {margin_qty} lots "
-                        f"(webhook sent {quantity})", "💰 "
-                    )
-                quantity = margin_qty
+                quantity = calculate_quantity_from_margin(broker, specific_itm)
 
             # 4. Deduplication Check — placed after spot validation so a bad payload
             #    (missing price) does not consume the dedup window and block valid retries.
@@ -1076,11 +1067,13 @@ def conditional_order():
         if not feed_id:
             logger.warning(f"/conditional-order: no trade_feed_id for {underlying} — feed record will be orphaned")
 
+        quantity = calculate_quantity_from_margin(broker, itm)
+
         leg_data = {
             "underlying": underlying,
             "itm": itm,
             "idx_sec_id": idx_sec_id,
-            "quantity": int(data.get('quantity', 1)),
+            "quantity": quantity,
             "spot_index": spot_index,
             "sl_index": data.get('sl_index'),
             "target_index": data.get('target_index'),
@@ -1284,12 +1277,9 @@ def set_super_order():
     side = data.get('side', 'CALL').upper()       # CALL or PUT
     target = data.get('target_price')
     sl = data.get('sl_price')
-    quantity = int(data.get('quantity', 1))
 
     if not target or not sl:
         return jsonify({"status": "error", "message": "target_price and sl_price are required"}), 400
-    if quantity <= 0:
-        return jsonify({"status": "error", "message": "quantity must be > 0"}), 400
     if side not in ('CALL', 'PUT'):
         return jsonify({"status": "error", "message": "side must be CALL or PUT"}), 400
 
@@ -1305,6 +1295,8 @@ def set_super_order():
             itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
             if not itm:
                 return jsonify({"status": "error", "message": f"Failed to resolve {side} ITM contract for {underlying}"}), 400
+
+        quantity = calculate_quantity_from_margin(broker, itm)
 
         # Prefer explicit feed_id passed by Claude; fall back to Redis lookup
         feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)

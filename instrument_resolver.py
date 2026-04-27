@@ -2,6 +2,20 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def calculate_quantity_from_margin(broker, itm):
+    """
+    Returns lot count based on available margin and the real Dhan margin API.
+    Delegates to broker.calculate_lots_by_margin(); falls back to 1 lot on error.
+    """
+    try:
+        sec_id = itm.get('security_id')
+        ltp = broker.get_ltp(sec_id) or 0
+        return broker.calculate_lots_by_margin(sec_id, 'BUY', ltp)
+    except Exception as e:
+        logger.warning(f"calculate_quantity_from_margin failed: {e} — defaulting to 1 lot")
+        return 1
+
+
 def resolve_index_spot(broker, underlying, leg):
     """
     Resolves the Index spot price for a given underlying.
