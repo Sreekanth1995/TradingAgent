@@ -342,13 +342,20 @@ class DhanClient:
 
             lot_size = self.lot_map.get(str(security_id), 1)
 
+            if not ltp or float(ltp) <= 0:
+                logger.warning(f"calculate_lots_by_margin: LTP is {ltp} for {security_id} — fetching live.")
+                ltp = self.get_ltp(security_id) or 0
+            if float(ltp) <= 0:
+                logger.warning(f"calculate_lots_by_margin: LTP still 0 for {security_id}; defaulting to 1 lot.")
+                return 1
+
             margin_resp = self.margin_calculator({
                 'security_id': security_id,
                 'exchange_segment': ExchangeSegment.NSE_FNO,
                 'transaction_type': transaction_type,
-                'quantity': lot_size,  # 1 lot in actual units
+                'quantity': lot_size,
                 'product_type': 'INTRADAY',
-                'price': ltp,
+                'price': float(ltp),
             })
 
             if margin_resp.get('status') != 'success':

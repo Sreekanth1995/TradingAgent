@@ -936,7 +936,18 @@ def get_margin():
         lot_size = broker.lot_map.get(str(sec_id), 1)
 
         # 3. Margin per lot via Dhan margin calculator
-        ltp = broker.get_ltp(sec_id) or 0
+        ltp = broker.get_ltp(sec_id)
+        if not ltp or float(ltp) <= 0:
+            logger.error(f"get-margin: LTP fetch failed for sec_id={sec_id} ({itm.get('symbol')})")
+            return jsonify({
+                "status": "error",
+                "message": f"LTP unavailable for {itm.get('symbol')} (sec_id={sec_id}). Cannot calculate margin.",
+                "security_id": sec_id,
+                "symbol": itm.get('symbol'),
+                "available_balance": available,
+            }), 400
+        ltp = float(ltp)
+
         margin_resp = broker.margin_calculator({
             'security_id': sec_id,
             'exchange_segment': 'NSE_FNO',
@@ -945,16 +956,40 @@ def get_margin():
             'product_type': 'INTRADAY',
             'price': ltp,
         })
+        logger.info(f"get-margin margin_resp: {margin_resp}")
+
+        if margin_resp.get('status') != 'success':
+            return jsonify({
+                "status": "error",
+                "message": f"Margin calculator API failed: {margin_resp.get('message') or margin_resp.get('remarks') or margin_resp}",
+                "margin_raw": margin_resp,
+                "security_id": sec_id,
+                "symbol": itm.get('symbol'),
+                "ltp": ltp,
+                "available_balance": available,
+            }), 400
+
         margin_per_lot = float((margin_resp.get('data') or {}).get('totalMarginRequired') or 0)
+        if margin_per_lot <= 0:
+            logger.error(f"get-margin: totalMarginRequired=0 despite success. margin_resp={margin_resp}")
+            return jsonify({
+                "status": "error",
+                "message": "Margin calculator returned 0. Check security_id or LTP.",
+                "margin_raw": margin_resp,
+                "security_id": sec_id,
+                "ltp": ltp,
+                "available_balance": available,
+            }), 400
 
         import math
-        suggested_lots = max(1, math.floor(available * 0.8 / margin_per_lot)) if margin_per_lot > 0 else 1
+        suggested_lots = max(1, math.floor(available * 0.8 / margin_per_lot))
 
         return jsonify({
             "status": "success",
             "underlying": underlying,
             "side": side,
             "symbol": itm['symbol'],
+            "security_id": sec_id,
             "lot_size": lot_size,
             "ltp": ltp,
             "available_balance": available,
