@@ -11,6 +11,12 @@ mcp = FastMCP("TradingAgent_AI_Bridge")
 SECRET = os.getenv("WEBHOOK_SECRET")
 BASE_URL = os.getenv("TRADING_AGENT_URL", "http://65.20.83.74")
 
+if not SECRET:
+    raise RuntimeError(
+        "WEBHOOK_SECRET is not set. "
+        "Check that .env exists at the same directory as mcp_server.py and contains WEBHOOK_SECRET=<value>."
+    )
+
 
 async def _call(endpoint: str, data: dict = None, method: str = "POST"):
     """HTTP helper — injects secret and calls the Flask server."""
