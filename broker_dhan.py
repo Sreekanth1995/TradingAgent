@@ -685,34 +685,64 @@ class DhanClient:
             exchange_segment: [int(security_id)]
         }
 
-        try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                # Response Structure: { "data": { "NSE_FNO": { "123": { "last_price": 100 } } }, "status": "success" }
-                seg_data = data.get('data', {}).get(exchange_segment, {})
-                inst_data = seg_data.get(str(security_id), {})
-                return inst_data.get('last_price')
-            elif resp.status_code == 401:
-                logger.warning("LTP Fetch: 401 Unauthorized. Attempting token sync from Redis...")
-                if self._sync_token_from_redis():
-                    # Retry once with new token
-                    headers['access-token'] = self.access_token
-                    resp = requests.post(url, headers=headers, json=payload, timeout=5)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        seg_data = data.get('data', {}).get(exchange_segment, {})
-                        inst_data = seg_data.get(str(security_id), {})
-                        return inst_data.get('last_price')
-                
-                logger.error(f"LTP Fetch Failed after sync attempt: {resp.status_code} {resp.text}")
-                return None
-            else:
-                logger.error(f"LTP Fetch Failed: {resp.status_code} {resp.text}")
-                return None
-        except Exception as e:
-            logger.error(f"LTP Exception: {e}")
-            return None
+        def _parse_ltp_resp(data):
+            # Dhan returns auth failures as 200 with {"status":"failed","data":{"808":"..."}}
+            if data.get('status') in ('failed', 'failure'):
+                error_data = data.get('data', {})
+                logger.error(f"get_ltp: API returned failure in 200 body: {error_data}")
+                return None, True  # (price, is_auth_error)
+            seg_data = (data.get('data') or {}).get(exchange_segment, {})
+            inst_data = seg_data.get(str(security_id), {})
+            price = inst_data.get('last_price')
+            if price is None:
+                logger.warning(f"get_ltp: sec_id={security_id} absent in response. Segment keys: {list(seg_data.keys())[:10]}")
+            return price, False
+
+        def _try_direct(hdrs):
+            try:
+                r = requests.post(url, headers=hdrs, json=payload, timeout=5)
+                if r.status_code == 200:
+                    price, is_err = _parse_ltp_resp(r.json())
+                    return price, is_err
+                elif r.status_code == 401:
+                    logger.warning(f"get_ltp: 401 from direct API")
+                    return None, True
+                else:
+                    logger.error(f"get_ltp: HTTP {r.status_code} — {r.text[:200]}")
+                    return None, False
+            except Exception as e:
+                logger.error(f"get_ltp direct exception: {e}")
+                return None, False
+
+        price, is_auth_err = _try_direct(headers)
+        if price is not None:
+            return price
+
+        # On auth error, try syncing a fresher token from Redis then retry
+        if is_auth_err:
+            logger.warning("get_ltp: auth error — attempting token sync from Redis")
+            if self._sync_token_from_redis():
+                headers['access-token'] = self.access_token
+                price, _ = _try_direct(headers)
+                if price is not None:
+                    return price
+
+        # Fallback: SDK quote_data uses the SDK's own session (separate token management)
+        if self.dhan:
+            try:
+                qresp = self.dhan.quote_data({exchange_segment: [int(security_id)]})
+                if qresp.get('status') == 'success':
+                    seg = (qresp.get('data') or {}).get(exchange_segment, {})
+                    inst = seg.get(str(security_id), {})
+                    price = inst.get('last_price') or inst.get('lastTradedPrice')
+                    if price:
+                        logger.info(f"get_ltp: SDK quote_data fallback → {security_id}={price}")
+                        return float(price)
+                logger.error(f"get_ltp: SDK fallback also failed: {qresp}")
+            except Exception as e:
+                logger.error(f"get_ltp SDK fallback exception: {e}")
+
+        return None
 
     def get_fund_limits(self):
         """
