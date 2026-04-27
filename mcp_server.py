@@ -3,7 +3,8 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
 
-load_dotenv()
+# Resolve .env relative to this file so it loads regardless of working directory
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 mcp = FastMCP("TradingAgent_AI_Bridge")
 
