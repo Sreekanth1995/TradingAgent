@@ -38,6 +38,25 @@ signal_memory_lock = threading.Lock()
 logging.basicConfig(level=getattr(logging, LOG_LEVEL), format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# In-memory error log buffer — captures WARNING/ERROR/CRITICAL across all loggers
+_error_log_buffer = deque(maxlen=200)
+
+class _ErrorBufferHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            _error_log_buffer.append({
+                "time": self.formatter.formatTime(record) if self.formatter else record.asctime,
+                "level": record.levelname,
+                "logger": record.name,
+                "message": self.format(record),
+            })
+        except Exception:
+            pass
+
+_err_handler = _ErrorBufferHandler(level=logging.WARNING)
+_err_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s [%(name)s] %(message)s'))
+logging.getLogger().addHandler(_err_handler)
+
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
@@ -1119,6 +1138,21 @@ def get_activity_logs():
 
     # Fallback to in-memory deque
     return jsonify({"status": "success", "logs": list(activity_logs)}), 200
+
+
+@app.route('/server-logs', methods=['POST', 'GET'])
+def server_logs():
+    """
+    Returns recent WARNING/ERROR/CRITICAL log entries captured in memory.
+    Useful for remote debugging when SSH is unavailable.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    if data.get('secret') and data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    n = int(data.get('n', 100))
+    logs = list(_error_log_buffer)[-n:]
+    return jsonify({"status": "success", "count": len(logs), "logs": logs}), 200
+
 
 @app.route('/conditional-order', methods=['POST'])
 def conditional_order():
