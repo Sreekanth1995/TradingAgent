@@ -1171,11 +1171,27 @@ def scrip_status():
         return jsonify({"status": "error", "message": "System not initialized"}), 503
 
     scrip_count = len(broker.scrip_map)
+    csv_file = broker.scrip_csv_path
+
+    import time as _time
+    import csv as _csv
+    csv_exists = os.path.exists(csv_file)
     csv_age_hours = None
-    csv_file = "dhan_scrip_master.csv"
-    if os.path.exists(csv_file):
-        import time as _time
+    csv_size_kb = None
+    csv_headers = None
+    csv_first_row = None
+    if csv_exists:
         csv_age_hours = round((_time.time() - os.path.getmtime(csv_file)) / 3600, 1)
+        csv_size_kb = round(os.path.getsize(csv_file) / 1024, 1)
+        try:
+            with open(csv_file, 'r', encoding='utf-8-sig') as f:
+                reader = _csv.DictReader(f)
+                csv_headers = reader.fieldnames
+                row = next(reader, None)
+                if row:
+                    csv_first_row = dict(list(row.items())[:4])
+        except Exception as e:
+            csv_headers = f"error: {e}"
 
     expiries = {}
     from datetime import datetime
@@ -1184,13 +1200,17 @@ def scrip_status():
     today_str = datetime.now(IST).strftime('%Y-%m-%d')
     for sym in ["NIFTY", "BANKNIFTY", "FINNIFTY"]:
         future = sorted(set(k[3] for k in broker.scrip_map if k[0] == sym and k[3] >= today_str))
-        expiries[sym] = future[:5]  # next 5 expiries
+        expiries[sym] = future[:5]
 
     return jsonify({
         "status": "success",
         "scrip_count": scrip_count,
+        "csv_path": csv_file,
+        "csv_exists": csv_exists,
         "csv_age_hours": csv_age_hours,
-        "csv_exists": os.path.exists(csv_file),
+        "csv_size_kb": csv_size_kb,
+        "csv_headers": csv_headers,
+        "csv_first_row": csv_first_row,
         "expiry_indices_today": list(getattr(broker, 'expiry_indices', set())),
         "upcoming_expiries": expiries,
     }), 200
@@ -1210,6 +1230,10 @@ def reload_scrip():
         return jsonify({"status": "error", "message": "System not initialized"}), 503
 
     try:
+        # Delete stale file so _load_scrip_master always re-downloads fresh
+        csv_file = broker.scrip_csv_path
+        if os.path.exists(csv_file):
+            os.remove(csv_file)
         broker.scrip_map = {}
         broker.lot_map = {}
         broker.exact_symbol_map = {}
@@ -1219,7 +1243,7 @@ def reload_scrip():
         broker.scrip_loaded = True
         broker._scrip_ready.set()
         count = len(broker.scrip_map)
-        return jsonify({"status": "success", "scrip_count": count}), 200
+        return jsonify({"status": "success", "scrip_count": count, "csv_path": csv_file}), 200
     except Exception as e:
         logger.error(f"reload_scrip error: {traceback.format_exc()}")
         return jsonify({"status": "error", "message": str(e)}), 500

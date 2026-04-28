@@ -170,11 +170,15 @@ class DhanClient:
         }
         return mapping.get(symbol.upper())
 
+    @property
+    def scrip_csv_path(self):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "dhan_scrip_master.csv")
+
     def _load_scrip_master(self):
         """
         Downloads and parses the Dhan Scrip Master CSV.
         """
-        csv_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dhan_scrip_master.csv")
+        csv_file = self.scrip_csv_path
         url = "https://images.dhan.co/api-data/api-scrip-master.csv"
         
         # Download if not exists or older than 12 hours
@@ -202,14 +206,19 @@ class DhanClient:
             return
 
         # Parse CSV
-        logger.info("Parsing Scrip Master...")
+        logger.info(f"Parsing Scrip Master from {csv_file} ...")
         count = 0
         try:
-            with open(csv_file, 'r', encoding='utf-8') as f:
+            with open(csv_file, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
+                headers = reader.fieldnames or []
+                logger.info(f"Scrip CSV headers ({len(headers)}): {headers[:5]}")
+                if 'SEM_EXM_EXCH_ID' not in headers:
+                    logger.error(f"Expected column 'SEM_EXM_EXCH_ID' not found. Got: {headers}. Aborting parse.")
+                    return
                 for row in reader:
                     # Filter for NSE Options
-                    if row['SEM_EXM_EXCH_ID'] == 'NSE' and row['SEM_INSTRUMENT_NAME'] in ['OPTIDX', 'OPTSTK', 'FUTIDX', 'FUTSTK']:
+                    if row.get('SEM_EXM_EXCH_ID') == 'NSE' and row.get('SEM_INSTRUMENT_NAME') in ['OPTIDX', 'OPTSTK', 'FUTIDX', 'FUTSTK']:
                         # Extract Key Fields
                         sym = row.get('SM_SYMBOL_NAME', '').strip()
                         if not sym:
