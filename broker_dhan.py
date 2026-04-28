@@ -73,6 +73,7 @@ class DhanClient:
         self.lot_map = {}
         self.exact_symbol_map = {}
         self.scrip_loaded = False
+        self._scrip_ready = threading.Event()
 
         # Load Scrip Master in background thread to prevent startup timeout
         def load_scrip_background():
@@ -82,6 +83,8 @@ class DhanClient:
                 logger.info("✅ Scrip Master loaded successfully in background")
             except Exception as e:
                 logger.error(f"Failed to load Scrip Master: {e}")
+            finally:
+                self._scrip_ready.set()
 
         threading.Thread(target=load_scrip_background, daemon=True).start()
 
@@ -171,7 +174,7 @@ class DhanClient:
         """
         Downloads and parses the Dhan Scrip Master CSV.
         """
-        csv_file = "dhan_scrip_master.csv"
+        csv_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dhan_scrip_master.csv")
         url = "https://images.dhan.co/api-data/api-scrip-master.csv"
         
         # Download if not exists or older than 12 hours
@@ -392,6 +395,11 @@ class DhanClient:
         CE ITM = Spot - 50
         PE ITM = Spot + 50
         """
+        if not self.scrip_map:
+            waited = self._scrip_ready.wait(timeout=30)
+            if not self.scrip_map:
+                logger.error(f"get_itm_contract: scrip_map is empty after {'waiting 30s' if not waited else 'load'}. CSV may be missing.")
+                return None
         try:
             spot = float(spot_price)
             # Round to nearest 50

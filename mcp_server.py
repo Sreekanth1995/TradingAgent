@@ -296,6 +296,17 @@ async def get_margin(underlying: str = "NIFTY", side: str = "PUT", spot_index: f
 # ─────────────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
+async def reload_scrip():
+    """
+    Forces the server to re-download and reload the Dhan scrip master CSV
+    synchronously. Call this when get_scrip_status() shows scrip_count=0
+    or when get_margin fails with ITM resolution errors.
+    Returns the number of instruments loaded after reload.
+    """
+    return await _call("/reload-scrip", {})
+
+
+@mcp.tool()
 async def get_scrip_status():
     """
     Returns scrip master load status: instrument count, CSV age, and upcoming

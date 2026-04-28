@@ -1196,6 +1196,35 @@ def scrip_status():
     }), 200
 
 
+@app.route('/reload-scrip', methods=['POST'])
+def reload_scrip():
+    """
+    Forces a synchronous re-download and reload of the Dhan scrip master CSV.
+    Call this when /scrip-status shows scrip_count=0 or no upcoming expiries.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    try:
+        broker.scrip_map = {}
+        broker.lot_map = {}
+        broker.exact_symbol_map = {}
+        broker.scrip_loaded = False
+        broker._scrip_ready.clear()
+        broker._load_scrip_master()
+        broker.scrip_loaded = True
+        broker._scrip_ready.set()
+        count = len(broker.scrip_map)
+        return jsonify({"status": "success", "scrip_count": count}), 200
+    except Exception as e:
+        logger.error(f"reload_scrip error: {traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route('/conditional-order', methods=['POST'])
 def conditional_order():
     """
