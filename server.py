@@ -1202,6 +1202,7 @@ def scrip_status():
         future = sorted(set(k[3] for k in broker.scrip_map if k[0] == sym and k[3] >= today_str))
         expiries[sym] = future[:5]
 
+    csv_truncated = csv_exists and csv_size_kb is not None and csv_size_kb < 20 * 1024
     return jsonify({
         "status": "success",
         "scrip_count": scrip_count,
@@ -1209,6 +1210,7 @@ def scrip_status():
         "csv_exists": csv_exists,
         "csv_age_hours": csv_age_hours,
         "csv_size_kb": csv_size_kb,
+        "csv_truncated": csv_truncated,
         "csv_headers": csv_headers,
         "csv_first_row": csv_first_row,
         "expiry_indices_today": list(getattr(broker, 'expiry_indices', set())),

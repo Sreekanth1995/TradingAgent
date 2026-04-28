@@ -187,19 +187,46 @@ class DhanClient:
             import time
             file_age_hours = (time.time() - os.path.getmtime(csv_file)) / 3600
 
-        if file_age_hours > 12:
-            logger.info(f"Downloading fresh Scrip Master from {url}...")
-            try:
-                r = requests.get(url, stream=True)
-                if r.status_code == 200:
-                    with open(csv_file, 'wb') as f:
-                        for chunk in r.iter_content(chunk_size=1024):
-                            f.write(chunk)
-                    logger.info("Download Complete.")
-                else:
-                    logger.error(f"Failed to download Scrip Master (status {r.status_code}). Falling back to stale file.")
-            except Exception as e:
-                logger.error(f"Download Error: {e}. Falling back to stale file.")
+        # NSE options start ~14 MB into the 33 MB file; anything under 20 MB is a truncated download.
+        MIN_VALID_SIZE = 20 * 1024 * 1024
+
+        def _needs_download():
+            if not os.path.exists(csv_file):
+                return True
+            if file_age_hours > 12:
+                return True
+            if os.path.getsize(csv_file) < MIN_VALID_SIZE:
+                logger.warning(f"Existing CSV is too small ({os.path.getsize(csv_file)//1024} KB < {MIN_VALID_SIZE//1024} KB) — likely truncated. Re-downloading.")
+                return True
+            return False
+
+        if _needs_download():
+            logger.info(f"Downloading Scrip Master from {url}...")
+            for attempt in range(1, 4):
+                try:
+                    tmp_file = csv_file + ".tmp"
+                    r = requests.get(url, stream=True, timeout=(10, 180))
+                    if r.status_code == 200:
+                        bytes_written = 0
+                        with open(tmp_file, 'wb') as f:
+                            for chunk in r.iter_content(chunk_size=65536):
+                                f.write(chunk)
+                                bytes_written += len(chunk)
+                        if bytes_written >= MIN_VALID_SIZE:
+                            os.replace(tmp_file, csv_file)
+                            logger.info(f"Download complete ({bytes_written // 1024} KB).")
+                            break
+                        else:
+                            logger.error(f"Attempt {attempt}: download too small ({bytes_written // 1024} KB). Retrying.")
+                            if os.path.exists(tmp_file):
+                                os.remove(tmp_file)
+                    else:
+                        logger.error(f"Attempt {attempt}: HTTP {r.status_code}. Falling back to stale file.")
+                        break
+                except Exception as e:
+                    logger.error(f"Attempt {attempt}: Download error: {e}. {'Retrying.' if attempt < 3 else 'Giving up.'}")
+            else:
+                logger.error("All download attempts failed. Falling back to stale file if available.")
 
         if not os.path.exists(csv_file):
             logger.error("Scrip Master CSV not found and download failed. scrip_map will be empty.")
