@@ -764,16 +764,16 @@ def _get_active_positions():
                 unrealized_pnl = 0.0
 
             ltp_raw = broker.get_ltp(sec_id) if sec_id else None
-            ltp = float(ltp_raw) if ltp_raw else 0.0
+            ltp = float(ltp_raw) if ltp_raw else None
 
             if broker_pos:
                 pnl_abs = round(unrealized_pnl, 2)
-            elif ltp and entry_price:
+            elif ltp is not None and entry_price:
                 pnl_abs = round((ltp - entry_price) * net_qty, 2)
             else:
-                pnl_abs = 0.0
+                pnl_abs = '---'
 
-            pnl_pct = round(((ltp / entry_price) - 1) * 100, 2) if entry_price > 0 and ltp > 0 else 0.0
+            pnl_pct = round(((ltp / entry_price) - 1) * 100, 2) if entry_price > 0 and ltp else 0.0
 
             active_positions.append({
                 "underlying": underlying,
@@ -781,7 +781,7 @@ def _get_active_positions():
                 "side": state.get('side'),
                 "quantity": net_qty,
                 "entry_price": entry_price,
-                "ltp": ltp,
+                "ltp": ltp if ltp is not None else '---',
                 "pnl_abs": pnl_abs,
                 "pnl_pct": pnl_pct,
                 "sl_price": state.get('sl_price'),
@@ -946,10 +946,12 @@ def get_margin():
         )
 
         # 2. Resolve ITM contract
-        spot_index = resolve_index_spot(broker, underlying, {})
+        spot_index = resolve_index_spot(broker, underlying, data)
+        if not spot_index or spot_index <= 0:
+            return jsonify({"status": "error", "message": f"Index LTP unavailable for {underlying}. Cannot resolve ITM contract. Pass spot_index in request to override."}), 400
         itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
         if not itm:
-            return jsonify({"status": "error", "message": f"Could not resolve ITM contract for {underlying} {side}"}), 400
+            return jsonify({"status": "error", "message": f"Could not resolve ITM contract for {underlying} {side} (spot={spot_index})"}), 400
 
         sec_id = itm['security_id']
         lot_size = broker.lot_map.get(str(sec_id), 1)
@@ -1152,6 +1154,46 @@ def server_logs():
     n = int(data.get('n', 100))
     logs = list(_error_log_buffer)[-n:]
     return jsonify({"status": "success", "count": len(logs), "logs": logs}), 200
+
+
+@app.route('/scrip-status', methods=['POST', 'GET'])
+def scrip_status():
+    """
+    Returns scrip master load status: how many instruments are loaded,
+    expiry dates available for NIFTY/BANKNIFTY/FINNIFTY, and CSV age.
+    Useful for diagnosing ITM resolution failures.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    if data.get('secret') and data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    scrip_count = len(broker.scrip_map)
+    csv_age_hours = None
+    csv_file = "dhan_scrip_master.csv"
+    if os.path.exists(csv_file):
+        import time as _time
+        csv_age_hours = round((_time.time() - os.path.getmtime(csv_file)) / 3600, 1)
+
+    expiries = {}
+    from datetime import datetime
+    import pytz
+    IST = pytz.timezone('Asia/Kolkata')
+    today_str = datetime.now(IST).strftime('%Y-%m-%d')
+    for sym in ["NIFTY", "BANKNIFTY", "FINNIFTY"]:
+        future = sorted(set(k[3] for k in broker.scrip_map if k[0] == sym and k[3] >= today_str))
+        expiries[sym] = future[:5]  # next 5 expiries
+
+    return jsonify({
+        "status": "success",
+        "scrip_count": scrip_count,
+        "csv_age_hours": csv_age_hours,
+        "csv_exists": os.path.exists(csv_file),
+        "expiry_indices_today": list(getattr(broker, 'expiry_indices', set())),
+        "upcoming_expiries": expiries,
+    }), 200
 
 
 @app.route('/conditional-order', methods=['POST'])

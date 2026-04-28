@@ -190,11 +190,13 @@ class DhanClient:
                             f.write(chunk)
                     logger.info("Download Complete.")
                 else:
-                    logger.error(f"Failed to download Scrip Master. Status: {r.status_code}")
-                    return
+                    logger.error(f"Failed to download Scrip Master (status {r.status_code}). Falling back to stale file.")
             except Exception as e:
-                logger.error(f"Download Error: {e}")
-                return
+                logger.error(f"Download Error: {e}. Falling back to stale file.")
+
+        if not os.path.exists(csv_file):
+            logger.error("Scrip Master CSV not found and download failed. scrip_map will be empty.")
+            return
 
         # Parse CSV
         logger.info("Parsing Scrip Master...")

@@ -26,7 +26,7 @@ def resolve_index_spot(broker, underlying, leg):
     index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"}
     idx_id = index_ids.get(underlying.upper())
     
-    spot_index = float(leg.get('spot_index', 0))
+    spot_index = float(leg.get('spot_index') or 0)
     if spot_index <= 0 and idx_id:
         # Dhan API v2 expects exchange_segment="IDX_I" for Index LTP
         spot_index = broker.get_ltp(idx_id, exchange_segment="IDX_I") or 0.0

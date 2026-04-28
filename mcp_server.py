@@ -258,7 +258,7 @@ async def get_orders():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
-async def get_margin(underlying: str = "NIFTY", side: str = "PUT"):
+async def get_margin(underlying: str = "NIFTY", side: str = "PUT", spot_index: float = 0.0):
     """
     Returns available balance and the margin required for 1 lot of the current
     ITM option. Use this before placing an order to decide how many lots to buy.
@@ -272,8 +272,11 @@ async def get_margin(underlying: str = "NIFTY", side: str = "PUT"):
            or place_super_order.
 
     Args:
-        underlying: NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
-        side:       CALL or PUT — determines which ITM strike to price.
+        underlying:  NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
+        side:        CALL or PUT — determines which ITM strike to price.
+        spot_index:  Optional. Current index spot price (e.g. 24350.0). Pass this
+                     if the server returns "Index LTP unavailable" to bypass the
+                     live LTP fetch.
 
     Returns:
         available_balance  — free cash available for new positions (INR).
@@ -282,12 +285,26 @@ async def get_margin(underlying: str = "NIFTY", side: str = "PUT"):
         symbol             — ITM option symbol that was priced.
         lot_size           — contract lot size for this option.
     """
-    return await _call("/get-margin", {"underlying": underlying, "side": side})
+    payload = {"underlying": underlying, "side": side}
+    if spot_index and spot_index > 0:
+        payload["spot_index"] = spot_index
+    return await _call("/get-margin", payload)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONTEXT & LOGS
 # ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+async def get_scrip_status():
+    """
+    Returns scrip master load status: instrument count, CSV age, and upcoming
+    expiry dates for NIFTY/BANKNIFTY/FINNIFTY.
+    Call this when get_margin or order placement fails with ITM resolution errors
+    to diagnose whether the scrip master is empty or stale.
+    """
+    return await _call("/scrip-status")
+
 
 @mcp.tool()
 async def get_activity_logs():
