@@ -1801,11 +1801,31 @@ def get_trade_feed():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+def _compute_zone(range_tracker_pos, dy_pos):
+    """
+    Derive zone from RangeTracker and DySupportResistance positions.
+      ABOVE  = price above RangeTracker AND above DySupport
+      BELOW  = price below RangeTracker AND below DySupport
+      INSIDE = mixed (price between the two levels)
+      UNKNOWN = one or both signals not yet received
+    """
+    if not range_tracker_pos or not dy_pos:
+        return "UNKNOWN"
+    rt = range_tracker_pos.upper()
+    dy = dy_pos.upper()
+    if rt == "ABOVE" and dy == "ABOVE":
+        return "ABOVE"
+    if rt == "BELOW" and dy == "BELOW":
+        return "BELOW"
+    return "INSIDE"
+
+
 @app.route('/range-signal', methods=['POST'])
 def range_signal():
     """
-    Update the status of the price relative to the Range Tracker.
-    Payload: { secret, underlying, status ('ABOVE'|'BELOW'|'INSIDE') }
+    TradingView alert endpoint for RangeTracker indicator.
+    Stores the price position relative to the RangeTracker band.
+    Payload: { secret, underlying, position: 'ABOVE'|'BELOW' }
     """
     if not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
@@ -1814,23 +1834,104 @@ def range_signal():
     if not data or data.get('secret') != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
-    underlying = data.get('underlying', 'NIFTY')
-    position = data.get('position', 'INSIDE').upper()
+    underlying = data.get('underlying', 'NIFTY').upper()
+    position = data.get('position', '').upper()
+    if position not in ('ABOVE', 'BELOW'):
+        return jsonify({"status": "error", "message": "position must be ABOVE or BELOW"}), 400
 
     try:
         state = super_order_engine._get_state(underlying)
-        state['range_position'] = position
-        state['range_timestamp'] = datetime.now().isoformat()
+        state['range_tracker_position'] = position
+        state['range_position'] = position  # backward-compat alias
+        state['range_tracker_timestamp'] = datetime.now().isoformat()
         super_order_engine._set_state(underlying, state)
 
-        msg = f"Range Position for {underlying}: {position}"
+        zone = _compute_zone(position, state.get('dy_position'))
+        msg = f"RangeTracker {underlying}: {position} | zone={zone}"
         logger.info(msg)
-        _add_activity_log(msg, "🧭 ")
+        _add_activity_log(msg, "🧭")
 
-        return jsonify({"status": "success", "range_position": position}), 200
+        return jsonify({"status": "success", "range_tracker_position": position, "zone": zone}), 200
     except Exception as e:
         logger.error(f"Range Signal Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/dy-signal', methods=['POST'])
+def dy_signal():
+    """
+    TradingView alert endpoint for DySupportResistance indicator.
+    Stores the price position relative to the dynamic support/resistance level.
+    Payload: { secret, underlying, position: 'ABOVE'|'BELOW' }
+    """
+    if not super_order_engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY').upper()
+    position = data.get('position', '').upper()
+    if position not in ('ABOVE', 'BELOW'):
+        return jsonify({"status": "error", "message": "position must be ABOVE or BELOW"}), 400
+
+    try:
+        state = super_order_engine._get_state(underlying)
+        state['dy_position'] = position
+        state['dy_timestamp'] = datetime.now().isoformat()
+        super_order_engine._set_state(underlying, state)
+
+        zone = _compute_zone(state.get('range_tracker_position'), position)
+        msg = f"DySupportResistance {underlying}: {position} | zone={zone}"
+        logger.info(msg)
+        _add_activity_log(msg, "📊")
+
+        return jsonify({"status": "success", "dy_position": position, "zone": zone}), 200
+    except Exception as e:
+        logger.error(f"Dy Signal Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/zone', methods=['POST', 'GET'])
+def get_zone():
+    """
+    Returns the current market zone for one or all underlyings.
+    Zone is derived from RangeTracker + DySupportResistance alert states:
+      ABOVE  = price above both levels
+      BELOW  = price below both levels
+      INSIDE = price between the two levels
+      UNKNOWN = one or both signals not yet received
+    Payload: { secret, underlying (optional, defaults to all) }
+    """
+    if not super_order_engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True) or {}
+    secret = data.get('secret') or request.args.get('secret')
+    if secret != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = (data.get('underlying') or request.args.get('underlying', '')).upper()
+    targets = [underlying] if underlying in ('NIFTY', 'BANKNIFTY', 'FINNIFTY') else ['NIFTY', 'BANKNIFTY', 'FINNIFTY']
+
+    result = {}
+    for sym in targets:
+        state = super_order_engine._get_state(sym)
+        rt = state.get('range_tracker_position')
+        dy = state.get('dy_position')
+        zone = _compute_zone(rt, dy)
+        result[sym] = {
+            "zone": zone,
+            "range_tracker_position": rt,
+            "dy_position": dy,
+            "range_tracker_timestamp": state.get('range_tracker_timestamp'),
+            "dy_timestamp": state.get('dy_timestamp'),
+        }
+
+    if underlying in ('NIFTY', 'BANKNIFTY', 'FINNIFTY'):
+        return jsonify({"status": "success", **result[underlying]}), 200
+    return jsonify({"status": "success", "zones": result}), 200
 
 
 @app.route('/cancel-conditional-orders', methods=['POST'])

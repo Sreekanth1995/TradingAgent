@@ -292,6 +292,39 @@ async def get_margin(underlying: str = "NIFTY", side: str = "PUT", spot_index: f
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# ZONE
+# ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+async def get_zone(underlying: str = "NIFTY"):
+    """
+    Returns the current market zone for an underlying, derived from the last
+    RangeTracker and DySupportResistance TradingView alerts received.
+
+    Zone values:
+      ABOVE   — price is above both the RangeTracker band and DySupport level
+      BELOW   — price is below both levels
+      INSIDE  — price is between the two levels (mixed signals)
+      UNKNOWN — one or both alert signals not yet received since server start
+
+    Zone logic:
+      RangeTracker=ABOVE & DySupport=ABOVE  →  ABOVE
+      RangeTracker=ABOVE & DySupport=BELOW  →  INSIDE
+      RangeTracker=BELOW & DySupport=BELOW  →  BELOW
+      RangeTracker=BELOW & DySupport=ABOVE  →  INSIDE
+
+    Use this before placing orders to confirm directional bias:
+      ABOVE  → favour CALL entries
+      BELOW  → favour PUT entries
+      INSIDE → avoid new entries or wait for zone clarity
+
+    Args:
+        underlying: NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
+    """
+    return await _call("/zone", {"underlying": underlying})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CONTEXT & LOGS
 # ─────────────────────────────────────────────────────────────────────────────
 
