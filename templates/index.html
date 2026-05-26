@@ -39,6 +39,13 @@
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* PR #9a follow-up (design-review F5): button/input/select/textarea
+           don't inherit body font-family by default in any browser. Without
+           this rule they fall back to the user-agent stylesheet (Arial on
+           macOS Chrome). Cascade var(--body) so the dashboard uses Inter
+           everywhere it isn't explicitly overridden to var(--mono). */
+        button, input, select, textarea { font-family: inherit; }
+
         /* PR #9a follow-up (design-review F2): keyboard focus must always be
            visible. The default browser ring is suppressed by every input/button
            we style, so we re-establish a consistent focus-visible ring here.
