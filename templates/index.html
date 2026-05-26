@@ -8,6 +8,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
+            /* PR #9a follow-up (design-review F7): tells the browser the page
+               renders dark so native widgets (date pickers, form controls,
+               scrollbars) match instead of flashing white. */
+            color-scheme: dark;
             --bg:           #050914;
             --surface-0:    #080f1e;
             --surface-1:    #0c1628;
@@ -239,8 +243,18 @@
             min-height: calc(100vh - 120px);
         }
 
-        @media (max-width: 900px) {
+        /* PR #9a follow-up (design-review F8): the desktop two-column layout
+           was kicking down to single column at 900 px but keeping desktop
+           padding (24 px) and gap (16 px) — wasting vertical space at tablet
+           sizes. Tighten padding/gap at <1024 px and pull the breakpoint
+           forward so iPad portrait (768 x 1024) gets a denser layout. */
+        @media (max-width: 1024px) {
             .main-content { grid-template-columns: 1fr; }
+            .panel-left, .panel-right { padding: 16px; gap: 12px; }
+            .panel-left { border-right: none; border-bottom: 1px solid var(--border); }
+        }
+        @media (max-width: 600px) {
+            .panel-left, .panel-right { padding: 12px; gap: 10px; }
         }
 
         /* ─── LEFT PANEL ─── */
