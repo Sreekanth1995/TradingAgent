@@ -12,9 +12,13 @@ class MockDhanClient:
     Simulates the Dhan Broker interface for local development and testing.
     Provides jittery price movements and managed mock positions.
     """
-    def __init__(self, redis_client=None):
+    def __init__(self, redis_client=None, activity_log_fn=None):
         logger.info("🛠️ initializing Mock Dhan Client...")
         self.r = redis_client
+        # Mirror DhanClient's activity_log_fn callback so tests that exercise
+        # fail-closed disagreement paths see alarms surface through the same
+        # sink. Defaults to None — _alarm() falls back to logger.warning.
+        self._activity_log_fn = activity_log_fn
         self.mock_positions = []
         # Base prices for indices
         self.prices = {
@@ -37,6 +41,16 @@ class MockDhanClient:
 
         self.scrip_loaded = True
         self.dry_run = False # Irrelevant in mock mode but kept for compatibility
+
+    def _alarm(self, msg, prefix="🚨 "):
+        """Mirror DhanClient._alarm so fail-closed paths in mock behave the same."""
+        if self._activity_log_fn:
+            try:
+                self._activity_log_fn(msg, prefix)
+                return
+            except Exception as e:
+                logger.warning(f"_alarm activity_log_fn failed: {e}")
+        logger.warning(f"{prefix}{msg}")
 
     def get_index_id(self, symbol):
         """Returns standard Dhan Security ID for indices."""

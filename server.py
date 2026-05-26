@@ -31,7 +31,17 @@ load_dotenv()
 
 # Configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-SECRET = os.getenv("WEBHOOK_SECRET", "60pgS") # Default from user example
+# WEBHOOK_SECRET is fail-closed at boot. A misconfigured deploy that forgets to
+# set the env var would otherwise boot with a publicly-known default (the old
+# "60pgS" value sat in this file unchanged), enabling forged /webhook,
+# /super-order, /manual-exit and /update-token calls from anyone who reads the
+# repo. Mirrors the mcp_server.py fix from commit d2f0adb.
+SECRET = (os.environ.get("WEBHOOK_SECRET") or "").strip()
+if not SECRET:
+    raise RuntimeError(
+        "WEBHOOK_SECRET environment variable is required (and must be non-whitespace). "
+        "Copy .env.example to .env and set WEBHOOK_SECRET, or pass it through your process supervisor."
+    )
 AI_IN_THE_LOOP = os.getenv("AI_IN_THE_LOOP", "true").lower() == "true"
 
 # SSE Infrastructure for AI Bridge (Multi-client support)
@@ -88,17 +98,73 @@ try:
 except Exception as e:
     logger.warning(f"Shared Redis not available: {e}. Falling back to memory.")
 
+SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "").strip()
+
+# Bounded Slack delivery pool. The earlier per-alarm `threading.Thread` spawn
+# was unbounded — a sustained 🚨 storm (e.g. a misbehaving scrip-reload firing
+# 500 SCRIP MISS alarms back-to-back) would spawn 500 OS threads, each held
+# for up to 8s on connect+read. That cascades into thread-table + memory
+# pressure on the gunicorn worker. PR #9a /ship adversarial review caught it.
+#
+# Two-worker pool keeps Slack ordering roughly chronological while capping
+# concurrent network connections. A 50-slot semaphore upper-bounds the
+# queued message backlog so an extended alarm storm drops oldest-first
+# instead of growing without limit. Slack delivery is best-effort by design;
+# losing a message under storm is preferable to OOM.
+from concurrent.futures import ThreadPoolExecutor as _ThreadPoolExecutor
+_SLACK_EXECUTOR = _ThreadPoolExecutor(max_workers=2, thread_name_prefix="slack-alarm")
+_SLACK_QUEUE_LIMIT = 50
+_SLACK_PENDING = threading.Semaphore(_SLACK_QUEUE_LIMIT)
+_slack_dropped_count = 0
+
+
+def _post_to_slack_async(full_msg):
+    """Bounded fire-and-forget POST to SLACK_WEBHOOK_URL.
+
+    Drops the message (with a warning log) if more than _SLACK_QUEUE_LIMIT
+    posts are already in flight or queued. Never raises into the caller.
+    """
+    global _slack_dropped_count
+    if not SLACK_WEBHOOK_URL:
+        return
+    if not _SLACK_PENDING.acquire(blocking=False):
+        _slack_dropped_count += 1
+        # Throttle the warning itself — every 10th drop avoids log spam under storm.
+        if _slack_dropped_count % 10 == 1:
+            logger.warning(
+                f"Slack alarm queue full (>{_SLACK_QUEUE_LIMIT} pending) — "
+                f"dropped {_slack_dropped_count} messages so far"
+            )
+        return
+
+    def _send():
+        try:
+            import requests as _req
+            _req.post(SLACK_WEBHOOK_URL, json={"text": full_msg}, timeout=(3, 5))
+        except Exception as e:
+            logger.warning(f"Slack webhook delivery failed: {e}")
+        finally:
+            _SLACK_PENDING.release()
+
+    _SLACK_EXECUTOR.submit(_send)
+
+
 def _add_activity_log(msg, prefix=""):
     """
     Appends a log entry to the in-memory deque and persists it to Redis if available.
     Uses pipelining for efficient batch operations.
+
+    If `prefix` (or msg) starts with 🚨, ALSO posts the message to Slack via the
+    SLACK_WEBHOOK_URL env var (when set). This closes the audit finding that 🚨
+    alarms went only to a dashboard-less deque. The Slack post is non-blocking;
+    the dashboard activity feed receives the same message.
     """
     timestamp = datetime.now().strftime('%H:%M:%S')
     full_msg = f"[{timestamp}] {prefix}{msg}"
-    
+
     # Update memory fallback
     activity_logs.appendleft(full_msg)
-    
+
     # Persist to Redis via shared client
     if redis_client:
         try:
@@ -108,6 +174,12 @@ def _add_activity_log(msg, prefix=""):
             pipe.execute()
         except Exception as e:
             logger.error(f"Failed to persist activity log to Redis: {e}")
+
+    # 🚨 alarms → Slack (gated on prefix or msg starting with the alarm emoji).
+    # Best-effort; failures here must never raise into the caller.
+    is_alarm = (prefix or "").lstrip().startswith("🚨") or (msg or "").lstrip().startswith("🚨")
+    if is_alarm:
+        _post_to_slack_async(full_msg)
 
 # Initialize Components with graceful error handling
 broker = None
@@ -125,11 +197,11 @@ USE_MOCK = os.getenv("USE_MOCK_API", "false").lower() == "true"
 try:
     if USE_MOCK:
         from broker_mock import MockDhanClient
-        broker = MockDhanClient(redis_client=redis_client)
+        broker = MockDhanClient(redis_client=redis_client, activity_log_fn=_add_activity_log)
         logger.info("🛠️  Running in MOCK API MODE - Using broker_mock.py")
     else:
         from broker_dhan import DhanClient
-        broker = DhanClient(redis_client=redis_client)
+        broker = DhanClient(redis_client=redis_client, activity_log_fn=_add_activity_log)
         logger.info("🔗 Running in LIVE API MODE - Using broker_dhan.py")
 
     super_order_engine = SuperOrderEngine(broker, redis_client=redis_client, activity_logs=activity_logs, feeling_state=feeling_state)
@@ -1181,11 +1253,17 @@ def get_history():
 def get_activity_logs():
     """
     Returns the most recent system activity logs (signals received, orders placed).
+
+    PR #9a /ship adversarial review tightened the auth check: prior to this fix
+    an empty POST body ({} or no body) short-circuited the falsy-and-falsy
+    check and returned logs unauthenticated. That mattered more now because
+    PR #9a populates this endpoint with 🚨 alarm messages containing live
+    trade state (underlying/strike/expiry/side). The fix matches every other
+    route's pattern: secret required, exact match, 401 otherwise.
     """
     data = request.get_json(force=True, silent=True) or {}
-    # We still allow fetching logs safely if secrets match, or skip if internal dashboard UI does it passively.
-    # We will enforce secret check to match the existing UI logic.
-    if data and data.get('secret') and data.get('secret') != SECRET:
+    secret = (data.get('secret') if data else None) or request.args.get('secret')
+    if secret != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     
     # Try fetching from Redis first
@@ -1212,9 +1290,14 @@ def server_logs():
     """
     Returns recent WARNING/ERROR/CRITICAL log entries captured in memory.
     Useful for remote debugging when SSH is unavailable.
+
+    PR #9a /ship adversarial review: same auth bypass pattern as /activity-logs
+    (empty POST body short-circuited the falsy-and check). Now exact-match
+    required. Server logs include stack traces that can leak internals.
     """
     data = request.get_json(force=True, silent=True) or {}
-    if data.get('secret') and data.get('secret') != SECRET:
+    secret = (data.get('secret') if data else None) or request.args.get('secret')
+    if secret != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     n = int(data.get('n', 100))
     logs = list(_error_log_buffer)[-n:]

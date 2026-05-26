@@ -70,6 +70,37 @@ The `/conditional-order` endpoint (and the `place_conditional_order` MCP tool) a
 -   **Smart Exit Edge**: +5 (from LTP)
 -   **Smart SL Trail**: -10 (from LTP)
 
+### 6a. Environment Variables (operator setup)
+The bot fail-closes at boot if `WEBHOOK_SECRET` is missing — copy `.env.example` to `.env` (or set in your systemd unit) and define:
+
+| var                  | required | purpose                                                                                                  |
+|----------------------|----------|----------------------------------------------------------------------------------------------------------|
+| `WEBHOOK_SECRET`     | yes      | Shared secret for `/webhook`, `/super-order`, `/manual-exit`, `/update-token`, `/activity-logs`, `/server-logs`. Empty/whitespace raises `RuntimeError` on import. |
+| `DHAN_CLIENT_ID`     | yes      | Dhan client id.                                                                                          |
+| `DHAN_ACCESS_TOKEN`  | yes      | Dhan API token (24h lifetime; refreshed via `/auth/login`).                                              |
+| `DHAN_API_ID`        | yes      | Dhan partner API id.                                                                                     |
+| `DHAN_API_SECRET`    | yes      | Dhan partner API secret.                                                                                 |
+| `SLACK_WEBHOOK_URL`  | no       | Incoming-webhook URL. When set, any `🚨`-prefixed activity log is also POSTed here (best-effort, bounded). Leave unset to disable Slack delivery; dashboard banner still works. |
+| `LOG_LEVEL`          | no       | Default `INFO`.                                                                                           |
+| `AI_IN_THE_LOOP`     | no       | `true`/`false`. Default `true`.                                                                          |
+| `USE_MOCK_API`       | no       | `true` swaps `broker_dhan.py` for `broker_mock.py` for local dev.                                        |
+
+### 6b. Alarm Pipeline (🚨 → operator)
+Every money-protecting fail-closed path in the bot routes through one channel so the operator actually sees it:
+
+```
+ broker / engine fail-closed path
+   └─ activity_log_fn("…", prefix="🚨 ")
+        └─ server.py:_add_activity_log
+             ├─ in-memory deque + Redis list
+             ├─ dashboard polls /activity-logs every 5 s
+             │    └─ sticky red banner whenever the last 20 lines contain 🚨
+             └─ if SLACK_WEBHOOK_URL set: POST to Slack (bounded 2-worker pool,
+                  50-slot semaphore, oldest dropped under storm)
+```
+
+Operator contract: if you see a `🚨` line either on the dashboard or in Slack, a fail-closed path tripped. The message carries enough context (underlying / sec_id / side / reason) to act without grepping logs.
+
 ## 7. Low Level Design & Architecture
 
 ### A. Component Logic (`super_order_engine.py`)

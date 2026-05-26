@@ -23,3 +23,6 @@ test_signals.py
 test_token_refresh.py
 deploy_automated.exp
 .gstack/
+
+# Local scratch dir for /design-review screenshots (synced to ~/.gstack/projects/)
+.gstack-design-shots/

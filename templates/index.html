@@ -8,6 +8,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
+            /* PR #9a follow-up (design-review F7): tells the browser the page
+               renders dark so native widgets (date pickers, form controls,
+               scrollbars) match instead of flashing white. */
+            color-scheme: dark;
             --bg:           #050914;
             --surface-0:    #080f1e;
             --surface-1:    #0c1628;
@@ -35,6 +39,24 @@
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* PR #9a follow-up (design-review F5): button/input/select/textarea
+           don't inherit body font-family by default in any browser. Without
+           this rule they fall back to the user-agent stylesheet (Arial on
+           macOS Chrome). Cascade var(--body) so the dashboard uses Inter
+           everywhere it isn't explicitly overridden to var(--mono). */
+        button, input, select, textarea { font-family: inherit; }
+
+        /* PR #9a follow-up (design-review F2): keyboard focus must always be
+           visible. The default browser ring is suppressed by every input/button
+           we style, so we re-establish a consistent focus-visible ring here.
+           Use :focus-visible (keyboard-only, not mouse-click focus) so the
+           cyan ring doesn't appear on every click. */
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
         body {
             font-family: var(--body);
             background: var(--bg);
@@ -45,6 +67,33 @@
             min-height: 100vh;
             overflow-x: hidden;
         }
+
+        /* PR #9a follow-up (design-review F3): semantic <h2>/<h3> were used
+           for section headers. Inherit the visual style of the existing
+           styled-strong/div headers instead of the browser defaults. */
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: inherit;
+            font-size: inherit;
+            color: inherit;
+            letter-spacing: inherit;
+            font-family: inherit;
+            margin: 0;
+        }
+
+        /* PR #9a follow-up (design-review F6): 44 px is the Apple HIG / Material
+           Design touch-target minimum. Buttons and form inputs were 24-38 px tall,
+           making the dashboard hostile to phone use during market hours.
+           Scope is narrow: only direct button/input elements, not the brand
+           chips or the connect-btn which carry their own padding logic and
+           are read-only state indicators. */
+        button:not(.add-level-btn):not(.connect-btn):not(.refresh-btn),
+        input:not([type=hidden]):not([type=checkbox]):not([type=radio]) {
+            min-height: 44px;
+        }
+        /* On the level studio's '+ Add Upper Level' and 'Refresh' tertiary
+           actions, keep a smaller target but still meet the 32 px secondary
+           minimum so they aren't accidental hits. */
+        .add-level-btn, .refresh-btn { min-height: 32px; }
 
         /* ─── TOP BAR ─── */
         .topbar {
@@ -184,7 +233,10 @@
             text-align: center;
         }
 
-        .auth-strip input:focus {
+        /* :focus-visible (keyboard) gets the global accent ring (line 54-58).
+           :focus (mouse-click) keeps the original neutral border so the ring
+           doesn't flash on every click. */
+        .auth-strip input:focus:not(:focus-visible) {
             outline: none;
             border-color: var(--accent);
             background: var(--surface-2);
@@ -201,8 +253,18 @@
             min-height: calc(100vh - 120px);
         }
 
-        @media (max-width: 900px) {
+        /* PR #9a follow-up (design-review F8): the desktop two-column layout
+           was kicking down to single column at 900 px but keeping desktop
+           padding (24 px) and gap (16 px) — wasting vertical space at tablet
+           sizes. Tighten padding/gap at <1024 px and pull the breakpoint
+           forward so iPad portrait (768 x 1024) gets a denser layout. */
+        @media (max-width: 1024px) {
             .main-content { grid-template-columns: 1fr; }
+            .panel-left, .panel-right { padding: 16px; gap: 12px; }
+            .panel-left { border-right: none; border-bottom: 1px solid var(--border); }
+        }
+        @media (max-width: 600px) {
+            .panel-left, .panel-right { padding: 12px; gap: 10px; }
         }
 
         /* ─── LEFT PANEL ─── */
@@ -471,7 +533,7 @@
             transition: all 0.2s;
         }
 
-        .cond-input:focus {
+        .cond-input:focus:not(:focus-visible) {
             outline: none;
             border-color: var(--accent);
             background: var(--surface-1);
@@ -722,7 +784,7 @@
             transition: all 0.2s;
         }
 
-        .level-input:focus {
+        .level-input:focus:not(:focus-visible) {
             outline: none;
             border-color: var(--accent);
             background: var(--surface-1);
@@ -779,7 +841,28 @@
             overflow-x: auto;
             overflow-y: auto;
             max-height: 360px;
+            /* PR #9a follow-up (design-review F9): when the 10-column trade
+               feed table overflows on narrow viewports, give the operator a
+               visible scroll affordance. WebKit/Blink hide scrollbars by
+               default — force a thin always-visible track at tablet/mobile
+               so the user knows there's more content off-screen. */
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-strong) transparent;
+            /* Gradient fade on the right edge hints at horizontal overflow
+               on touch devices where scrollbars don't render until interaction. */
+            background:
+                linear-gradient(to right, var(--surface-1) 0%, transparent 8px),
+                linear-gradient(to right, transparent calc(100% - 8px), var(--surface-1) 100%),
+                linear-gradient(to right, transparent, rgba(56,189,248,0.08) 0%, transparent 8px) right center / 16px 100% no-repeat,
+                var(--surface-1);
         }
+        .feed-wrap::-webkit-scrollbar { height: 8px; width: 8px; }
+        .feed-wrap::-webkit-scrollbar-track { background: transparent; }
+        .feed-wrap::-webkit-scrollbar-thumb {
+            background: var(--border-strong);
+            border-radius: 4px;
+        }
+        .feed-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
         .feed-table {
             width: 100%;
@@ -1036,11 +1119,54 @@
         </div>
     </header>
 
-    <!-- AUTH STRIP -->
-    <section class="auth-strip" aria-label="Authentication">
+    <!-- 🚨 ALARM BANNER (PR #9a T3a) — sticky, only visible when active alarms exist -->
+    <!-- ALARM BANNER — sticky red bar shown when any 🚨 entry appears in
+         the recent activity feed. Hidden until JS confirms an alarm. -->
+    <div id="alarm-banner" role="alert" aria-live="assertive" hidden
+         style="position:sticky; top:0; z-index:9999;
+                background:var(--danger); color:#fff; padding:10px 18px;
+                font-family:var(--mono);
+                font-size:14px; line-height:1.4;
+                border-bottom:2px solid var(--amber);
+                box-shadow:0 4px 12px var(--danger-glow);">
+        <strong>🚨 ALARM</strong> &mdash; <span id="alarm-banner-msg"></span>
+        <span style="float:right; opacity:0.7; font-size:12px;" id="alarm-banner-count"></span>
+    </div>
+
+    <!-- RECENT EVENTS PANEL — last 20 system events, polled from /activity-logs.
+         Renamed from "SYSTEM ACTIVITY" so it does not collide with the
+         "System Activity Feed" trade-signal table below. Hidden until the
+         dashboard is authenticated AND at least one event exists. -->
+    <section id="activity-log-panel"
+             aria-label="Recent system events"
+             hidden
+             style="margin:12px 18px; padding:12px;
+                    background:var(--surface-1); border:1px solid var(--border);
+                    border-radius:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h2 style="color:var(--text-secondary); font-size:13px; letter-spacing:0.5px; font-weight:700;">RECENT EVENTS</h2>
+            <span id="activity-log-status" style="color:var(--text-muted); font-size:11px;">--</span>
+        </div>
+        <div id="activity-log-list"
+             style="font-family:var(--mono);
+                    font-size:12px; line-height:1.6; max-height:260px; overflow-y:auto;
+                    color:var(--text-primary);">
+        </div>
+    </section>
+
+    <!-- AUTH STRIP — /design-review F13: add a visible label so the lock state
+         of the dashboard is obvious, not implied by an empty placeholder. -->
+    <section class="auth-strip" aria-labelledby="auth-strip-label">
+        <label for="secret" id="auth-strip-label"
+               style="display:block; font-size:11px; letter-spacing:0.1em;
+                      text-transform:uppercase; font-weight:600;
+                      color:var(--text-secondary); margin-bottom:6px;
+                      text-align:center;">
+            Dashboard Lock
+        </label>
         <input type="password" id="secret" name="webhook-secret"
-            placeholder="Enter Webhook Secret to Enable Controls"
-            aria-label="Webhook Secret" autocomplete="current-password">
+            placeholder="Enter Webhook Secret to Unlock"
+            autocomplete="current-password">
     </section>
 
     <!-- MAIN CONTENT -->
@@ -1048,14 +1174,14 @@
 
         <!-- LEFT: CONTROLS -->
         <div class="panel-left">
-            <div class="section-label">Trade Controls</div>
+            <h2 class="section-label">Trade Controls</h2>
 
             <section id="command-center" class="command-center" aria-label="NIFTY Trade Controls">
 
                 <!-- CALL SECTOR -->
                 <div id="sector-call" class="command-sector" data-sector="CALL" aria-label="NIFTY CALL CE Controls">
                     <div class="sector-head">
-                        <span class="sector-title">NIFTY CALL (CE)</span>
+                        <h3 class="sector-title">NIFTY CALL (CE)</h3>
                         <div id="stat-CALL" class="pos-active-label" aria-live="polite" data-status="call-active">
                             CALL ACTIVE
                         </div>
@@ -1108,7 +1234,7 @@
                 <!-- PUT SECTOR -->
                 <div id="sector-put" class="command-sector" data-sector="PUT" aria-label="NIFTY PUT PE Controls">
                     <div class="sector-head">
-                        <span class="sector-title">NIFTY PUT (PE)</span>
+                        <h3 class="sector-title">NIFTY PUT (PE)</h3>
                         <div id="stat-PUT" class="pos-active-label" aria-live="polite" data-status="put-active">
                             PUT ACTIVE
                         </div>
@@ -1179,7 +1305,7 @@
             <!-- PRICE LEVELS STUDIO -->
             <div class="panel-card">
                 <div class="panel-card-head">
-                    <span class="panel-card-title">Price Levels Studio</span>
+                    <h2 class="panel-card-title">Price Levels Studio</h2>
                 </div>
                 <div class="panel-card-body">
                     <button class="add-level-btn" onclick="addLevelRow('UTP')" style="margin-bottom:8px">+ Add Upper Level (UTP)</button>
@@ -1187,8 +1313,10 @@
 
                     <div class="level-row" style="margin:10px 0">
                         <span class="level-label">TP0 Base</span>
-                        <input type="number" id="tp0-low" class="level-input" placeholder="Low">
-                        <input type="number" id="tp0-high" class="level-input" placeholder="High">
+                        <input type="number" id="tp0-low" class="level-input"
+                               placeholder="Low" aria-label="TP0 Base lower bound">
+                        <input type="number" id="tp0-high" class="level-input"
+                               placeholder="High" aria-label="TP0 Base upper bound">
                     </div>
 
                     <div id="ltp-container"></div>
@@ -1200,7 +1328,7 @@
             <!-- SYSTEM ACTIVITY FEED -->
             <div class="panel-card">
                 <div class="panel-card-head">
-                    <span class="panel-card-title">System Activity Feed</span>
+                    <h2 class="panel-card-title">System Activity Feed</h2>
                     <button class="refresh-btn" onclick="refreshTradeFeed()">↻ Refresh</button>
                 </div>
                 <div class="feed-wrap">
@@ -1222,7 +1350,7 @@
                         <tbody id="feed-body">
                             <tr>
                                 <td colspan="10" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic;font-family:var(--body)">
-                                    No signals yet.
+                                    No trade signals yet.
                                 </td>
                             </tr>
                         </tbody>
@@ -1233,11 +1361,11 @@
             <!-- PERFORMANCE HISTORY -->
             <div class="panel-card">
                 <div class="panel-card-head">
-                    <span class="panel-card-title">Live Performance History</span>
+                    <h2 class="panel-card-title">Live Performance History</h2>
                 </div>
                 <div class="panel-card-body">
                     <div id="history-list" class="history-list">
-                        <div class="no-positions">No historical trades recorded yet.</div>
+                        <div class="no-positions">No closed trades yet.</div>
                     </div>
                 </div>
             </div>
@@ -1263,6 +1391,12 @@
             }
             setInterval(refreshState, 5000);
             setInterval(refreshTradeFeed, 10000);
+            // PR #9a T3a — poll system activity logs so 🚨 alarms reach the operator.
+            // Without this the deque-only writes from server.py:_add_activity_log
+            // were invisible. The 5s cadence matches the existing refreshState
+            // tempo so the dashboard stays cheap.
+            refreshActivityLogs();
+            setInterval(refreshActivityLogs, 5000);
 
             // Handle Auth Success Redirect
             const params = new URLSearchParams(window.location.search);
@@ -1381,7 +1515,7 @@
             if (history && history.length > 0) {
                 histEl.innerHTML = history.map(t => renderHistoryCard(t)).join('');
             } else {
-                histEl.innerHTML = '<div class="no-positions">No historical trades recorded yet.</div>';
+                histEl.innerHTML = '<div class="no-positions">No closed trades yet.</div>';
             }
         }
 
@@ -1653,8 +1787,12 @@
             div.id = `row-${name}`;
             div.innerHTML = `
                 <span class="level-label">${name}</span>
-                <input type="number" id="${name}-low" class="level-input" placeholder="Low" value="${low}">
-                <input type="number" id="${name}-high" class="level-input" placeholder="High" value="${high}">
+                <input type="number" id="${name}-low" class="level-input"
+                       placeholder="Low" value="${low}"
+                       aria-label="${name} lower bound">
+                <input type="number" id="${name}-high" class="level-input"
+                       placeholder="High" value="${high}"
+                       aria-label="${name} upper bound">
             `;
 
             if (type === 'UTP') {
@@ -1764,6 +1902,89 @@
             </tr>`;
         }
 
+        // PR #9a T3a — poll /activity-logs and render the last 20 entries.
+        // Sticky red banner activates whenever any rendered entry starts with 🚨,
+        // mirroring the Slack-webhook gating in server.py:_add_activity_log so the
+        // operator sees the alarm in two places (dashboard + Slack).
+        //
+        // /design-review F1+F18 follow-up:
+        //  - Use the `hidden` attribute (toggles both display + a11y tree) instead
+        //    of inline `style.display`. The activity-log-panel starts hidden and
+        //    only appears once we know there are real entries to show. This keeps
+        //    the locked/empty dashboard from looking like it has an alarm.
+        //  - Drop the "checking…" placeholder. The banner reveals only after we
+        //    confirm at least one 🚨 entry, so the first-paint never flashes a
+        //    fake alarm.
+        async function refreshActivityLogs() {
+            const secret = document.getElementById('secret').value.trim();
+            const panelEl = document.getElementById('activity-log-panel');
+            const bannerEl = document.getElementById('alarm-banner');
+            if (!secret) {
+                // Dashboard locked. Both surfaces stay hidden — no "checking…"
+                // flash, no empty-state demoware. The user sees the lock state
+                // from the auth-strip, not from the alarm pipe.
+                panelEl.hidden = true;
+                bannerEl.hidden = true;
+                return;
+            }
+            try {
+                const res = await fetch('/activity-logs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret })
+                });
+                const data = await res.json();
+                const listEl = document.getElementById('activity-log-list');
+                const statusEl = document.getElementById('activity-log-status');
+                const bannerMsg = document.getElementById('alarm-banner-msg');
+                const bannerCount = document.getElementById('alarm-banner-count');
+                if (data.status !== 'success' || !Array.isArray(data.logs)) {
+                    statusEl.textContent = 'unauthorized or error';
+                    panelEl.hidden = true;
+                    bannerEl.hidden = true;
+                    return;
+                }
+                const logs = data.logs.slice(0, 20);
+                if (logs.length === 0) {
+                    // No events yet. Keep the panel hidden so we don't waste
+                    // above-the-fold real estate on "No activity yet."
+                    panelEl.hidden = true;
+                    bannerEl.hidden = true;
+                    statusEl.textContent = '0 entries';
+                    return;
+                }
+                // Render entries (newest first per the deque ordering used in server.py)
+                listEl.innerHTML = logs.map(line => {
+                    const isAlarm = /🚨/.test(line);
+                    const color = isAlarm ? 'var(--danger)' : 'var(--text-primary)';
+                    const weight = isAlarm ? 'bold' : 'normal';
+                    // Escape HTML
+                    const safe = String(line)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                    return `<div style="color:${color}; font-weight:${weight};">${safe}</div>`;
+                }).join('');
+                statusEl.textContent = `${logs.length} entries (refreshed ${new Date().toLocaleTimeString()})`;
+                panelEl.hidden = false;
+                // Sticky banner: visible if ANY 🚨 entry exists in the rendered slice
+                const alarms = logs.filter(l => /🚨/.test(l));
+                if (alarms.length > 0) {
+                    bannerEl.hidden = false;
+                    bannerMsg.textContent = alarms[0].replace(/^\s*\[\d{2}:\d{2}:\d{2}\]\s*/, '');
+                    bannerCount.textContent = alarms.length > 1
+                        ? `+${alarms.length - 1} more in feed`
+                        : '';
+                } else {
+                    bannerEl.hidden = true;
+                }
+            } catch (err) {
+                // Best-effort polling — surface the failure quietly.
+                const statusEl = document.getElementById('activity-log-status');
+                if (statusEl) statusEl.textContent = 'fetch error';
+            }
+        }
+
         async function refreshTradeFeed() {
             const secret = document.getElementById('secret').value.trim();
             if (!secret) return;
@@ -1778,7 +1999,7 @@
                 if (data.status === 'success' && data.trades && data.trades.length > 0) {
                     tbody.innerHTML = data.trades.map(renderFeedRow).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic;font-family:var(--body)">No signals yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic;font-family:var(--body)">No trade signals yet.</td></tr>';
                 }
             } catch (err) { console.error('Trade feed fetch failed', err); }
         }
