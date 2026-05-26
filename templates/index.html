@@ -1144,10 +1144,18 @@
         </div>
     </section>
 
-    <!-- AUTH STRIP -->
-    <section class="auth-strip" aria-label="Authentication">
+    <!-- AUTH STRIP — /design-review F13: add a visible label so the lock state
+         of the dashboard is obvious, not implied by an empty placeholder. -->
+    <section class="auth-strip" aria-labelledby="auth-strip-label">
+        <label for="secret" id="auth-strip-label"
+               style="display:block; font-size:11px; letter-spacing:0.1em;
+                      text-transform:uppercase; font-weight:600;
+                      color:var(--text-secondary); margin-bottom:6px;
+                      text-align:center;">
+            Dashboard Lock
+        </label>
         <input type="password" id="secret" name="webhook-secret"
-            placeholder="Enter Webhook Secret to Enable Controls"
+            placeholder="Enter Webhook Secret to Unlock"
             aria-label="Webhook Secret" autocomplete="current-password">
     </section>
 
@@ -1295,8 +1303,10 @@
 
                     <div class="level-row" style="margin:10px 0">
                         <span class="level-label">TP0 Base</span>
-                        <input type="number" id="tp0-low" class="level-input" placeholder="Low">
-                        <input type="number" id="tp0-high" class="level-input" placeholder="High">
+                        <input type="number" id="tp0-low" class="level-input"
+                               placeholder="Low" aria-label="TP0 Base lower bound">
+                        <input type="number" id="tp0-high" class="level-input"
+                               placeholder="High" aria-label="TP0 Base upper bound">
                     </div>
 
                     <div id="ltp-container"></div>
@@ -1330,7 +1340,7 @@
                         <tbody id="feed-body">
                             <tr>
                                 <td colspan="10" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic;font-family:var(--body)">
-                                    No signals yet.
+                                    No trade signals yet.
                                 </td>
                             </tr>
                         </tbody>
@@ -1345,7 +1355,7 @@
                 </div>
                 <div class="panel-card-body">
                     <div id="history-list" class="history-list">
-                        <div class="no-positions">No historical trades recorded yet.</div>
+                        <div class="no-positions">No closed trades yet.</div>
                     </div>
                 </div>
             </div>
@@ -1495,7 +1505,7 @@
             if (history && history.length > 0) {
                 histEl.innerHTML = history.map(t => renderHistoryCard(t)).join('');
             } else {
-                histEl.innerHTML = '<div class="no-positions">No historical trades recorded yet.</div>';
+                histEl.innerHTML = '<div class="no-positions">No closed trades yet.</div>';
             }
         }
 
@@ -1767,8 +1777,12 @@
             div.id = `row-${name}`;
             div.innerHTML = `
                 <span class="level-label">${name}</span>
-                <input type="number" id="${name}-low" class="level-input" placeholder="Low" value="${low}">
-                <input type="number" id="${name}-high" class="level-input" placeholder="High" value="${high}">
+                <input type="number" id="${name}-low" class="level-input"
+                       placeholder="Low" value="${low}"
+                       aria-label="${name} lower bound">
+                <input type="number" id="${name}-high" class="level-input"
+                       placeholder="High" value="${high}"
+                       aria-label="${name} upper bound">
             `;
 
             if (type === 'UTP') {
@@ -1975,7 +1989,7 @@
                 if (data.status === 'success' && data.trades && data.trades.length > 0) {
                     tbody.innerHTML = data.trades.map(renderFeedRow).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic;font-family:var(--body)">No signals yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic;font-family:var(--body)">No trade signals yet.</td></tr>';
                 }
             } catch (err) { console.error('Trade feed fetch failed', err); }
         }
