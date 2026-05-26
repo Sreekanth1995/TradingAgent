@@ -147,6 +147,37 @@ class TestArmConditionalEntry:
         assert eng._get_state('NIFTY')['side'] == 'NONE'
         assert eng.get_pending_protection('ENTRY:NIFTY:fail', consume=False) is None
 
+    def test_persist_failure_after_broker_accept_fires_compensating_cancel(self):
+        # Broker accepts the alert, but Redis (or the in-memory store) blips and
+        # _set_state raises. Without compensation, the broker has a live alert
+        # the engine cannot track — an operator retry would arm a duplicate.
+        # Fix: verify-readback + compensating broker.cancel_conditional_order.
+        broker = MockDhanClient()
+        broker.lot_map = {CE_SID: 75}
+        log = MagicMock()
+        eng = ConditionalOrderEngine(broker=broker, activity_log_fn=log)
+        eng.memory_store = {}
+
+        # Broker places the alert successfully (assigns a real-looking alert_id).
+        broker.place_conditional_order = MagicMock(
+            return_value={'success': True, 'alert_id': 'ALERT_999', 'error': None}
+        )
+        # _set_state raises (simulating Redis disconnection during persist).
+        original_set = eng._set_state
+        eng._set_state = MagicMock(side_effect=RuntimeError("Redis connection lost"))
+        # The compensating cancel needs _set_state to work for the wipe — restore on second call.
+        eng._set_state.side_effect = [RuntimeError("Redis connection lost"), None]
+        broker.cancel_conditional_order = MagicMock(return_value={"success": True})
+
+        res = arm_call(eng, correlation='ENTRY:NIFTY:persistfail')
+
+        assert res['status'] == 'error' and 'Persist failure' in res['message']
+        # Compensating cancel fired with the broker's alert_id.
+        broker.cancel_conditional_order.assert_called_once_with('ALERT_999')
+        # Activity log warned the operator.
+        warn_calls = [c.args for c in log.call_args_list if 'persist' in str(c.args).lower()]
+        assert warn_calls, f"Expected persist-failure activity log, got: {log.call_args_list}"
+
 
 # ───────────────────────── T10/T2: fill → bracket ─────────────────────────
 class TestConditionalFill:
@@ -259,6 +290,36 @@ class TestPendingCancel:
         res = eng.cancel_pending_entry('NIFTY')
         assert res['action'] == 'ENTRY_ALREADY_FILLED'
         assert eng._get_state('NIFTY')['side'] == 'CALL'  # not wiped
+
+    def test_cancel_failed_alert_may_have_fired_keeps_state_and_pending(self):
+        # Broker rejects the cancel because the alert already fired. The fill
+        # postback is still in flight. We MUST NOT consume pending_protection
+        # or wipe state — _handle_conditional_fill will need both when the
+        # postback arrives.
+        broker = MockDhanClient()
+        broker.lot_map = {CE_SID: 75}
+        log = MagicMock()
+        eng = ConditionalOrderEngine(broker=broker, activity_log_fn=log)
+        eng.memory_store = {}
+        arm_call(eng, correlation='ENTRY:NIFTY:racefail')
+
+        # Broker returns success=False: alert already triggered at the exchange.
+        broker.cancel_conditional_order = MagicMock(
+            return_value={"success": False, "error": "alert already triggered"}
+        )
+        res = eng.cancel_pending_entry('NIFTY')
+
+        assert res['action'] == 'CANCEL_FAILED_ALERT_MAY_HAVE_FIRED'
+        # State stays PENDING_CALL — the postback will land and arm the bracket.
+        assert eng._get_state('NIFTY')['side'] == 'PENDING_CALL'
+        # Pending protection is untouched.
+        assert eng.get_pending_protection('ENTRY:NIFTY:racefail', consume=False) is not None
+        # Loud alarm fired.
+        alarm_calls = [
+            c.args for c in log.call_args_list
+            if 'Cancel' in str(c.args) and 'FAILED' in str(c.args)
+        ]
+        assert alarm_calls, f"Expected cancel-failed alarm, got: {log.call_args_list}"
 
 
 # ───────────────────────── T7: EOD flush ─────────────────────────
