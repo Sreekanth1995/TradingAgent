@@ -831,7 +831,28 @@
             overflow-x: auto;
             overflow-y: auto;
             max-height: 360px;
+            /* PR #9a follow-up (design-review F9): when the 10-column trade
+               feed table overflows on narrow viewports, give the operator a
+               visible scroll affordance. WebKit/Blink hide scrollbars by
+               default — force a thin always-visible track at tablet/mobile
+               so the user knows there's more content off-screen. */
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-strong) transparent;
+            /* Gradient fade on the right edge hints at horizontal overflow
+               on touch devices where scrollbars don't render until interaction. */
+            background:
+                linear-gradient(to right, var(--surface-1) 0%, transparent 8px),
+                linear-gradient(to right, transparent calc(100% - 8px), var(--surface-1) 100%),
+                linear-gradient(to right, transparent, rgba(56,189,248,0.08) 0%, transparent 8px) right center / 16px 100% no-repeat,
+                var(--surface-1);
         }
+        .feed-wrap::-webkit-scrollbar { height: 8px; width: 8px; }
+        .feed-wrap::-webkit-scrollbar-track { background: transparent; }
+        .feed-wrap::-webkit-scrollbar-thumb {
+            background: var(--border-strong);
+            border-radius: 4px;
+        }
+        .feed-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
         .feed-table {
             width: 100%;
