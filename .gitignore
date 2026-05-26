@@ -8,6 +8,7 @@ venv/
 
 # Broker data
 dhan_scrip_master.csv
+dhan_scrip_master.csv.tmp
 *.csv
 
 # Runtime state (generated at runtime, not committed)
