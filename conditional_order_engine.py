@@ -3,6 +3,8 @@ import logging
 import json
 import time
 
+from constants import OPTIONS_PRODUCT_TYPE
+
 try:
     import redis
     REDIS_AVAILABLE = True
@@ -65,19 +67,27 @@ class ConditionalOrderEngine:
         except Exception as e:
             logger.error(f"Failed to store pending protection for {order_id}: {e} — GTT will not auto-arm on fill")
 
-    def get_pending_protection(self, order_id):
-        """Retrieves and clears pending protection."""
+    def get_pending_protection(self, order_id, consume=True):
+        """
+        Retrieves pending protection. Consumes (deletes) it by default.
+
+        Pass consume=False to PEEK without deleting — needed for partial fills,
+        where a PART_TRADED postback arms the bracket but the record must survive
+        until the final TRADED postback consumes it.
+        """
         key = f"pending_prot:{order_id}"
         if self.use_redis:
             val = self.r.get(key)
             if val:
-                self.r.delete(key)
+                if consume:
+                    self.r.delete(key)
                 return json.loads(val)
         else:
             entry = self.memory_store.get(key)
             if entry:
                 if time.time() < entry["expires_at"]:
-                    del self.memory_store[key]
+                    if consume:
+                        del self.memory_store[key]
                     return entry["data"]
                 else:
                     del self.memory_store[key]  # expired — evict
@@ -163,6 +173,12 @@ class ConditionalOrderEngine:
                 return {"status": "error", "message": f"Entry failed: {resp.get('error')}"}
 
             elif signal_type in ['LONG_EXIT', 'SHORT_EXIT']:
+                # If the matching position is armed-but-unfilled, cancel the
+                # conditional entry instead of trying to SELL nothing.
+                pending_side = 'PENDING_CALL' if signal_type == 'LONG_EXIT' else 'PENDING_PUT'
+                if state.get('side') == pending_side:
+                    return self.cancel_pending_entry(underlying)
+
                 target_side = 'CALL' if signal_type == 'LONG_EXIT' else 'PUT'
                 if state.get('side') == target_side:
                     logger.info(f"Conditional Engine: Exiting {target_side} for {underlying}")
@@ -181,7 +197,7 @@ class ConditionalOrderEngine:
                         'quantity': qty_lots,
                         'transaction_type': 'SELL',
                         'order_type': 'MARKET',
-                        'product_type': 'INTRADAY',
+                        'product_type': OPTIONS_PRODUCT_TYPE,
                     }
                     exit_resp = self.broker.place_order(sym, order_payload)
                     if not (exit_resp.get('success') or exit_resp.get('order_id')):
@@ -198,6 +214,302 @@ class ConditionalOrderEngine:
             import traceback
             logger.error(f"handle_signal error ({signal_type}): {e}\n{traceback.format_exc()}")
             return {"status": "error", "message": f"handle_signal exception: {e}"}
+
+    # --- Conditional (index-touch) Entry ---
+    #
+    #   arm_conditional_entry()          handle_postback(ENTRY:...)
+    #   ----------------------           -----------------------------
+    #   place BUY alert on INDEX  ──┐    on fill: PENDING_* -> CALL/PUT,
+    #   state: PENDING_CALL/PUT     │              arm SL/Target bracket
+    #   pending_prot[correlation]   └──► broker fires MARKET BUY when
+    #                                    NIFTY touches the entry level
+    #
+    def arm_conditional_entry(self, leg_data):
+        """
+        Arm a broker-native CONDITIONAL BUY: the option is bought (MARKET) only
+        when the INDEX touches the entry level. SL/Target arm later, on the entry
+        fill (handle_postback -> set_index_boundaries), linked by a correlation id
+        (userNote) because the alert-fired order gets a NEW orderId we never saw.
+        """
+        try:
+            underlying = leg_data.get('underlying', 'BASE')
+            side = leg_data.get('side')  # 'CALL' or 'PUT'
+            itm = leg_data.get('itm') or {}
+            idx_sec_id = leg_data.get('idx_sec_id')
+            operator = leg_data.get('operator')
+            comparing_value = leg_data.get('comparing_value')
+            sl_index = leg_data.get('sl_index')
+            target_index = leg_data.get('target_index')
+            correlation_id = leg_data.get('correlation_id')
+            lots = int(leg_data.get('quantity', 1))
+
+            symbol = itm.get('symbol') or itm.get('tradingSymbol')
+            opt_sec_id = itm.get('security_id')
+            if not symbol or not opt_sec_id:
+                return {"status": "error", "message": f"ITM dict missing symbol or security_id: {itm}"}
+            if side not in ('CALL', 'PUT'):
+                return {"status": "error", "message": f"Invalid side: {side}"}
+            if not idx_sec_id or operator not in ('ABOVE', 'BELOW') or comparing_value is None:
+                return {"status": "error", "message": "Missing/invalid index trigger context"}
+            if not correlation_id:
+                return {"status": "error", "message": "Missing correlation_id for conditional entry"}
+
+            # Lot-size: place_conditional_order takes RAW quantity (units), so we
+            # pre-multiply here exactly once. A lot_map miss must REJECT — never
+            # place a 1-unit or (worse) an unprotected order.
+            lot_size = self.broker.lot_map.get(str(opt_sec_id))
+            if not lot_size:
+                msg = (f"lot_map miss for sec_id={opt_sec_id} ({underlying}) — refusing to arm "
+                       f"conditional entry (would risk a 1-unit or unprotected order)")
+                logger.error(msg)
+                if self._activity_log_fn:
+                    self._activity_log_fn(msg, "⚠️ ")
+                return {"status": "error", "message": msg}
+            actual_qty = lots * lot_size
+
+            resp = self.broker.place_conditional_order(
+                sec_id=opt_sec_id,
+                exchange_seg="NSE_FNO",
+                quantity=actual_qty,
+                operator=operator,
+                comparing_value=float(comparing_value),
+                transaction_type="BUY",
+                product_type=OPTIONS_PRODUCT_TYPE,
+                trigger_sec_id=idx_sec_id,
+                user_note=correlation_id,
+            )
+            if not resp.get('success'):
+                return {"status": "error", "message": f"Conditional entry placement failed: {resp.get('error')}"}
+
+            entry_alert_id = resp.get('alert_id')
+
+            # Persist state + pending_protection. CRITICAL: the broker has already
+            # accepted the alert at this point, so if either persist fails (Redis
+            # blip, OOM, etc.) we have a live alert at the exchange that the engine
+            # cannot track. Verify both stuck by reading back; if not, fire a
+            # compensating cancel so the operator doesn't end up with a phantom
+            # armed entry that a future retry would duplicate.
+            persist_err = None
+            try:
+                self._set_state(underlying, {
+                    'side': 'PENDING_CALL' if side == 'CALL' else 'PENDING_PUT',
+                    'symbol': symbol,
+                    'security_id': opt_sec_id,
+                    'idx_sec_id': idx_sec_id,
+                    'quantity': lots,
+                    'entry_alert_id': entry_alert_id,
+                    'correlation_id': correlation_id,
+                    'entry_operator': operator,
+                    'entry_trigger': float(comparing_value),
+                    'idx_sl_level': float(sl_index),
+                    'idx_target_level': float(target_index),
+                    'trade_feed_id': leg_data.get('trade_feed_id'),
+                    'last_signal': 'B' if side == 'CALL' else 'S',
+                })
+                # Defer SL/Target until the entry fills; key on the correlation id.
+                self.store_pending_protection(correlation_id, {
+                    "underlying": underlying,
+                    "target_level": target_index,
+                    "sl_level": sl_index,
+                    "quantity": lots,
+                })
+            except Exception as e:
+                persist_err = e
+
+            # Verify-readback: defends against store_pending_protection swallowing
+            # an underlying Redis error silently.
+            state_ok = self._get_state(underlying).get('entry_alert_id') == entry_alert_id
+            pending_ok = self.get_pending_protection(correlation_id, consume=False) is not None
+
+            if persist_err is not None or not state_ok or not pending_ok:
+                why = persist_err or f"verify failed (state_ok={state_ok}, pending_ok={pending_ok})"
+                logger.error(f"arm_conditional_entry: persist failed after broker accepted alert "
+                             f"{entry_alert_id}: {why}. Firing compensating cancel.")
+                try:
+                    self.broker.cancel_conditional_order(entry_alert_id)
+                    # Wipe any partial state so a retry is clean.
+                    self._set_state(underlying, {'side': 'NONE', 'last_signal': 'NONE'})
+                    if self._activity_log_fn:
+                        self._activity_log_fn(
+                            f"arm_conditional_entry persist failed for {underlying} — "
+                            f"alert {entry_alert_id} cancelled at broker. Safe to retry.",
+                            "⚠️ ")
+                except Exception as cancel_err:
+                    # Worst case: armed at broker, no record, cancel also failed.
+                    orphan_msg = (f"ARMED ENTRY ORPHAN: alert {entry_alert_id} placed at broker "
+                                  f"for {underlying} but engine persist failed ({why}) AND "
+                                  f"compensating cancel failed ({cancel_err}). MANUAL broker "
+                                  f"cancel required immediately.")
+                    logger.error(orphan_msg)
+                    if self._activity_log_fn:
+                        self._activity_log_fn(orphan_msg, "🚨 ")
+                return {"status": "error",
+                        "message": f"Persist failure after broker placement: {why}; "
+                                   f"compensating cancel attempted"}
+
+            return {"status": "success", "action": "ARMED_CONDITIONAL_ENTRY",
+                    "alert_id": entry_alert_id, "symbol": symbol, "correlation_id": correlation_id}
+        except Exception as e:
+            import traceback
+            logger.error(f"arm_conditional_entry error: {e}\n{traceback.format_exc()}")
+            return {"status": "error", "message": f"arm_conditional_entry exception: {e}"}
+
+    def cancel_pending_entry(self, underlying):
+        """
+        Cancel an armed-but-unfilled conditional entry.
+
+        Three outcomes:
+        1. Cancel succeeds, postback hasn't landed → consume pending, wipe state.
+        2. Postback landed during cancel → state already CALL/PUT, leave it alone
+           (live position with bracket on the way).
+        3. Cancel FAILS (e.g. broker says "alert already fired") → an in-flight
+           fill postback may still arrive. Do NOT consume pending_protection and
+           do NOT wipe state — the postback handler needs both to arm the bracket.
+           Raise the loud alarm so the operator knows their cancel intent was
+           overruled by an exchange-side fill.
+        """
+        state = self._get_state(underlying)
+        if state.get('side') not in ('PENDING_CALL', 'PENDING_PUT'):
+            return {"status": "error", "message": f"No pending entry to cancel for {underlying}"}
+
+        alert_id = state.get('entry_alert_id')
+        correlation_id = state.get('correlation_id')
+
+        # Call the broker. If no alert_id was ever assigned (shouldn't happen, but
+        # defensive), treat as a clean cancel — there is nothing to fail.
+        cancel_succeeded = True
+        cancel_err = None
+        if alert_id:
+            try:
+                cancel_resp = self.broker.cancel_conditional_order(alert_id) or {}
+                cancel_succeeded = bool(cancel_resp.get('success'))
+                cancel_err = cancel_resp.get('error')
+            except Exception as e:
+                logger.warning(f"cancel_pending_entry: failed to cancel alert {alert_id}: {e}")
+                cancel_succeeded = False
+                cancel_err = str(e)
+
+        # Outcome 2: postback already flipped PENDING_* -> live CALL/PUT.
+        # The position is real; do NOT wipe.
+        fresh = self._get_state(underlying)
+        if fresh.get('side') in ('CALL', 'PUT'):
+            return {"status": "success", "action": "ENTRY_ALREADY_FILLED",
+                    "message": "Entry filled during cancel — position is live"}
+
+        # Outcome 3: cancel rejected — alert may have fired at the exchange.
+        # Keep PENDING state + pending_protection so the in-flight fill postback
+        # (if any) can still arm the bracket via the normal _handle_conditional_fill
+        # path. Surface the loud alarm so the operator can reconcile manually.
+        if not cancel_succeeded:
+            msg = (f"Cancel of armed entry alert {alert_id} for {underlying} FAILED "
+                   f"({cancel_err}). The alert may have already fired at the broker — "
+                   f"keeping PENDING state and pending_protection so an incoming fill "
+                   f"postback can arm the bracket. Manual reconciliation recommended "
+                   f"(check broker positions and orders for {underlying}).")
+            logger.warning(msg)
+            if self._activity_log_fn:
+                self._activity_log_fn(msg, "🚨 ")
+            return {"status": "error", "action": "CANCEL_FAILED_ALERT_MAY_HAVE_FIRED",
+                    "message": msg}
+
+        # Outcome 1: clean cancel. Safe to consume pending and wipe state.
+        if correlation_id:
+            self.get_pending_protection(correlation_id, consume=True)
+        # Last-mile race check: a postback could still have landed between the
+        # successful cancel return and now.
+        fresh2 = self._get_state(underlying)
+        if fresh2.get('side') in ('PENDING_CALL', 'PENDING_PUT'):
+            self._set_state(underlying, {'side': 'NONE', 'last_signal': 'NONE'})
+            return {"status": "success", "action": "CANCELLED_PENDING_ENTRY"}
+        return {"status": "success", "action": "ENTRY_ALREADY_FILLED",
+                "message": "Entry filled during cancel — position is live"}
+
+    def flush_pending_entries(self):
+        """
+        EOD safety: cancel all armed-but-unfilled conditional entries so a stale
+        alert can't fire on a later day against a now-wrong pre-computed strike.
+        """
+        keys = (self.r.keys("cond_state:*") if self.use_redis
+                else [k for k in self.memory_store if k.startswith("cond_state:")])
+        flushed = []
+        for key in keys:
+            underlying = (key.decode() if isinstance(key, bytes) else key).split(':')[-1]
+            if self._get_state(underlying).get('side') in ('PENDING_CALL', 'PENDING_PUT'):
+                self.cancel_pending_entry(underlying)
+                flushed.append(underlying)
+        if flushed:
+            msg = f"EOD flush: cancelled {len(flushed)} unfilled conditional entries: {flushed}"
+            logger.info(msg)
+            if self._activity_log_fn:
+                self._activity_log_fn(msg, "🧹 ")
+        return {"status": "success", "flushed": flushed}
+
+    def _extract_filled_lots(self, data, lot_size, default_lots):
+        """
+        Best-effort: pull cumulative filled qty (units) from a fill postback and
+        convert to lots. Falls back to the requested lots if absent/unparseable.
+        (Exact Dhan field name is confirmed during the live userNote-echo check.)
+        """
+        d = data if isinstance(data, dict) else {}
+        nested = d.get('data') if isinstance(d.get('data'), dict) else {}
+        for field in ('filledQty', 'filled_qty', 'tradedQty', 'traded_qty',
+                      'cumulativeQuantity', 'quantity'):
+            raw = d.get(field, nested.get(field))
+            if raw is None:
+                continue
+            try:
+                units = int(float(raw))
+            except (TypeError, ValueError):
+                continue
+            if units <= 0:
+                continue
+            if lot_size and lot_size > 0:
+                return max(1, round(units / lot_size))
+            return default_lots
+        return default_lots
+
+    def _handle_conditional_fill(self, correlation_id, data, is_final):
+        """
+        Arm (or extend) the SL/Target bracket when a CONDITIONAL entry fills.
+        Idempotent: PART_TRADED peeks the pending record; the final TRADED consumes
+        it. Re-arming is safe because set_index_boundaries cancels prior GTTs first.
+        """
+        pending = self.get_pending_protection(correlation_id, consume=is_final)
+        if not pending:
+            # Already consumed (duplicate / late postback) — no-op.
+            logger.info(f"Conditional fill: no pending for {correlation_id} (duplicate/late). Ignoring.")
+            return {"status": "success", "source": "conditional_fill_dup"}
+
+        underlying = pending['underlying']
+        state = self._get_state(underlying)
+        requested_lots = int(pending.get('quantity', 1))
+        opt_sec_id = state.get('security_id')
+        lot_size = self.broker.lot_map.get(str(opt_sec_id)) or 0
+        filled_lots = self._extract_filled_lots(data, lot_size, requested_lots)
+        traded_price = data.get('tradedPrice') or (data.get('data') or {}).get('tradedPrice')
+
+        # Transition PENDING_* -> live CALL/PUT (idempotent if already flipped).
+        if state.get('side') in ('PENDING_CALL', 'PENDING_PUT'):
+            state['side'] = 'CALL' if state['side'] == 'PENDING_CALL' else 'PUT'
+        state['quantity'] = filled_lots
+        state['entry_id'] = data.get('orderId')
+        if traded_price:
+            state['entry_price'] = float(traded_price)
+        self._set_state(underlying, state)
+
+        gtt_res = self.set_index_boundaries(
+            underlying=underlying,
+            target_level=pending['target_level'],
+            sl_level=pending['sl_level'],
+            quantity=filled_lots,
+        )
+        if gtt_res.get('status') != 'success' and self._activity_log_fn:
+            self._activity_log_fn(
+                f"Conditional entry FILLED for {underlying} but bracket arm FAILED "
+                f"({gtt_res.get('message')}) — position may be unprotected!", "🚨 ")
+        logger.info(f"Conditional fill ({'final' if is_final else 'partial'}) {underlying}: "
+                    f"armed bracket for {filled_lots} lots -> {gtt_res.get('status')}")
+        return {"status": "success", "source": "conditional_fill", "final": is_final, "gtt": gtt_res}
 
     # --- Core Logic ---
     def set_index_boundaries(self, underlying, target_level, sl_level, quantity=None):
@@ -249,7 +561,7 @@ class ConditionalOrderEngine:
                 operator=sl_op,
                 comparing_value=float(sl_level),
                 transaction_type="SELL",
-                product_type="MARGIN",
+                product_type=OPTIONS_PRODUCT_TYPE,
                 trigger_sec_id=idx_sec_id,
                 user_note=entry_id,
             )
@@ -269,7 +581,7 @@ class ConditionalOrderEngine:
                 operator=tgt_op,
                 comparing_value=float(target_level),
                 transaction_type="SELL",
-                product_type="MARGIN",
+                product_type=OPTIONS_PRODUCT_TYPE,
                 trigger_sec_id=idx_sec_id,
                 user_note=entry_id,
             )
@@ -311,8 +623,11 @@ class ConditionalOrderEngine:
                 underlying = (key.decode() if isinstance(key, bytes) else key).split(':')[-1]
                 state = self._get_state(underlying)
                 
-                if state.get('side', 'NONE') == 'NONE': continue
-                
+                # Only live positions get monitored. PENDING_* (armed-but-unfilled)
+                # have no real position yet — skip, or the side check below would
+                # mis-classify PENDING_CALL as a PUT and fire a spurious exit.
+                if state.get('side') not in ('CALL', 'PUT'): continue
+
                 idx_id = state.get('idx_sec_id')
                 sl_level = state.get('idx_sl_level')
                 target_level = state.get('idx_target_level')
@@ -365,7 +680,13 @@ class ConditionalOrderEngine:
             order_status = data.get('orderStatus')
             order_id = data.get('orderId')
             
-            # 1. Handle Order Fill (TRADED) status mapping for Entry
+            # 1a. CONDITIONAL entry fill — linked by correlation id (userNote ENTRY:).
+            #     Dispatched on prefix and BEFORE the orderId path, because an
+            #     alert-fired order has a brand-new orderId we never stored.
+            if order_status in ("TRADED", "PART_TRADED") and user_note and str(user_note).startswith("ENTRY:"):
+                return self._handle_conditional_fill(user_note, data, order_status == "TRADED")
+
+            # 1b. MARKET entry fill (legacy path) — linked by orderId. Unchanged.
             if order_status == "TRADED" and order_id:
                 logger.info(f"Order {order_id} TRADED. Checking for pending conditional triggers.")
                 pending = self.get_pending_protection(order_id)

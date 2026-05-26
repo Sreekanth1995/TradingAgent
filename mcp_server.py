@@ -139,6 +139,7 @@ async def place_conditional_order(
     sl_index: float = None,
     target_index: float = None,
     spot_index: float = None,
+    entry_index: float = None,
     trade_feed_id: int = None,
 ):
     """
@@ -153,13 +154,23 @@ async def place_conditional_order(
     The SL and Target are expressed as INDEX price levels (not option premium).
     A polling monitor exits the trade when the index crosses those levels.
 
+    Entry modes (CALL/PUT):
+        - Omit entry_index -> IMMEDIATE market buy at current spot (legacy behavior).
+        - Pass entry_index -> CONDITIONAL buy: the option is bought only when NIFTY
+          spot TOUCHES entry_index. Trigger direction is auto-derived (entry above
+          spot fires on the way up; below spot fires on the way down). The ITM strike
+          is pre-computed from entry_index, and SL/Target are validated against
+          entry_index (not spot) and arm on the entry fill.
+
     Args:
         action:        CALL | PUT | EXIT_CALL | EXIT_PUT
         underlying:    NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
         quantity:      Number of lots (default 1).
-        sl_index:      Index SL level. For CALL must be < spot; for PUT must be > spot.
+        sl_index:      Index SL level. For CALL must be < entry/spot; for PUT must be > entry/spot.
         target_index:  Index target level.
         spot_index:    Optional current index spot. Omit to fetch live.
+        entry_index:   Optional. Index level that must be TOUCHED before the buy fires.
+                       Omit for an immediate market entry.
         trade_feed_id: ID from the signal payload — pass it back so the dashboard
                        feed row is correctly linked to this order.
     """
@@ -170,6 +181,7 @@ async def place_conditional_order(
         "sl_index": sl_index,
         "target_index": target_index,
         "spot_index": spot_index,
+        "entry_index": entry_index,
         "trade_feed_id": trade_feed_id,
     })
 
@@ -258,7 +270,7 @@ async def get_orders():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
-async def get_margin(underlying: str = "NIFTY", side: str = "PUT"):
+async def get_margin(underlying: str = "NIFTY", side: str = "PUT", spot_index: float = 0.0):
     """
     Returns available balance and the margin required for 1 lot of the current
     ITM option. Use this before placing an order to decide how many lots to buy.
@@ -272,8 +284,11 @@ async def get_margin(underlying: str = "NIFTY", side: str = "PUT"):
            or place_super_order.
 
     Args:
-        underlying: NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
-        side:       CALL or PUT — determines which ITM strike to price.
+        underlying:  NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
+        side:        CALL or PUT — determines which ITM strike to price.
+        spot_index:  Optional. Current index spot price (e.g. 24350.0). Pass this
+                     if the server returns "Index LTP unavailable" to bypass the
+                     live LTP fetch.
 
     Returns:
         available_balance  — free cash available for new positions (INR).
@@ -282,12 +297,70 @@ async def get_margin(underlying: str = "NIFTY", side: str = "PUT"):
         symbol             — ITM option symbol that was priced.
         lot_size           — contract lot size for this option.
     """
-    return await _call("/get-margin", {"underlying": underlying, "side": side})
+    payload = {"underlying": underlying, "side": side}
+    if spot_index and spot_index > 0:
+        payload["spot_index"] = spot_index
+    return await _call("/get-margin", payload)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ZONE
+# ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+async def get_zone(underlying: str = "NIFTY"):
+    """
+    Returns the current market zone for an underlying, derived from the last
+    RangeTracker and DySupportResistance TradingView alerts received.
+
+    Zone values:
+      ABOVE   — price is above both the RangeTracker band and DySupport level
+      BELOW   — price is below both levels
+      INSIDE  — price is between the two levels (mixed signals)
+      UNKNOWN — one or both alert signals not yet received since server start
+
+    Zone logic:
+      RangeTracker=ABOVE & DySupport=ABOVE  →  ABOVE
+      RangeTracker=ABOVE & DySupport=BELOW  →  INSIDE
+      RangeTracker=BELOW & DySupport=BELOW  →  BELOW
+      RangeTracker=BELOW & DySupport=ABOVE  →  INSIDE
+
+    Use this before placing orders to confirm directional bias:
+      ABOVE  → favour CALL entries
+      BELOW  → favour PUT entries
+      INSIDE → avoid new entries or wait for zone clarity
+
+    Args:
+        underlying: NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
+    """
+    return await _call("/zone", {"underlying": underlying})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONTEXT & LOGS
 # ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+async def reload_scrip():
+    """
+    Forces the server to re-download and reload the Dhan scrip master CSV
+    synchronously. Call this when get_scrip_status() shows scrip_count=0
+    or when get_margin fails with ITM resolution errors.
+    Returns the number of instruments loaded after reload.
+    """
+    return await _call("/reload-scrip", {})
+
+
+@mcp.tool()
+async def get_scrip_status():
+    """
+    Returns scrip master load status: instrument count, CSV age, and upcoming
+    expiry dates for NIFTY/BANKNIFTY/FINNIFTY.
+    Call this when get_margin or order placement fails with ITM resolution errors
+    to diagnose whether the scrip master is empty or stale.
+    """
+    return await _call("/scrip-status")
+
 
 @mcp.tool()
 async def get_activity_logs():

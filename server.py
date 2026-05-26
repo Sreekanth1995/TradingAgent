@@ -14,7 +14,12 @@ from broker_dhan import DhanClient
 from collections import deque
 from datetime import datetime
 import pytz
-from instrument_resolver import resolve_index_spot, resolve_call_itm, resolve_put_itm
+from instrument_resolver import (
+    resolve_index_spot, resolve_call_itm, resolve_put_itm,
+    derive_entry_trigger, validate_sl_target,
+)
+from constants import index_id_for
+import uuid
 import trade_feed
 
 # Load Environment Variables
@@ -129,6 +134,13 @@ try:
             try:
                 if conditional_engine:
                     conditional_engine.monitor_positions()
+                    # EOD safety: after market close, cancel any armed-but-unfilled
+                    # conditional entries so a stale alert can't fire next session
+                    # against a now-wrong pre-computed strike. Idempotent (no-op when
+                    # nothing is pending).
+                    now_ist = datetime.now(pytz.timezone('Asia/Kolkata'))
+                    if now_ist.hour > 15 or (now_ist.hour == 15 and now_ist.minute >= 30):
+                        conditional_engine.flush_pending_entries()
             except Exception as e:
                 logger.error(f"Monitor Loop Error: {e}")
             time.sleep(2) # Frequency of index level polling
@@ -764,16 +776,16 @@ def _get_active_positions():
                 unrealized_pnl = 0.0
 
             ltp_raw = broker.get_ltp(sec_id) if sec_id else None
-            ltp = float(ltp_raw) if ltp_raw else 0.0
+            ltp = float(ltp_raw) if ltp_raw else None
 
             if broker_pos:
                 pnl_abs = round(unrealized_pnl, 2)
-            elif ltp and entry_price:
+            elif ltp is not None and entry_price:
                 pnl_abs = round((ltp - entry_price) * net_qty, 2)
             else:
-                pnl_abs = 0.0
+                pnl_abs = '---'
 
-            pnl_pct = round(((ltp / entry_price) - 1) * 100, 2) if entry_price > 0 and ltp > 0 else 0.0
+            pnl_pct = round(((ltp / entry_price) - 1) * 100, 2) if entry_price > 0 and ltp else 0.0
 
             active_positions.append({
                 "underlying": underlying,
@@ -781,7 +793,7 @@ def _get_active_positions():
                 "side": state.get('side'),
                 "quantity": net_qty,
                 "entry_price": entry_price,
-                "ltp": ltp,
+                "ltp": ltp if ltp is not None else '---',
                 "pnl_abs": pnl_abs,
                 "pnl_pct": pnl_pct,
                 "sl_price": state.get('sl_price'),
@@ -946,10 +958,12 @@ def get_margin():
         )
 
         # 2. Resolve ITM contract
-        spot_index = resolve_index_spot(broker, underlying, {})
+        spot_index = resolve_index_spot(broker, underlying, data)
+        if not spot_index or spot_index <= 0:
+            return jsonify({"status": "error", "message": f"Index LTP unavailable for {underlying}. Cannot resolve ITM contract. Pass spot_index in request to override."}), 400
         itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
         if not itm:
-            return jsonify({"status": "error", "message": f"Could not resolve ITM contract for {underlying} {side}"}), 400
+            return jsonify({"status": "error", "message": f"Could not resolve ITM contract for {underlying} {side} (spot={spot_index})"}), 400
 
         sec_id = itm['security_id']
         lot_size = broker.lot_map.get(str(sec_id), 1)
@@ -988,9 +1002,9 @@ def get_margin():
                 "available_balance": available,
             }), 400
 
-        margin_per_lot = float((margin_resp.get('data') or {}).get('totalMarginRequired') or 0)
+        margin_per_lot = float((margin_resp.get('data') or {}).get('totalMargin') or 0)
         if margin_per_lot <= 0:
-            logger.error(f"get-margin: totalMarginRequired=0 despite success. margin_resp={margin_resp}")
+            logger.error(f"get-margin: totalMargin=0 despite success. margin_resp={margin_resp}")
             return jsonify({
                 "status": "error",
                 "message": "Margin calculator returned 0. Check security_id or LTP.",
@@ -1154,6 +1168,101 @@ def server_logs():
     return jsonify({"status": "success", "count": len(logs), "logs": logs}), 200
 
 
+@app.route('/scrip-status', methods=['POST', 'GET'])
+def scrip_status():
+    """
+    Returns scrip master load status: how many instruments are loaded,
+    expiry dates available for NIFTY/BANKNIFTY/FINNIFTY, and CSV age.
+    Useful for diagnosing ITM resolution failures.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    if data.get('secret') and data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    scrip_count = len(broker.scrip_map)
+    csv_file = broker.scrip_csv_path
+
+    import time as _time
+    import csv as _csv
+    csv_exists = os.path.exists(csv_file)
+    csv_age_hours = None
+    csv_size_kb = None
+    csv_headers = None
+    csv_first_row = None
+    if csv_exists:
+        csv_age_hours = round((_time.time() - os.path.getmtime(csv_file)) / 3600, 1)
+        csv_size_kb = round(os.path.getsize(csv_file) / 1024, 1)
+        try:
+            with open(csv_file, 'r', encoding='utf-8-sig') as f:
+                reader = _csv.DictReader(f)
+                csv_headers = reader.fieldnames
+                row = next(reader, None)
+                if row:
+                    csv_first_row = dict(list(row.items())[:4])
+        except Exception as e:
+            csv_headers = f"error: {e}"
+
+    expiries = {}
+    from datetime import datetime
+    import pytz
+    IST = pytz.timezone('Asia/Kolkata')
+    today_str = datetime.now(IST).strftime('%Y-%m-%d')
+    for sym in ["NIFTY", "BANKNIFTY", "FINNIFTY"]:
+        future = sorted(set(k[3] for k in broker.scrip_map if k[0] == sym and k[3] >= today_str))
+        expiries[sym] = future[:5]
+
+    csv_truncated = csv_exists and csv_size_kb is not None and csv_size_kb < 20 * 1024
+    return jsonify({
+        "status": "success",
+        "scrip_count": scrip_count,
+        "csv_path": csv_file,
+        "csv_exists": csv_exists,
+        "csv_age_hours": csv_age_hours,
+        "csv_size_kb": csv_size_kb,
+        "csv_truncated": csv_truncated,
+        "csv_headers": csv_headers,
+        "csv_first_row": csv_first_row,
+        "expiry_indices_today": list(getattr(broker, 'expiry_indices', set())),
+        "upcoming_expiries": expiries,
+    }), 200
+
+
+@app.route('/reload-scrip', methods=['POST'])
+def reload_scrip():
+    """
+    Forces a synchronous re-download and reload of the Dhan scrip master CSV.
+    Call this when /scrip-status shows scrip_count=0 or no upcoming expiries.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    try:
+        # Delete stale file so _load_scrip_master always re-downloads fresh
+        csv_file = broker.scrip_csv_path
+        if os.path.exists(csv_file):
+            os.remove(csv_file)
+        broker.scrip_map = {}
+        broker.lot_map = {}
+        broker.exact_symbol_map = {}
+        broker.scrip_loaded = False
+        broker._scrip_ready.clear()
+        broker._load_scrip_master()
+        broker.scrip_loaded = True
+        broker._scrip_ready.set()
+        count = len(broker.scrip_map)
+        return jsonify({"status": "success", "scrip_count": count, "csv_path": csv_file}), 200
+    except Exception as e:
+        logger.error(f"reload_scrip error: {traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route('/conditional-order', methods=['POST'])
 def conditional_order():
     """
@@ -1202,28 +1311,73 @@ def conditional_order():
         if spot_index <= 0:
             return jsonify({"status": "error", "message": "Could not determine current index spot price. Cannot validate SL/Target."}), 400
 
-        # 3. Guard against duplicate open position
-        existing_state = conditional_engine._get_state(underlying)
-        if existing_state.get('side', 'NONE') != 'NONE':
-            return jsonify({
-                "status": "error",
-                "message": f"{underlying} already has an open {existing_state['side']} position. Exit it first."
-            }), 400
+        # 3. Side + index id
+        side = 'CALL' if signal_type == 'B' else 'PUT'
+        idx_sec_id = index_id_for(underlying)
+        if not idx_sec_id:
+            return jsonify({"status": "error", "message": f"Unknown index: {underlying}"}), 400
+        entry_index = data.get('entry_index')  # present => conditional (index-touch) entry
 
-        # 4. Validate SL / Target
+        # 4. Position / reversal guard. An opposite signal while an entry is armed
+        #    but unfilled cancels the armed entry, then proceeds. Anything else
+        #    (a live position, or a same-direction pending) is rejected.
+        existing_state = conditional_engine._get_state(underlying)
+        existing_side = existing_state.get('side', 'NONE')
+        if existing_side != 'NONE':
+            target_pending = 'PENDING_CALL' if side == 'CALL' else 'PENDING_PUT'
+            if existing_side in ('PENDING_CALL', 'PENDING_PUT') and existing_side != target_pending:
+                logger.info(f"Reversal while pending: cancelling armed {existing_side} for {underlying}")
+                conditional_engine.cancel_pending_entry(underlying)
+            else:
+                return jsonify({
+                    "status": "error",
+                    "message": f"{underlying} already has an open/pending {existing_side} position. Exit it first."
+                }), 400
+
+        # 5. SL / Target required for both paths
         sl_index = data.get('sl_index')
         target_index = data.get('target_index')
         if not sl_index or not target_index:
-            label = "CALL" if signal_type == 'B' else "PUT"
-            return jsonify({"status": "error", "message": f"Manual {label} requires Index Stop Loss and Target levels"}), 400
-
+            return jsonify({"status": "error", "message": f"Manual {side} requires Index Stop Loss and Target levels"}), 400
         try:
             sl_idx_val = float(sl_index)
             tgt_idx_val = float(target_index)
         except (TypeError, ValueError) as e:
             return jsonify({"status": "error", "message": f"Invalid SL/Target index value: {e}"}), 400
 
-        if signal_type == 'B':
+        feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)
+        if not feed_id:
+            logger.warning(f"/conditional-order: no trade_feed_id for {underlying} — feed record will be orphaned")
+
+        # ─── CONDITIONAL ENTRY PATH (entry_index provided) ───
+        # Buy fires only when NIFTY touches entry_index; SL/Target arm on fill.
+        if entry_index is not None:
+            ok, trig = derive_entry_trigger(entry_index, spot_index)
+            if not ok:
+                return jsonify({"status": "error", "message": trig['reason']}), 400
+            entry_lvl = trig['comparing_value']
+            # Validate SL/Target against the ENTRY level, not current spot.
+            v_ok, v_reason = validate_sl_target(side, entry_lvl, sl_idx_val, tgt_idx_val)
+            if not v_ok:
+                return jsonify({"status": "error", "message": v_reason}), 400
+            # Pre-compute the ITM strike from the ENTRY level, not current spot.
+            itm = resolve_call_itm(broker, underlying, entry_lvl) if side == 'CALL' else resolve_put_itm(broker, underlying, entry_lvl)
+            if not itm:
+                return jsonify({"status": "error", "message": "Failed to resolve ITM contract at entry level"}), 400
+            correlation_id = f"ENTRY:{underlying}:{uuid.uuid4().hex[:12]}"
+            res = conditional_engine.arm_conditional_entry({
+                "underlying": underlying, "side": side, "itm": itm,
+                "idx_sec_id": idx_sec_id, "quantity": quantity,
+                "operator": trig['operator'], "comparing_value": entry_lvl,
+                "sl_index": sl_idx_val, "target_index": tgt_idx_val,
+                "correlation_id": correlation_id, "trade_feed_id": feed_id,
+            })
+            code = 200 if res.get('status') == 'success' else 400
+            return jsonify(res), code
+
+        # ─── IMMEDIATE MARKET ENTRY PATH (no entry_index) — unchanged behavior ───
+        # Validate SL/Target against current spot.
+        if side == 'CALL':
             if sl_idx_val >= spot_index:
                 return jsonify({"status": "error", "message": f"CALL SL ({sl_idx_val}) must be below spot ({spot_index})"}), 400
             if tgt_idx_val <= spot_index:
@@ -1234,19 +1388,9 @@ def conditional_order():
             if tgt_idx_val >= spot_index:
                 return jsonify({"status": "error", "message": f"PUT Target ({tgt_idx_val}) must be below spot ({spot_index})"}), 400
 
-        # 5. Resolve ITM contract and index security ID
-        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"}
-        idx_sec_id = index_ids.get(underlying.upper())
-        side = 'CALL' if signal_type == 'B' else 'PUT'
         itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
-
-        if not itm or not idx_sec_id:
+        if not itm:
             return jsonify({"status": "error", "message": "Failed to resolve ITM contract or Index ID"}), 400
-
-        # 6. Prefer explicit feed_id passed by Claude; fall back to Redis lookup
-        feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)
-        if not feed_id:
-            logger.warning(f"/conditional-order: no trade_feed_id for {underlying} — feed record will be orphaned")
 
         leg_data = {
             "underlying": underlying,
@@ -1258,11 +1402,9 @@ def conditional_order():
             "target_index": target_index,
             "trade_feed_id": feed_id,
         }
-
-        # 7. Execute entry
         res = conditional_engine.handle_signal(signal_type, leg_data)
 
-        # 8. Defer GTT placement until order fill confirmation (postback)
+        # Defer GTT placement until order fill confirmation (postback)
         if res.get('status') == 'success':
             order_id = res.get('order_id')
             if order_id:
@@ -1398,8 +1540,7 @@ def set_conditional_index_orders():
 
     try:
         # NEW: Ensure idx_sec_id is available even for manual protection
-        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"}
-        idx_sec_id = index_ids.get(underlying.upper())
+        idx_sec_id = index_id_for(underlying)
         
         # Inject into state if missing (rare legacy positions)
         state = conditional_engine._get_state(underlying)
@@ -1704,11 +1845,31 @@ def get_trade_feed():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+def _compute_zone(range_tracker_pos, dy_pos):
+    """
+    Derive zone from RangeTracker and DySupportResistance positions.
+      ABOVE  = price above RangeTracker AND above DySupport
+      BELOW  = price below RangeTracker AND below DySupport
+      INSIDE = mixed (price between the two levels)
+      UNKNOWN = one or both signals not yet received
+    """
+    if not range_tracker_pos or not dy_pos:
+        return "UNKNOWN"
+    rt = range_tracker_pos.upper()
+    dy = dy_pos.upper()
+    if rt == "ABOVE" and dy == "ABOVE":
+        return "ABOVE"
+    if rt == "BELOW" and dy == "BELOW":
+        return "BELOW"
+    return "INSIDE"
+
+
 @app.route('/range-signal', methods=['POST'])
 def range_signal():
     """
-    Update the status of the price relative to the Range Tracker.
-    Payload: { secret, underlying, status ('ABOVE'|'BELOW'|'INSIDE') }
+    TradingView alert endpoint for RangeTracker indicator.
+    Stores the price position relative to the RangeTracker band.
+    Payload: { secret, underlying, position: 'ABOVE'|'BELOW' }
     """
     if not super_order_engine:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
@@ -1717,23 +1878,104 @@ def range_signal():
     if not data or data.get('secret') != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
-    underlying = data.get('underlying', 'NIFTY')
-    position = data.get('position', 'INSIDE').upper()
+    underlying = data.get('underlying', 'NIFTY').upper()
+    position = data.get('position', '').upper()
+    if position not in ('ABOVE', 'BELOW'):
+        return jsonify({"status": "error", "message": "position must be ABOVE or BELOW"}), 400
 
     try:
         state = super_order_engine._get_state(underlying)
-        state['range_position'] = position
-        state['range_timestamp'] = datetime.now().isoformat()
+        state['range_tracker_position'] = position
+        state['range_position'] = position  # backward-compat alias
+        state['range_tracker_timestamp'] = datetime.now().isoformat()
         super_order_engine._set_state(underlying, state)
 
-        msg = f"Range Position for {underlying}: {position}"
+        zone = _compute_zone(position, state.get('dy_position'))
+        msg = f"RangeTracker {underlying}: {position} | zone={zone}"
         logger.info(msg)
-        _add_activity_log(msg, "🧭 ")
+        _add_activity_log(msg, "🧭")
 
-        return jsonify({"status": "success", "range_position": position}), 200
+        return jsonify({"status": "success", "range_tracker_position": position, "zone": zone}), 200
     except Exception as e:
         logger.error(f"Range Signal Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/dy-signal', methods=['POST'])
+def dy_signal():
+    """
+    TradingView alert endpoint for DySupportResistance indicator.
+    Stores the price position relative to the dynamic support/resistance level.
+    Payload: { secret, underlying, position: 'ABOVE'|'BELOW' }
+    """
+    if not super_order_engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY').upper()
+    position = data.get('position', '').upper()
+    if position not in ('ABOVE', 'BELOW'):
+        return jsonify({"status": "error", "message": "position must be ABOVE or BELOW"}), 400
+
+    try:
+        state = super_order_engine._get_state(underlying)
+        state['dy_position'] = position
+        state['dy_timestamp'] = datetime.now().isoformat()
+        super_order_engine._set_state(underlying, state)
+
+        zone = _compute_zone(state.get('range_tracker_position'), position)
+        msg = f"DySupportResistance {underlying}: {position} | zone={zone}"
+        logger.info(msg)
+        _add_activity_log(msg, "📊")
+
+        return jsonify({"status": "success", "dy_position": position, "zone": zone}), 200
+    except Exception as e:
+        logger.error(f"Dy Signal Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/zone', methods=['POST', 'GET'])
+def get_zone():
+    """
+    Returns the current market zone for one or all underlyings.
+    Zone is derived from RangeTracker + DySupportResistance alert states:
+      ABOVE  = price above both levels
+      BELOW  = price below both levels
+      INSIDE = price between the two levels
+      UNKNOWN = one or both signals not yet received
+    Payload: { secret, underlying (optional, defaults to all) }
+    """
+    if not super_order_engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True) or {}
+    secret = data.get('secret') or request.args.get('secret')
+    if secret != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = (data.get('underlying') or request.args.get('underlying', '')).upper()
+    targets = [underlying] if underlying in ('NIFTY', 'BANKNIFTY', 'FINNIFTY') else ['NIFTY', 'BANKNIFTY', 'FINNIFTY']
+
+    result = {}
+    for sym in targets:
+        state = super_order_engine._get_state(sym)
+        rt = state.get('range_tracker_position')
+        dy = state.get('dy_position')
+        zone = _compute_zone(rt, dy)
+        result[sym] = {
+            "zone": zone,
+            "range_tracker_position": rt,
+            "dy_position": dy,
+            "range_tracker_timestamp": state.get('range_tracker_timestamp'),
+            "dy_timestamp": state.get('dy_timestamp'),
+        }
+
+    if underlying in ('NIFTY', 'BANKNIFTY', 'FINNIFTY'):
+        return jsonify({"status": "success", **result[underlying]}), 200
+    return jsonify({"status": "success", "zones": result}), 200
 
 
 @app.route('/cancel-conditional-orders', methods=['POST'])

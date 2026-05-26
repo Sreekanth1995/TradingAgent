@@ -20,8 +20,9 @@ The system safely segregates order structures into distinct managers to prevent 
 ### Conditional Order Engine (`conditional_order_engine.py`)
 Handles **Index-Based logic** (NIFTY/BANKNIFTY Spot levels) and Naked Options Entries.
 - **Dynamic Entry**: Routes manual UI signals (like `/ui-signal`) to trigger Market/"Naked" Buy/Sell entries. 
+- **Conditional Index-Touch Entry**: When the `/conditional-order` endpoint is called with an `entry_index` value, the BUY is armed as a broker-native conditional alert and fires only when the index touches `entry_index`. State enters `PENDING_CALL` / `PENDING_PUT`; SL/Target arm on the entry fill, linked by an `ENTRY:{underlying}:{uuid}` correlation id (userNote) because the alert-fired order receives a fresh broker `orderId`. `cancel_pending_entry()` handles the cancel-vs-fill race (cancel failure leaves `PENDING_*` state intact so an in-flight fill postback can still arm the bracket). `flush_pending_entries()` is called by the monitor loop at/after 15:30 IST so a stale alert can't fire against a now-wrong pre-computed strike on a later session.
 - **Deferred Boundary Placement**: Delays placing protective Stop Loss or Target bounds until the Dhan broker confirms the parent entry is firmly *TRADED* via webhooks (`handle_postback()`).
-- **GTT Protection**: Protective bounds managed by this engine are placed as remote GTT (Good-Till-Triggered) OCO (One-Cancels-Other) structures linked explicitly to underlying index prices.
+- **GTT Protection**: Protective bounds managed by this engine are placed as remote GTT (Good-Till-Triggered) OCO (One-Cancels-Other) structures linked explicitly to underlying index prices. Entry, SL, and Target legs all use `OPTIONS_PRODUCT_TYPE` from `constants.py` (currently `INTRADAY`) so the exit SELL nets the live long instead of opening a new short.
 
 ### Super Order Engine (`super_order_engine.py`)
 Handles **Premium-Based logic** (Option Contract Pricing).
@@ -48,6 +49,10 @@ A Model Context Protocol (MCP) server runs alongside the main system to provide 
 - Reading margin limits and funds (`get_margin_calculator`, `get_fund_limits`).
 - Cancelling and Setting GTT conditional bounds programmatically (`set_conditional_bounds`, `cancel_conditional_bounds`).
 - Checking unified aggregated trade status (`get_trading_status`), exposing boundary parameters such as `idx_target_level`, `idx_sl_level`, `tgt_price`, and `sl_price`.
+- Placing conditional (index-triggered) orders. `place_conditional_order` accepts an optional `entry_index` parameter: omit it for an immediate market entry, or pass an index level to defer the BUY until the index touches that level (operator direction auto-derived from spot).
+
+### Shared constants (`constants.py`)
+Index identifiers (`INDEX_NAME_TO_ID`, `INDEX_ID_TO_NAME`, helpers `index_id_for` / `index_name_for` / `is_index_id`), the index exchange segment (`IDX_SEGMENT = "IDX_I"`), and the options product type (`OPTIONS_PRODUCT_TYPE = "INTRADAY"`) are centralized in `constants.py`. The product type MUST stay identical across entry, SL/Target GTT, and manual-exit legs — otherwise the exit SELL opens a new short instead of netting the long.
 
 ---
 

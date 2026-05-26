@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import logging
 import sys
 import os
@@ -12,83 +12,62 @@ from super_order_engine import SuperOrderEngine
 # Configure logging to see output during tests
 logging.basicConfig(level=logging.INFO)
 
-class TestSuperOrderSmartExitRefined(unittest.TestCase):
-    def setUp(self):
-        self.mock_broker = MagicMock()
-        self.engine = SuperOrderEngine(self.mock_broker)
-        
-    def test_smart_exit_super_order_modifies_each_leg_by_type(self):
-        """
-        Scenario: A Super Order is active and a counter signal triggers _close_position.
-        Expected: 
-          - TARGET_LEG should be modified to LTP + 5.
-          - STOP_LOSS_LEG should be modified to LTP - 5.
-        """
-        symbol = "NIFTY_25800_CE"
-        sec_id = "42536"
-        state = {
-            'side': 'CALL',
-            'symbol': symbol,
-            'security_id': sec_id,
-            'entry_id': 'so_parent_999',
-            'is_super_order': True,
-            'quantity': 75
-        }
-        
-        # 1. Mock LTP fetch
-        ltp = 100.0
-        self.mock_broker.get_ltp.return_value = ltp
-        
-        # 2. Mock pending orders
-        # One Limit (Target) and one Stop Loss
-        self.mock_broker.get_pending_orders.return_value = [
-            {'orderId': 'oid_target', 'orderType': 'LIMIT', 'transactionType': 'SELL', 'securityId': sec_id},
-            {'orderId': 'oid_sl', 'orderType': 'STOP_LOSS_MARKET', 'transactionType': 'SELL', 'securityId': sec_id}
-        ]
-        
-        # 3. Process signal/close position
-        self.engine._set_state("NIFTY", state)
-        self.engine._close_position("NIFTY", state)
-        
-        # 4. Verify modify_super_order calls
-        calls = self.mock_broker.modify_super_order.call_args_list
-        self.assertEqual(len(calls), 2)
-        
-        # Check Target Modification
-        target_call = next(c for c in calls if c.args[1] == 'TARGET_LEG')
-        self.assertEqual(target_call.args[0], 'so_parent_999')
-        self.assertEqual(target_call.args[2]['target_price'], 105.0)
-        
-        # Check SL Modification
-        sl_call = next(c for c in calls if c.args[1] == 'STOP_LOSS_LEG')
-        self.assertEqual(sl_call.args[0], 'so_parent_999')
-        self.assertEqual(sl_call.args[2]['stop_loss_price'], 95.0)
 
-    @patch('broker_dhan.requests.put')
-    def test_broker_modify_super_order_payload(self, mock_put):
-        """
-        Scenario: Broker modify_super_order is called.
-        Expected: Payload should have camelCase keys and rounded prices.
-        """
-        from broker_dhan import DhanClient
-        broker = DhanClient()
-        broker.client_id = "test_client"
-        broker.access_token = "test_token"
-        broker.dry_run = False
-        
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_put.return_value = mock_resp
-        
-        broker.modify_super_order("parent_123", "TARGET_LEG", {"target_price": 105.123})
-        
-        # Verify JSON payload
-        args, kwargs = mock_put.call_args
-        payload = kwargs['json']
-        
-        self.assertEqual(payload['targetPrice'], 105.1) # Rounded to 0.05 (105.1 because 105.123 -> 105.1)
-        self.assertEqual(payload['legName'], "TARGET_LEG")
-        self.assertTrue(isinstance(payload['targetPrice'], float))
+class TestSuperOrderModify(unittest.TestCase):
+    """
+    The old _close_position smart-exit that modified each bracket leg by type
+    (broker.modify_super_order(parent, leg, fields)) was removed. The current
+    engine exposes modify_super_order(underlying, ...) which routes to the
+    broker's per-leg methods. These tests pin that routing.
+    """
+
+    def setUp(self):
+        self.broker = MagicMock()
+        self.engine = SuperOrderEngine(self.broker)
+        self.engine.use_redis = False
+        self.engine.memory_store = {}
+
+    def test_modify_super_order_routes_to_correct_broker_legs(self):
+        self.engine._set_state("NIFTY", {
+            'side': 'CALL', 'symbol': 'NIFTY_25800_CE', 'security_id': '42536',
+            'entry_id': 'so_parent_999', 'sl_price': 80.0, 'quantity': 75,
+        })
+
+        res = self.engine.modify_super_order(
+            "NIFTY", stop_loss_price=95.0, target_price=105.0, trailing_jump=5.0,
+        )
+        self.assertTrue(res.get("success"))
+
+        # SL leg modified with the parent order id + new SL + trailing.
+        self.broker.modify_super_sl_leg.assert_called_once()
+        sl_args = self.broker.modify_super_sl_leg.call_args.args
+        self.assertEqual(sl_args[0], 'so_parent_999')
+        self.assertEqual(sl_args[1], 95.0)
+        self.assertEqual(sl_args[2], 5.0)
+
+        # Target leg modified with the parent order id + new target.
+        self.broker.modify_super_target_leg.assert_called_once_with('so_parent_999', 105.0)
+
+    def test_modify_super_order_only_target_does_not_touch_sl_leg(self):
+        self.engine._set_state("NIFTY", {
+            'side': 'CALL', 'symbol': 'NIFTY_25800_CE', 'security_id': '42536',
+            'entry_id': 'so_parent_999', 'quantity': 75,
+        })
+
+        self.engine.modify_super_order("NIFTY", target_price=120.0)
+
+        self.broker.modify_super_target_leg.assert_called_once_with('so_parent_999', 120.0)
+        self.broker.modify_super_sl_leg.assert_not_called()
+
+    def test_modify_super_order_errors_without_active_order(self):
+        self.engine._set_state("NIFTY", {'side': 'NONE', 'last_signal': 'NONE'})
+
+        res = self.engine.modify_super_order("NIFTY", target_price=105.0)
+
+        self.assertFalse(res.get("success"))
+        self.broker.modify_super_target_leg.assert_not_called()
+        self.broker.modify_super_sl_leg.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

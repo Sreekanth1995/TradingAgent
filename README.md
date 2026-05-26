@@ -29,6 +29,14 @@ If a signal reverses (e.g., LONG -> SHORT) while a position is active:
 -   Immediately after handling the exit Modification/Cancellation, the bot triggers the **Smart Entry** logic for the **New Position** (e.g., Short/Put).
 -   This results in a temporary "Hedged" state where the old position works its limit exit while the new position seeks its limit entry.
 
+## 4a. Conditional Index-Touch Entry (per-underlying)
+The `/conditional-order` endpoint (and the `place_conditional_order` MCP tool) accepts an optional `entry_index` field. When present, the bot does NOT buy immediately; it arms a broker-native conditional BUY that fires only when the underlying index touches `entry_index`.
+-   **Trigger direction is auto-derived**: entry above spot fires on the way up (`ABOVE`), below spot on the way down (`BELOW`).
+-   **Strike is pre-computed from the entry level**, not current spot, so the contract still ends up ITM at fire time.
+-   **SL/Target are validated against the entry level** and arm later, on the entry fill (linked by an `ENTRY:{underlying}:{uuid}` correlation id because the alert-fired order gets a brand-new broker `orderId`).
+-   **State**: armed-but-unfilled entries live in `PENDING_CALL` / `PENDING_PUT`. An opposite signal cancels the armed entry; a same-direction signal is rejected.
+-   **EOD flush**: the monitor loop calls `flush_pending_entries()` at/after 15:30 IST so a stale alert can't fire on a later day against a now-wrong pre-computed strike.
+
 ## 5. Fail-Safe & Fallbacks
 -   **Fallback Execution**: If Native Super Order placement fails (e.g., API issue), the system falls back to a **Simulated Bracket** (Market Entry + separate Exit Orders).
 -   **Position Verification**: Before modifying/closing, the bot verifies `net_qty` via Dhan API to ensure valid state.

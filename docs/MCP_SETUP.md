@@ -28,12 +28,12 @@ Add this to your `~/.git/claude_config.json` or your project-level config:
 ```
 
 ### 3. Available Tools
-Once connected, the AI can use:
-- `get_trading_status`: "What is my current NIFTY position?"
-- `place_manual_order`: "Buy 2 lots of NIFTY Call options"
-- `update_price_levels`: "Set my TP0 range to 22400 - 22500"
-- `get_performance_history`: "Show me my last 5 trades"
-- `get_activity_logs`: "Why did the ranking engine reject the last signal?"
+Once connected, the AI can use (see `mcp_server.py` for the full set):
+- `get_positions`, `get_orders`: "What is my current NIFTY position?"
+- `place_super_order`, `modify_super_order`, `cancel_super_order`, `exit_super_order`: native bracket-order control on the option premium.
+- `place_conditional_order`, `modify_conditional_order`, `cancel_conditional_order`, `exit_conditional_order`: index-level (NIFTY/BANKNIFTY) conditional control. `place_conditional_order` accepts an optional `entry_index` — omit for an immediate market entry, or pass an index level to defer the BUY until the index touches it.
+- `get_margin`, `get_zone`, `get_last_signal`, `get_performance_history`, `get_activity_logs`: read-side dashboard data.
+- `skip_trade`, `reload_scrip`, `get_scrip_status`: operational controls.
 
 ---
 ### ⚠️ Security Warning

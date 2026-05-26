@@ -8,6 +8,7 @@ venv/
 
 # Broker data
 dhan_scrip_master.csv
+dhan_scrip_master.csv.tmp
 *.csv
 
 # Runtime state (generated at runtime, not committed)
@@ -21,3 +22,4 @@ check_import.py
 test_signals.py
 test_token_refresh.py
 deploy_automated.exp
+.gstack/

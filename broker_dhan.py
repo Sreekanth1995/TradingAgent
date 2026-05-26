@@ -10,6 +10,8 @@ from datetime import datetime
 from dhanhq import dhanhq
 from dhanhq.orderupdate import OrderSocket
 
+from constants import index_id_for, index_name_for, is_index_id, IDX_SEGMENT
+
 # Define constants locally as they are missing in dhanhq 2.0.2
 class ExchangeSegment:
     NSE_FNO = "NSE_FNO"
@@ -73,6 +75,7 @@ class DhanClient:
         self.lot_map = {}
         self.exact_symbol_map = {}
         self.scrip_loaded = False
+        self._scrip_ready = threading.Event()
 
         # Load Scrip Master in background thread to prevent startup timeout
         def load_scrip_background():
@@ -82,6 +85,8 @@ class DhanClient:
                 logger.info("✅ Scrip Master loaded successfully in background")
             except Exception as e:
                 logger.error(f"Failed to load Scrip Master: {e}")
+            finally:
+                self._scrip_ready.set()
 
         threading.Thread(target=load_scrip_background, daemon=True).start()
 
@@ -160,18 +165,17 @@ class DhanClient:
 
     def get_index_id(self, symbol):
         """Returns standard Dhan Security ID for indices."""
-        mapping = {
-            "NIFTY": "13",
-            "BANKNIFTY": "25",
-            "FINNIFTY": "27"
-        }
-        return mapping.get(symbol.upper())
+        return index_id_for(symbol)
+
+    @property
+    def scrip_csv_path(self):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "dhan_scrip_master.csv")
 
     def _load_scrip_master(self):
         """
         Downloads and parses the Dhan Scrip Master CSV.
         """
-        csv_file = "dhan_scrip_master.csv"
+        csv_file = self.scrip_csv_path
         url = "https://images.dhan.co/api-data/api-scrip-master.csv"
         
         # Download if not exists or older than 12 hours
@@ -180,31 +184,65 @@ class DhanClient:
             import time
             file_age_hours = (time.time() - os.path.getmtime(csv_file)) / 3600
 
-        if file_age_hours > 12:
-            logger.info(f"Downloading fresh Scrip Master from {url}...")
-            try:
-                r = requests.get(url, stream=True)
-                if r.status_code == 200:
-                    with open(csv_file, 'wb') as f:
-                        for chunk in r.iter_content(chunk_size=1024):
-                            f.write(chunk)
-                    logger.info("Download Complete.")
-                else:
-                    logger.error(f"Failed to download Scrip Master. Status: {r.status_code}")
-                    return
-            except Exception as e:
-                logger.error(f"Download Error: {e}")
-                return
+        # NSE options start ~14 MB into the 33 MB file; anything under 20 MB is a truncated download.
+        MIN_VALID_SIZE = 20 * 1024 * 1024
+
+        def _needs_download():
+            if not os.path.exists(csv_file):
+                return True
+            if file_age_hours > 12:
+                return True
+            if os.path.getsize(csv_file) < MIN_VALID_SIZE:
+                logger.warning(f"Existing CSV is too small ({os.path.getsize(csv_file)//1024} KB < {MIN_VALID_SIZE//1024} KB) — likely truncated. Re-downloading.")
+                return True
+            return False
+
+        if _needs_download():
+            logger.info(f"Downloading Scrip Master from {url}...")
+            for attempt in range(1, 4):
+                try:
+                    tmp_file = csv_file + ".tmp"
+                    r = requests.get(url, stream=True, timeout=(10, 180))
+                    if r.status_code == 200:
+                        bytes_written = 0
+                        with open(tmp_file, 'wb') as f:
+                            for chunk in r.iter_content(chunk_size=65536):
+                                f.write(chunk)
+                                bytes_written += len(chunk)
+                        if bytes_written >= MIN_VALID_SIZE:
+                            os.replace(tmp_file, csv_file)
+                            logger.info(f"Download complete ({bytes_written // 1024} KB).")
+                            break
+                        else:
+                            logger.error(f"Attempt {attempt}: download too small ({bytes_written // 1024} KB). Retrying.")
+                            if os.path.exists(tmp_file):
+                                os.remove(tmp_file)
+                    else:
+                        logger.error(f"Attempt {attempt}: HTTP {r.status_code}. Falling back to stale file.")
+                        break
+                except Exception as e:
+                    logger.error(f"Attempt {attempt}: Download error: {e}. {'Retrying.' if attempt < 3 else 'Giving up.'}")
+            else:
+                logger.error("All download attempts failed. Falling back to stale file if available.")
+
+        if not os.path.exists(csv_file):
+            logger.error("Scrip Master CSV not found and download failed. scrip_map will be empty.")
+            return
 
         # Parse CSV
-        logger.info("Parsing Scrip Master...")
+        logger.info(f"Parsing Scrip Master from {csv_file} ...")
         count = 0
         try:
-            with open(csv_file, 'r', encoding='utf-8') as f:
+            with open(csv_file, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
+                headers = reader.fieldnames or []
+                logger.info(f"Scrip CSV headers ({len(headers)}): {headers[:5]}")
+                if 'SEM_EXM_EXCH_ID' not in headers:
+                    logger.error(f"Expected column 'SEM_EXM_EXCH_ID' not found. Got: {headers}. Aborting parse.")
+                    return
                 for row in reader:
                     # Filter for NSE Options
-                    if row['SEM_EXM_EXCH_ID'] == 'NSE' and row['SEM_INSTRUMENT_NAME'] in ['OPTIDX', 'OPTSTK', 'FUTIDX', 'FUTSTK']:
+                    if row.get('SEM_EXM_EXCH_ID') == 'NSE' and row.get('SEM_INSTRUMENT_NAME') in ['OPTIDX', 'OPTSTK', 'FUTIDX', 'FUTSTK']:
                         # Extract Key Fields
                         sym = row.get('SM_SYMBOL_NAME', '').strip()
                         if not sym:
@@ -367,7 +405,7 @@ class DhanClient:
                 logger.warning(f"Margin calc failed ({margin_resp}); defaulting to 1 lot.")
                 return 1
 
-            margin_per_lot = float(margin_resp.get('data', {}).get('totalMarginRequired', 0))
+            margin_per_lot = float(margin_resp.get('data', {}).get('totalMargin', 0))
             if margin_per_lot <= 0:
                 logger.warning(f"Margin per lot = {margin_per_lot} for {security_id}; defaulting to 1 lot.")
                 return 1
@@ -390,6 +428,11 @@ class DhanClient:
         CE ITM = Spot - 50
         PE ITM = Spot + 50
         """
+        if not self.scrip_map:
+            waited = self._scrip_ready.wait(timeout=30)
+            if not self.scrip_map:
+                logger.error(f"get_itm_contract: scrip_map is empty after {'waiting 30s' if not waited else 'load'}. CSV may be missing.")
+                return None
         try:
             spot = float(spot_price)
             # Round to nearest 50
@@ -646,8 +689,7 @@ class DhanClient:
         # since it works without authentication
         if exchange_segment == "IDX_I":
             # Map known Dhan index security IDs to symbols
-            index_id_map = {"13": "NIFTY", "25": "BANKNIFTY", "27": "FINNIFTY"}
-            sym = index_id_map.get(str(security_id))
+            sym = index_name_for(security_id)
             if sym:
                 # Try Dhan API first (if credentials available and not dry_run)
                 if self.access_token and self.client_id and not self.dry_run:
@@ -795,7 +837,7 @@ class DhanClient:
         if self.dry_run:
             # Simple mock calculation: 5000 per lot (quantity)
             qty = int(order_data.get('quantity', 1))
-            return {"status": "success", "data": {"totalMarginRequired": qty * 5000.0}}
+            return {"status": "success", "data": {"totalMargin": qty * 5000.0}}
             
         if self.dhan:
             try:
@@ -834,7 +876,7 @@ class DhanClient:
         """
         if self.dry_run:
             total = sum(int(o.get('quantity', 1)) * 4500.0 for o in orders_list)
-            return {"status": "success", "data": {"totalMarginRequired": total}}
+            return {"status": "success", "data": {"totalMargin": total}}
 
         if not self.access_token:
              return {"status": "error", "message": "Missing info"}
@@ -1223,8 +1265,7 @@ class DhanClient:
         # When trigger is an index (sec IDs: 13=NIFTY, 25=BANKNIFTY, 27=FINNIFTY),
         # the condition block MUST use IDX_I exchange segment — not NSE_FNO.
         # Using NSE_FNO for index IDs causes Dhan DH-905 Input_Exception.
-        INDEX_IDS = {"13", "25", "27"}
-        condition_exchange_seg = "IDX_I" if str(actual_trigger_id) in INDEX_IDS else exchange_seg
+        condition_exchange_seg = IDX_SEGMENT if is_index_id(actual_trigger_id) else exchange_seg
 
         payload = {
             "dhanClientId": self.client_id,
