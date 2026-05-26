@@ -14,7 +14,12 @@ from broker_dhan import DhanClient
 from collections import deque
 from datetime import datetime
 import pytz
-from instrument_resolver import resolve_index_spot, resolve_call_itm, resolve_put_itm
+from instrument_resolver import (
+    resolve_index_spot, resolve_call_itm, resolve_put_itm,
+    derive_entry_trigger, validate_sl_target,
+)
+from constants import index_id_for
+import uuid
 import trade_feed
 
 # Load Environment Variables
@@ -129,6 +134,13 @@ try:
             try:
                 if conditional_engine:
                     conditional_engine.monitor_positions()
+                    # EOD safety: after market close, cancel any armed-but-unfilled
+                    # conditional entries so a stale alert can't fire next session
+                    # against a now-wrong pre-computed strike. Idempotent (no-op when
+                    # nothing is pending).
+                    now_ist = datetime.now(pytz.timezone('Asia/Kolkata'))
+                    if now_ist.hour > 15 or (now_ist.hour == 15 and now_ist.minute >= 30):
+                        conditional_engine.flush_pending_entries()
             except Exception as e:
                 logger.error(f"Monitor Loop Error: {e}")
             time.sleep(2) # Frequency of index level polling
@@ -1299,28 +1311,73 @@ def conditional_order():
         if spot_index <= 0:
             return jsonify({"status": "error", "message": "Could not determine current index spot price. Cannot validate SL/Target."}), 400
 
-        # 3. Guard against duplicate open position
-        existing_state = conditional_engine._get_state(underlying)
-        if existing_state.get('side', 'NONE') != 'NONE':
-            return jsonify({
-                "status": "error",
-                "message": f"{underlying} already has an open {existing_state['side']} position. Exit it first."
-            }), 400
+        # 3. Side + index id
+        side = 'CALL' if signal_type == 'B' else 'PUT'
+        idx_sec_id = index_id_for(underlying)
+        if not idx_sec_id:
+            return jsonify({"status": "error", "message": f"Unknown index: {underlying}"}), 400
+        entry_index = data.get('entry_index')  # present => conditional (index-touch) entry
 
-        # 4. Validate SL / Target
+        # 4. Position / reversal guard. An opposite signal while an entry is armed
+        #    but unfilled cancels the armed entry, then proceeds. Anything else
+        #    (a live position, or a same-direction pending) is rejected.
+        existing_state = conditional_engine._get_state(underlying)
+        existing_side = existing_state.get('side', 'NONE')
+        if existing_side != 'NONE':
+            target_pending = 'PENDING_CALL' if side == 'CALL' else 'PENDING_PUT'
+            if existing_side in ('PENDING_CALL', 'PENDING_PUT') and existing_side != target_pending:
+                logger.info(f"Reversal while pending: cancelling armed {existing_side} for {underlying}")
+                conditional_engine.cancel_pending_entry(underlying)
+            else:
+                return jsonify({
+                    "status": "error",
+                    "message": f"{underlying} already has an open/pending {existing_side} position. Exit it first."
+                }), 400
+
+        # 5. SL / Target required for both paths
         sl_index = data.get('sl_index')
         target_index = data.get('target_index')
         if not sl_index or not target_index:
-            label = "CALL" if signal_type == 'B' else "PUT"
-            return jsonify({"status": "error", "message": f"Manual {label} requires Index Stop Loss and Target levels"}), 400
-
+            return jsonify({"status": "error", "message": f"Manual {side} requires Index Stop Loss and Target levels"}), 400
         try:
             sl_idx_val = float(sl_index)
             tgt_idx_val = float(target_index)
         except (TypeError, ValueError) as e:
             return jsonify({"status": "error", "message": f"Invalid SL/Target index value: {e}"}), 400
 
-        if signal_type == 'B':
+        feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)
+        if not feed_id:
+            logger.warning(f"/conditional-order: no trade_feed_id for {underlying} — feed record will be orphaned")
+
+        # ─── CONDITIONAL ENTRY PATH (entry_index provided) ───
+        # Buy fires only when NIFTY touches entry_index; SL/Target arm on fill.
+        if entry_index is not None:
+            ok, trig = derive_entry_trigger(entry_index, spot_index)
+            if not ok:
+                return jsonify({"status": "error", "message": trig['reason']}), 400
+            entry_lvl = trig['comparing_value']
+            # Validate SL/Target against the ENTRY level, not current spot.
+            v_ok, v_reason = validate_sl_target(side, entry_lvl, sl_idx_val, tgt_idx_val)
+            if not v_ok:
+                return jsonify({"status": "error", "message": v_reason}), 400
+            # Pre-compute the ITM strike from the ENTRY level, not current spot.
+            itm = resolve_call_itm(broker, underlying, entry_lvl) if side == 'CALL' else resolve_put_itm(broker, underlying, entry_lvl)
+            if not itm:
+                return jsonify({"status": "error", "message": "Failed to resolve ITM contract at entry level"}), 400
+            correlation_id = f"ENTRY:{underlying}:{uuid.uuid4().hex[:12]}"
+            res = conditional_engine.arm_conditional_entry({
+                "underlying": underlying, "side": side, "itm": itm,
+                "idx_sec_id": idx_sec_id, "quantity": quantity,
+                "operator": trig['operator'], "comparing_value": entry_lvl,
+                "sl_index": sl_idx_val, "target_index": tgt_idx_val,
+                "correlation_id": correlation_id, "trade_feed_id": feed_id,
+            })
+            code = 200 if res.get('status') == 'success' else 400
+            return jsonify(res), code
+
+        # ─── IMMEDIATE MARKET ENTRY PATH (no entry_index) — unchanged behavior ───
+        # Validate SL/Target against current spot.
+        if side == 'CALL':
             if sl_idx_val >= spot_index:
                 return jsonify({"status": "error", "message": f"CALL SL ({sl_idx_val}) must be below spot ({spot_index})"}), 400
             if tgt_idx_val <= spot_index:
@@ -1331,19 +1388,9 @@ def conditional_order():
             if tgt_idx_val >= spot_index:
                 return jsonify({"status": "error", "message": f"PUT Target ({tgt_idx_val}) must be below spot ({spot_index})"}), 400
 
-        # 5. Resolve ITM contract and index security ID
-        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"}
-        idx_sec_id = index_ids.get(underlying.upper())
-        side = 'CALL' if signal_type == 'B' else 'PUT'
         itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
-
-        if not itm or not idx_sec_id:
+        if not itm:
             return jsonify({"status": "error", "message": "Failed to resolve ITM contract or Index ID"}), 400
-
-        # 6. Prefer explicit feed_id passed by Claude; fall back to Redis lookup
-        feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)
-        if not feed_id:
-            logger.warning(f"/conditional-order: no trade_feed_id for {underlying} — feed record will be orphaned")
 
         leg_data = {
             "underlying": underlying,
@@ -1355,11 +1402,9 @@ def conditional_order():
             "target_index": target_index,
             "trade_feed_id": feed_id,
         }
-
-        # 7. Execute entry
         res = conditional_engine.handle_signal(signal_type, leg_data)
 
-        # 8. Defer GTT placement until order fill confirmation (postback)
+        # Defer GTT placement until order fill confirmation (postback)
         if res.get('status') == 'success':
             order_id = res.get('order_id')
             if order_id:
@@ -1495,8 +1540,7 @@ def set_conditional_index_orders():
 
     try:
         # NEW: Ensure idx_sec_id is available even for manual protection
-        index_ids = {"NIFTY": "13", "BANKNIFTY": "25", "FINNIFTY": "27"}
-        idx_sec_id = index_ids.get(underlying.upper())
+        idx_sec_id = index_id_for(underlying)
         
         # Inject into state if missing (rare legacy positions)
         state = conditional_engine._get_state(underlying)

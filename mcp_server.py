@@ -139,6 +139,7 @@ async def place_conditional_order(
     sl_index: float = None,
     target_index: float = None,
     spot_index: float = None,
+    entry_index: float = None,
     trade_feed_id: int = None,
 ):
     """
@@ -153,13 +154,23 @@ async def place_conditional_order(
     The SL and Target are expressed as INDEX price levels (not option premium).
     A polling monitor exits the trade when the index crosses those levels.
 
+    Entry modes (CALL/PUT):
+        - Omit entry_index -> IMMEDIATE market buy at current spot (legacy behavior).
+        - Pass entry_index -> CONDITIONAL buy: the option is bought only when NIFTY
+          spot TOUCHES entry_index. Trigger direction is auto-derived (entry above
+          spot fires on the way up; below spot fires on the way down). The ITM strike
+          is pre-computed from entry_index, and SL/Target are validated against
+          entry_index (not spot) and arm on the entry fill.
+
     Args:
         action:        CALL | PUT | EXIT_CALL | EXIT_PUT
         underlying:    NIFTY, BANKNIFTY, or FINNIFTY (default NIFTY).
         quantity:      Number of lots (default 1).
-        sl_index:      Index SL level. For CALL must be < spot; for PUT must be > spot.
+        sl_index:      Index SL level. For CALL must be < entry/spot; for PUT must be > entry/spot.
         target_index:  Index target level.
         spot_index:    Optional current index spot. Omit to fetch live.
+        entry_index:   Optional. Index level that must be TOUCHED before the buy fires.
+                       Omit for an immediate market entry.
         trade_feed_id: ID from the signal payload — pass it back so the dashboard
                        feed row is correctly linked to this order.
     """
@@ -170,6 +181,7 @@ async def place_conditional_order(
         "sl_index": sl_index,
         "target_index": target_index,
         "spot_index": spot_index,
+        "entry_index": entry_index,
         "trade_feed_id": trade_feed_id,
     })
 

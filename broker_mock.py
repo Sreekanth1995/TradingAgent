@@ -3,6 +3,8 @@ import random
 import time
 from datetime import datetime
 
+from constants import index_id_for
+
 logger = logging.getLogger(__name__)
 
 class MockDhanClient:
@@ -38,12 +40,7 @@ class MockDhanClient:
 
     def get_index_id(self, symbol):
         """Returns standard Dhan Security ID for indices."""
-        mapping = {
-            "NIFTY": "13",
-            "BANKNIFTY": "25",
-            "FINNIFTY": "27"
-        }
-        return mapping.get(symbol.upper())
+        return index_id_for(symbol)
 
     def get_ltp(self, security_id, exchange_segment=None):
         """Returns a jittery price for any security ID and checks for SL/Target hits."""
@@ -267,9 +264,16 @@ class MockDhanClient:
         alert_id = f"GTT_{random.randint(1000, 9999)}"
         self.mock_gtts[alert_id] = {
             "sec_id": sec_id, "operator": operator,
-            "comparing_value": comparing_value, "quantity": quantity
+            "comparing_value": comparing_value, "quantity": quantity,
+            # Record pass-through kwargs so tests can assert the entry/exit linkage.
+            "transaction_type": kwargs.get("transaction_type", "SELL"),
+            "product_type": kwargs.get("product_type"),
+            "trigger_sec_id": kwargs.get("trigger_sec_id"),
+            "user_note": kwargs.get("user_note"),
         }
-        logger.info(f"[MOCK BROKER] GTT Created: alertId={alert_id} | {operator} @ {comparing_value}")
+        logger.info(f"[MOCK BROKER] GTT Created: alertId={alert_id} | "
+                    f"{kwargs.get('transaction_type', 'SELL')} {operator} @ {comparing_value} "
+                    f"note={kwargs.get('user_note')}")
         return {"success": True, "alert_id": alert_id, "error": None}
 
     def cancel_conditional_order(self, alert_id):

@@ -10,6 +10,8 @@ from datetime import datetime
 from dhanhq import dhanhq
 from dhanhq.orderupdate import OrderSocket
 
+from constants import index_id_for, index_name_for, is_index_id, IDX_SEGMENT
+
 # Define constants locally as they are missing in dhanhq 2.0.2
 class ExchangeSegment:
     NSE_FNO = "NSE_FNO"
@@ -163,12 +165,7 @@ class DhanClient:
 
     def get_index_id(self, symbol):
         """Returns standard Dhan Security ID for indices."""
-        mapping = {
-            "NIFTY": "13",
-            "BANKNIFTY": "25",
-            "FINNIFTY": "27"
-        }
-        return mapping.get(symbol.upper())
+        return index_id_for(symbol)
 
     @property
     def scrip_csv_path(self):
@@ -692,8 +689,7 @@ class DhanClient:
         # since it works without authentication
         if exchange_segment == "IDX_I":
             # Map known Dhan index security IDs to symbols
-            index_id_map = {"13": "NIFTY", "25": "BANKNIFTY", "27": "FINNIFTY"}
-            sym = index_id_map.get(str(security_id))
+            sym = index_name_for(security_id)
             if sym:
                 # Try Dhan API first (if credentials available and not dry_run)
                 if self.access_token and self.client_id and not self.dry_run:
@@ -1269,8 +1265,7 @@ class DhanClient:
         # When trigger is an index (sec IDs: 13=NIFTY, 25=BANKNIFTY, 27=FINNIFTY),
         # the condition block MUST use IDX_I exchange segment — not NSE_FNO.
         # Using NSE_FNO for index IDs causes Dhan DH-905 Input_Exception.
-        INDEX_IDS = {"13", "25", "27"}
-        condition_exchange_seg = "IDX_I" if str(actual_trigger_id) in INDEX_IDS else exchange_seg
+        condition_exchange_seg = IDX_SEGMENT if is_index_id(actual_trigger_id) else exchange_seg
 
         payload = {
             "dhanClientId": self.client_id,

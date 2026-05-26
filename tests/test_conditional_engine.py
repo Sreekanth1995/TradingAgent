@@ -19,16 +19,18 @@ class TestConditionalOrderEngine:
         self.engine.memory_store = {}
         
     def test_handle_buy_signal(self):
-        # 1. Simulate BUY signal (e.g. from /ui-signal)
+        # 1. Simulate BUY signal. ITM resolution now happens in the server route,
+        #    so the engine receives the resolved `itm` dict + `idx_sec_id` in leg_data.
         leg_data = {
             'underlying': 'NIFTY',
+            'itm': {'symbol': 'NIFTY 25 MAY 22000 CE', 'security_id': '12345'},
+            'idx_sec_id': '13',
             'quantity': 1,
-            'current_price': 22050.0
         }
-        
+
         # Mock successful market order placement
         self.mock_broker.place_buy_order.return_value = {'success': True, 'order_id': 'mock_entry_999'}
-        
+
         res = self.engine.handle_signal('B', leg_data)
         
         # Verify
@@ -80,25 +82,31 @@ class TestConditionalOrderEngine:
         assert state['side'] == 'NONE'
 
     def test_set_index_boundaries(self):
-        # Position must be active to set bound
+        # Position must be active AND have idx_sec_id (index trigger) to set bounds.
         self.engine._set_state('NIFTY', {
             'side': 'CALL',
             'security_id': '12345',
+            'idx_sec_id': '13',
             'quantity': 1
         })
-        
-        # Mock broker responses
+
+        # Mock broker responses — SL GTT placed first, then Target GTT.
         self.mock_broker.place_conditional_order.side_effect = [
             {'success': True, 'alert_id': 'SL_ALERT_1'},
             {'success': True, 'alert_id': 'TGT_ALERT_2'}
         ]
-        
+
         res = self.engine.set_index_boundaries('NIFTY', target_level=22100.0, sl_level=22000.0)
-        
+
+        # Current return shape: status/message/gtt_degraded (no sl_id/target_id).
         assert res['status'] == 'success'
-        assert res['sl_id'] == 'SL_ALERT_1'
-        assert res['target_id'] == 'TGT_ALERT_2'
-        
+        assert res['gtt_degraded'] is False
+
         state = self.engine._get_state('NIFTY')
         assert state['idx_sl_alert_id'] == 'SL_ALERT_1'
         assert state['idx_target_alert_id'] == 'TGT_ALERT_2'
+
+        # Exit legs must use the same product_type as the entry (INTRADAY) so the
+        # SELL nets the long instead of opening a new short.
+        for call in self.mock_broker.place_conditional_order.call_args_list:
+            assert call.kwargs['product_type'] == 'INTRADAY'
