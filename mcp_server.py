@@ -432,8 +432,8 @@ async def get_feeling(underlying: str = None):
 
     Returns the feeling (Bullish/Bearish/Inside) or null when unset.
     Returns HTTP 503 with recovery hint when the store is corrupt
-    (entries are blocked in that state; the operator must delete
-    feelings.json and restart the server).
+    (entries are blocked in that state; the operator deletes
+    feelings.json — no server restart needed).
     """
     payload = {"underlying": underlying} if underlying else {}
     return await _call("/get-feeling", payload)

@@ -379,7 +379,7 @@ def health():
     `feelings_store` is 'ok' (file readable, including missing-as-fresh-install)
     or 'unreadable' (corrupt JSON / permission denied). Operators should alert
     on unreadable — entries are blocked with status=skipped_by_feeling_unreadable
-    and the recovery path is `delete feelings.json then restart`.
+    and the recovery path is `delete feelings.json (no restart needed)`.
     """
     try:
         try:
@@ -2135,6 +2135,11 @@ def _feeling_block_for_entry(underlying, side):
     """Route-layer feeling gate. Returns None to allow the entry, or a dict
     body to short-circuit with HTTP 200 status=skipped_by_feeling[_unreadable].
 
+    Uses FeelingState.decide_for_entry() to fold the is_unreadable preflight
+    and the per-underlying lookup into ONE atomic disk read. Two separate
+    reads (the prior shape) had a TOCTOU window where the store could become
+    unreadable between them — the gate would then silently fail OPEN.
+
     `side` is the normalized CALL/PUT. Exits MUST be filtered out by the caller
     before invoking this — the gate never blocks exits.
 
@@ -2145,15 +2150,19 @@ def _feeling_block_for_entry(underlying, side):
         return None
     underlying = (underlying or '').upper() or 'NIFTY'
 
-    if feeling_state.is_unreadable:
+    allow, reason, status = feeling_state.decide_for_entry(underlying, side)
+    if allow:
+        return None
+
+    signal_label = 'LONG_ENTRY' if side == 'CALL' else 'SHORT_ENTRY'
+
+    if status == "unreadable":
         msg = f"Entry blocked: feelings store unreadable ({underlying} {side})"
         _add_activity_log(msg, "🚨 ")
         try:
             trade_feed.insert_trade(
-                underlying=underlying,
-                signal=('LONG_ENTRY' if side == 'CALL' else 'SHORT_ENTRY'),
-                status='SKIPPED',
-                comment='skipped_by_feeling_unreadable',
+                underlying=underlying, signal=signal_label,
+                status='SKIPPED', comment='skipped_by_feeling_unreadable',
             )
         except Exception as e:
             logger.warning(f"trade_feed SKIPPED row failed: {e}")
@@ -2161,24 +2170,23 @@ def _feeling_block_for_entry(underlying, side):
             "status": "skipped_by_feeling_unreadable",
             "underlying": underlying,
             "side": side,
-            "recovery": "delete feelings.json then restart",
+            "recovery": "delete feelings.json (no restart needed)",
         }
 
-    feeling = feeling_state.get(underlying)
-    allow, reason = feeling_gate(side, feeling)
-    if allow:
-        return None
-    msg = f"Entry blocked by {feeling} feeling: {underlying} {side}"
+    # Normal-status block (Bullish/Bearish/Inside contra-bias).
+    msg = f"Entry blocked by feeling: {underlying} {side} ({reason})"
     _add_activity_log(msg, "🛑 ")
     try:
         trade_feed.insert_trade(
-            underlying=underlying,
-            signal=('LONG_ENTRY' if side == 'CALL' else 'SHORT_ENTRY'),
-            status='SKIPPED',
-            comment=f'skipped_by_feeling ({feeling})',
+            underlying=underlying, signal=signal_label,
+            status='SKIPPED', comment=f'skipped_by_feeling ({reason})',
         )
     except Exception as e:
         logger.warning(f"trade_feed SKIPPED row failed: {e}")
+    # Surface the raw feeling for the caller (re-read is cheap and only happens
+    # on the rare blocked path — and the active-feeling lookup here is for the
+    # response body only, not for the gate decision).
+    feeling = feeling_state.get(underlying)
     return {
         "status": "skipped_by_feeling",
         "underlying": underlying,
@@ -2261,7 +2269,7 @@ def set_feeling_route():
             "status": "error",
             "feelings_store": "unreadable",
             "message": "feelings store unreadable",
-            "recovery": "delete feelings.json then restart",
+            "recovery": "delete feelings.json (no restart needed)",
         }), 503
 
     try:
@@ -2304,7 +2312,7 @@ def get_feeling_route():
             "status": "error",
             "feelings_store": "unreadable",
             "message": "feelings store unreadable",
-            "recovery": "delete feelings.json then restart",
+            "recovery": "delete feelings.json (no restart needed)",
         }), 503
 
     underlying_raw = data.get('underlying')

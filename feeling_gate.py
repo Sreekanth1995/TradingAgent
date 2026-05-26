@@ -173,7 +173,8 @@ class FeelingState:
     cannot be parsed (JSONDecodeError) or read (PermissionError). In that
     state, /health surfaces feelings_store='unreadable' and entry routes
     block with status='skipped_by_feeling_unreadable'. Recovery: operator
-    deletes feelings.json and restarts.
+    deletes feelings.json (no restart needed — _load() reads fresh on every
+    call, and `set()` will create a new file on next /set-feeling).
 
     Missing file is NOT unreadable — it's the fresh-install default ("no
     opinion → allow all"). This is the load-bearing distinction the
@@ -216,9 +217,10 @@ class FeelingState:
         """Return the feeling for `underlying`, or None if unset or unreadable.
 
         Callers that need to distinguish unreadable-vs-unset must consult
-        `is_unreadable` separately; this method coerces the unreadable case
-        to None so the gate fails closed via the entry-route logic, not via
-        a hidden "looks bullish" payload.
+        `is_unreadable` separately, or use `decide_for_entry()` which folds
+        both reads into one atomic load. This method coerces the unreadable
+        case to None — if you trust it without the unreadable preflight,
+        you'll silently fail-open under corruption.
         """
         if not isinstance(underlying, str):
             return None
@@ -226,6 +228,34 @@ class FeelingState:
         if status != "ok":
             return None  # missing → no opinion; corrupt/denied → caller checks is_unreadable
         return data.get(underlying.upper())
+
+    def decide_for_entry(self, underlying: str, side: str) -> Tuple[bool, str, str]:
+        """Single-read decision: should an entry for `underlying`/`side` be allowed?
+
+        Folds the `is_unreadable` preflight and the `get()` lookup into ONE
+        disk read so there is no TOCTOU window between the two. ALL entry-route
+        and engine-layer guards should call this rather than the two-step
+        is_unreadable + get + feeling_gate(...) dance.
+
+        Returns (allow: bool, reason: str, status: str) where:
+          - allow is False when the store is unreadable OR the feeling blocks
+          - reason is a human-readable explanation
+          - status is one of 'ok' (normal decision) or 'unreadable' (fail-closed
+            because the store can't be parsed)
+
+        side must be 'CALL' or 'PUT'. Invalid side fails CLOSED, not open —
+        the engine-layer guard must never silently disappear on a typo.
+        """
+        if side not in VALID_SIDES:
+            return False, f"invalid side {side!r} — fail-closed", "ok"
+        data, load_status = self._load()
+        if load_status in ("corrupt", "denied"):
+            return False, "feelings store unreadable", "unreadable"
+        if not isinstance(underlying, str):
+            return False, f"invalid underlying {underlying!r}", "ok"
+        feeling = data.get(underlying.upper())
+        allow, reason = feeling_gate(side, feeling)
+        return allow, reason, "ok"
 
     def get_all(self) -> dict:
         """Return the full per-underlying map. Returns {} on missing or unreadable."""
@@ -254,11 +284,11 @@ class FeelingState:
             data, status = self._load()
             if status in ("corrupt", "denied"):
                 # Refuse to write into an unreadable store — the operator must
-                # delete + restart per the recovery contract. Writing would
-                # silently mask the corruption.
+                # delete the file (no restart needed; the next set() will create
+                # a fresh one). Writing here would silently mask the corruption.
                 raise RuntimeError(
                     f"feelings store is {status}; refusing to write. "
-                    f"Recovery: delete {self._path} and restart."
+                    f"Recovery: delete {self._path} (no restart needed)."
                 )
             data = dict(data)  # don't mutate the read result
             key = underlying.upper()

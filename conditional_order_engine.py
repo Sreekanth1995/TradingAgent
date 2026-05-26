@@ -133,30 +133,33 @@ class ConditionalOrderEngine:
         dict if the entry should be blocked. Skipped entirely when
         feeling_state is None (e.g. older tests or legacy callers).
 
+        Uses FeelingState.decide_for_entry() for a single atomic read — no
+        TOCTOU window between is_unreadable and get(). Invalid side fails
+        CLOSED so a typo or future caller bug can't make the guard disappear.
+
         side must be 'CALL' or 'PUT'. Exits are filtered out by the caller.
         """
-        if self.feeling_state is None or side not in ('CALL', 'PUT'):
+        if self.feeling_state is None:
             return None
-        if self.feeling_state.is_unreadable:
+        allow, reason, status = self.feeling_state.decide_for_entry(underlying, side)
+        if allow:
+            return None
+        if status == "unreadable":
             msg = f"feelings store unreadable — refusing {side} entry for {underlying}"
             logger.warning(msg)
             if self._activity_log_fn:
                 self._activity_log_fn(msg, "🚨 ")
             return {"status": "skipped_by_feeling_unreadable",
                     "underlying": underlying, "side": side,
-                    "reason": "feelings store unreadable; delete feelings.json and restart"}
-        from feeling_gate import feeling_gate as _gate_decide
-        feeling = self.feeling_state.get(underlying)
-        allow, reason = _gate_decide(side, feeling)
-        if not allow:
-            msg = f"engine gate: {feeling} feeling blocks {side} entry for {underlying}"
-            logger.info(msg)
-            if self._activity_log_fn:
-                self._activity_log_fn(msg, "🛑 ")
-            return {"status": "skipped_by_feeling",
-                    "underlying": underlying, "side": side,
-                    "feeling": feeling, "reason": reason}
-        return None
+                    "reason": "feelings store unreadable; delete feelings.json (no restart needed)"}
+        feeling = self.feeling_state.get(underlying) if side in ('CALL', 'PUT') else None
+        msg = f"engine gate: blocked {side} entry for {underlying} ({reason})"
+        logger.info(msg)
+        if self._activity_log_fn:
+            self._activity_log_fn(msg, "🛑 ")
+        return {"status": "skipped_by_feeling",
+                "underlying": underlying, "side": side,
+                "feeling": feeling, "reason": reason}
 
     def handle_signal(self, signal_type, leg_data):
         """

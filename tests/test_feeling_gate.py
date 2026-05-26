@@ -349,6 +349,122 @@ class TestEngineGuard:
         # The broker call should have been reached.
         engine.broker.place_super_order.assert_called_once()
 
+    def test_super_engine_fails_closed_on_invalid_side(self, tmp_path):
+        """/ship adversarial review CRITICAL #2: a programming-error caller
+        with side='Call' (lowercase) or any other invalid string must NOT
+        silently bypass the gate. The Approach-C safety net disappears if
+        the engine guard is permissive on garbage input.
+        """
+        fs = FeelingState(path=str(tmp_path / 'feelings.json'))
+        fs.set('NIFTY', 'Bullish')
+        engine = SuperOrderEngine(MockDhanClient(), feeling_state=fs)
+        # Spy the broker call so we can prove it was never invoked.
+        engine.broker.place_super_order = MagicMock()
+
+        itm = {'symbol': 'NIFTY24NOV24500CE', 'security_id': '12345'}
+        result = engine.place_super_order(
+            underlying='NIFTY', side='Call',  # wrong case — invalid
+            quantity=1, itm=itm,
+            target_price=100, stop_loss_price=50,
+        )
+        assert result.get('success') is False, "invalid side must NOT proceed to broker"
+        assert result.get('status') == 'skipped_by_feeling'
+        engine.broker.place_super_order.assert_not_called()
+
+    def test_conditional_arm_entry_engine_guard_blocks(self, tmp_path):
+        """/ship adversarial review test gap: arm_conditional_entry has the
+        engine guard but no test exercised it directly. This test calls the
+        method (bypassing the /conditional-order route) and asserts the
+        block kicks in before any broker call."""
+        fs = FeelingState(path=str(tmp_path / 'feelings.json'))
+        fs.set('NIFTY', 'Bearish')  # blocks CALL
+        engine = ConditionalOrderEngine(MockDhanClient(), feeling_state=fs)
+        # Inject lot_size so the gate is the only thing in front of broker placement.
+        engine.broker.lot_map['12345'] = 75
+        engine.broker.place_conditional_order = MagicMock()
+
+        result = engine.arm_conditional_entry({
+            'underlying': 'NIFTY', 'side': 'CALL',
+            'itm': {'symbol': 'NIFTY24NOV24500CE', 'security_id': '12345',
+                    'tradingSymbol': 'NIFTY24NOV24500CE'},
+            'idx_sec_id': '13', 'operator': 'ABOVE', 'comparing_value': 24500.0,
+            'sl_index': 24400.0, 'target_index': 24700.0,
+            'correlation_id': 'ENTRY:NIFTY:abc', 'quantity': 1,
+        })
+        assert result.get('status') == 'skipped_by_feeling'
+        assert result.get('feeling') == 'Bearish'
+        engine.broker.place_conditional_order.assert_not_called()
+
+
+# ───────────────────────── TestUnreadableRoutes ─────────────────────────
+class TestUnreadableRoutes:
+    """/ship adversarial review test gap: no route-level test for the
+    unreadable-store branch. Highest-stakes fail-closed path (entries blocked)
+    that previously had no integration coverage."""
+
+    def test_super_order_blocked_when_store_unreadable(self, server_app, tmp_path):
+        # Corrupt the test feelings.json after fixture has wired feeling_state.
+        with open(server_app.feeling_state.path, 'w') as f:
+            f.write('{"NIFTY": "Bull')  # torn write
+
+        client = server_app.app.test_client()
+        r = client.post('/super-order', json={
+            'secret': 'testsecret', 'underlying': 'NIFTY', 'side': 'CALL',
+            'target_price': 100, 'sl_price': 50,
+            'option': 'NIFTY24NOV24500CE', 'security_id': '12345',
+        })
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body['status'] == 'skipped_by_feeling_unreadable'
+        assert 'recovery' in body
+        # The hint must NOT direct the user to restart the server. Earlier
+        # versions said "delete feelings.json then restart" — restart isn't
+        # required because FeelingState reads disk fresh on every call.
+        assert 'no restart needed' in body['recovery'], \
+            f"recovery hint should clarify restart is unnecessary, got {body['recovery']!r}"
+
+    def test_set_feeling_returns_503_when_store_unreadable(self, server_app):
+        with open(server_app.feeling_state.path, 'w') as f:
+            f.write('{"NIFTY": "Bull')
+
+        client = server_app.app.test_client()
+        r = client.post('/set-feeling', json={'secret': 'testsecret', 'underlying': 'NIFTY', 'value': 'Bullish'})
+        assert r.status_code == 503
+        assert r.get_json()['feelings_store'] == 'unreadable'
+
+    def test_health_surfaces_unreadable(self, server_app):
+        with open(server_app.feeling_state.path, 'w') as f:
+            f.write('{"NIFTY": "Bull')
+
+        client = server_app.app.test_client()
+        r = client.get('/health')
+        assert r.status_code == 200
+        assert r.get_json()['feelings_store'] == 'unreadable'
+
+
+# ───────────────────────── TestSSEInvisibility ─────────────────────────
+class TestSSEInvisibility:
+    """/ship adversarial review test gap: the design promise that vetoed
+    /webhook signals stay invisible to Claude (no last_signal_storage update,
+    no SSE emit) was enforced only by code structure. Pin it with a test
+    so a future refactor can't silently break the invisibility contract."""
+
+    def test_blocked_webhook_does_not_update_last_signal_storage(self, server_app):
+        client = server_app.app.test_client()
+        client.post('/set-feeling', json={'secret': 'testsecret', 'underlying': 'NIFTY', 'value': 'Bullish'})
+
+        # Reset last_signal_storage to a known state before the call.
+        server_app.last_signal_storage['data'] = None
+
+        r = client.post('/webhook', json={
+            'secret': 'testsecret', 'timeframe': 5,
+            'order_legs': [{'underlying': 'NIFTY', 'transactionType': 'SELL', 'price': 24500}],
+        })
+        assert r.status_code == 200
+        # The blocked signal should NOT have updated last_signal_storage.
+        assert server_app.last_signal_storage['data'] is None, \
+            "vetoed signal leaked into last_signal_storage — AI mode would see it"
+
 
 # ───────────────────────── TestLifecycle ─────────────────────────
 class TestLifecycle:

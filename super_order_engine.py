@@ -86,22 +86,26 @@ class SuperOrderEngine:
         Engine-layer feeling gate runs FIRST (Approach C). The route layer is the
         primary gate; this catches a bypass. `side` is already explicit
         ('CALL'/'PUT'), so no symbol parsing is required.
+
+        Uses FeelingState.decide_for_entry() for a single atomic read — no
+        TOCTOU window between is_unreadable and get(). Invalid side fails
+        CLOSED so a typo or future caller bug can't make the guard disappear.
         """
-        # Engine-layer gate (Approach C safety net). Skipped when feeling_state
-        # is None (e.g. older tests) or when side isn't a valid entry side.
-        if self.feeling_state is not None and side in ('CALL', 'PUT'):
-            if self.feeling_state.is_unreadable:
-                msg = f"feelings store unreadable — refusing {side} entry for {underlying}"
-                logger.warning(msg)
-                self._add_activity_log(msg, "🚨 ")
-                return {"success": False, "status": "skipped_by_feeling_unreadable",
-                        "underlying": underlying, "side": side,
-                        "reason": "feelings store unreadable; delete feelings.json and restart"}
-            from feeling_gate import feeling_gate as _gate_decide
-            feeling = self.feeling_state.get(underlying)
-            allow, reason = _gate_decide(side, feeling)
+        # Engine-layer gate (Approach C safety net). Skipped only when no
+        # feeling_state is wired in (older tests / legacy callers).
+        if self.feeling_state is not None:
+            allow, reason, status = self.feeling_state.decide_for_entry(underlying, side)
             if not allow:
-                msg = f"engine gate: {feeling} feeling blocks {side} entry for {underlying}"
+                if status == "unreadable":
+                    msg = f"engine gate: feelings store unreadable — refusing {side} entry for {underlying}"
+                    logger.warning(msg)
+                    self._add_activity_log(msg, "🚨 ")
+                    return {"success": False, "status": "skipped_by_feeling_unreadable",
+                            "underlying": underlying, "side": side,
+                            "reason": "feelings store unreadable; delete feelings.json (no restart needed)"}
+                # Normal block (Bullish/Bearish/Inside contra-bias, or invalid side fail-closed)
+                feeling = self.feeling_state.get(underlying) if side in ('CALL', 'PUT') else None
+                msg = f"engine gate: blocked {side} entry for {underlying} ({reason})"
                 logger.info(msg)
                 self._add_activity_log(msg, "🛑 ")
                 return {"success": False, "status": "skipped_by_feeling",
