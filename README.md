@@ -29,6 +29,26 @@ If a signal reverses (e.g., LONG -> SHORT) while a position is active:
 -   Immediately after handling the exit Modification/Cancellation, the bot triggers the **Smart Entry** logic for the **New Position** (e.g., Short/Put).
 -   This results in a temporary "Hedged" state where the old position works its limit exit while the new position seeks its limit entry.
 
+## 4b. Per-Underlying Market-Feeling Trade Gate
+The bot accepts an explicit directional bias per underlying (NIFTY / BANKNIFTY / FINNIFTY) that hard-blocks contra-bias **entries** at both the HTTP route and the engine. Exits are never blocked.
+
+| feeling   | CALL entry | PUT entry |
+|-----------|------------|-----------|
+| `Bullish` | allow      | block     |
+| `Bearish` | block      | allow     |
+| `Inside`  | block      | block     |
+| `null`    | allow      | allow     |
+
+-   **Surfaces**:
+    -   `POST /set-feeling` and `POST /get-feeling` (payload `{secret, underlying, value}`; `value` accepts `Bullish` / `Bearish` / `Inside` / `null` to clear).
+    -   MCP tools `set_feeling(underlying, value)` and `get_feeling(underlying=None)` (see `docs/MCP_SETUP.md`).
+    -   `/health` exposes `feelings_store ∈ {"ok","unreadable"}`.
+-   **Storage**: `feelings.json` next to `server.py`, written atomically (`atomic_json.write_json` → `os.replace`). A torn write from a crash is impossible; the file is either the previous version or the new one.
+-   **Fail-closed reads**: a corrupt or permission-denied `feelings.json` puts the store into `unreadable`. While unreadable, every entry returns HTTP 200 `status=skipped_by_feeling_unreadable` with `recovery: "delete feelings.json (no restart needed)"`. Missing file is NOT unreadable — it's the fresh-install default (`allow all`).
+-   **Blocked entries** return HTTP 200 with `status=skipped_by_feeling`, a `reason`, and write a `SKIPPED` row into `trade_feed` plus an activity-log line. They do NOT update `last_signal_storage` or stream over SSE, so vetoed signals stay invisible to Claude (AI mode).
+-   **Pending warnings**: setting a feeling that contradicts an armed-but-unfilled conditional entry (`PENDING_CALL` / `PENDING_PUT`) returns a `warnings[]` entry. Auto-cancel is deliberately NOT performed; the operator chooses whether to call `cancel_conditional_order`.
+-   **Defense in depth**: both engines (`super_order_engine`, `conditional_order_engine`) re-run the gate using `FeelingState.decide_for_entry()` — a single atomic read, no TOCTOU window between the unreadable preflight and the per-underlying lookup. Invalid side fails CLOSED.
+
 ## 4a. Conditional Index-Touch Entry (per-underlying)
 The `/conditional-order` endpoint (and the `place_conditional_order` MCP tool) accepts an optional `entry_index` field. When present, the bot does NOT buy immediately; it arms a broker-native conditional BUY that fires only when the underlying index touches `entry_index`.
 -   **Trigger direction is auto-derived**: entry above spot fires on the way up (`ABOVE`), below spot on the way down (`BELOW`).
