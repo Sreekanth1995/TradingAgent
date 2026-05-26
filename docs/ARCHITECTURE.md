@@ -61,6 +61,23 @@ A route-and-engine trade gate that hard-blocks contra-bias **entries** for NIFTY
 - **Defense in depth**: the route layer is the primary gate (`server._feeling_block_for_entry` runs before spot resolution and dedup, in `/webhook`, `/conditional-order`, and `/super-order`). Both engines re-check using `decide_for_entry()` so a new caller that bypasses the route still fail-closes. Invalid side fails CLOSED — a typo never silently disables the guard.
 - **Pending-entry warnings**: setting a feeling that contradicts an armed `PENDING_CALL` / `PENDING_PUT` returns `warnings[]` but does NOT auto-cancel; the operator decides whether to call `cancel_conditional_order`.
 
+### Alarm Pipeline (`broker_dhan.BrokerDisagreement`, `server._add_activity_log`)
+A single channel surfaces every fail-closed disagreement between the bot and the broker so the operator actually sees the alarm.
+
+- **`BrokerDisagreement(reason, alarm_msg=None, **fields)`** in `broker_dhan.py` is the canonical return shape for any path where the broker disagrees with the engine (scrip miss, `lot_map` miss, exit-fail-no-clear, etc.). It returns `{success: False, status: "broker_disagreement", reason, alarm_msg, error, ...fields}`. Reserved keys (`success`, `status`, `reason`, `alarm_msg`, `error`) raise `ValueError` if passed via `**fields` — closes the foot-gun where a caller accidentally flips the contract into "broker agreed".
+- **`DhanClient(activity_log_fn=...)`** — broker-layer alarm sink. `server.py` wires this to `_add_activity_log` at construction. `DhanClient._alarm(msg, prefix="🚨 ")` is the single chokepoint; safe to call when the sink is `None` (boot / tests) — falls back to `logger.warning`.
+- **`server._add_activity_log(msg, prefix)`** — writes to the in-memory deque + Redis list, and gates a Slack post on `prefix` (or `msg`) starting with `🚨`. Slack delivery uses a 2-worker `ThreadPoolExecutor` with a 50-slot semaphore so an alarm storm cannot spawn unbounded threads (PR #9a `/ship` adversarial finding — the prior per-alarm `threading.Thread` was unbounded).
+- **Dashboard banner** — `templates/index.html` polls `POST /activity-logs` every 5 s, renders the last 20 entries, and displays a sticky red banner whenever any rendered line contains `🚨`. Mirrors the Slack gating so the operator sees the alarm in both places.
+- **`SLACK_WEBHOOK_URL` env var** — incoming-webhook URL; missing means dashboard-only delivery.
+- **Endpoint hardening** — `/activity-logs` and `/server-logs` now require an exact secret match (POST body OR `?secret=` query). The prior `data.get('secret') and data.get('secret') != SECRET` check let empty bodies through; with 🚨 alarms now flowing through `/activity-logs`, that bypass leaked live trade state (underlying/strike/expiry/side) to anyone hitting the endpoint.
+
+The first concrete consumer of this pipe is `broker_dhan._get_security_id`, which now returns `None` (with a 🚨 alarm) on a `scrip_map` miss instead of the literal `"1333"` that historically routed real-money orders onto whatever Dhan instrument 1333 happened to be.
+
+### Operational Hardening (PR #9a)
+- **`WEBHOOK_SECRET` fail-closed at boot.** `server.py` raises `RuntimeError` at module import if the env var is missing or whitespace, matching the `mcp_server.py` fix from commit d2f0adb. A misconfigured deploy is now a startup failure rather than a silent boot with a publicly-known default.
+- **HTTP timeouts on every broker `requests` call.** Every external HTTP call in `broker_dhan.py` now passes `timeout=(5, 10)` (connect, read). Prior code could hang gunicorn worker threads indefinitely on a Dhan TCP black-hole.
+- **Unique `correlationId` format.** `place_super_order` now generates `b{ms-base36}{uuid6}` (~15 chars) instead of `b_{int(time.time())}`. The 1-second-resolution generator collided under the 9:15 IST opening burst (3 underlyings × CALL/PUT can hit the same second); uniqueness is a precondition for the PR #9b idempotency work.
+
 ### Shared constants (`constants.py`)
 Index identifiers (`INDEX_NAME_TO_ID`, `INDEX_ID_TO_NAME`, helpers `index_id_for` / `index_name_for` / `is_index_id`), the index exchange segment (`IDX_SEGMENT = "IDX_I"`), and the options product type (`OPTIONS_PRODUCT_TYPE = "INTRADAY"`) are centralized in `constants.py`. The product type MUST stay identical across entry, SL/Target GTT, and manual-exit legs — otherwise the exit SELL opens a new short instead of netting the long.
 

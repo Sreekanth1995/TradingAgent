@@ -1,5 +1,38 @@
 # TODOS
 
+## Completed in PR #9a (alarm-pipe foundation, 2026-05-27)
+- **Broker: refuse to invent a security_id when strike not in scrip map** —
+  `_get_security_id` now returns `None` on a `scrip_map` miss instead of the
+  dummy `"1333"`. Fires a `🚨 SCRIP MISS` alarm via the new activity-log
+  callback. (broker_dhan.py)
+- **Operational: surface 🚨 alarms to a destination a human actually checks** —
+  `_add_activity_log` posts any `🚨`-prefixed message to `SLACK_WEBHOOK_URL`
+  (bounded 2-worker pool, 50-slot semaphore, drop-oldest under storm). The
+  dashboard polls `/activity-logs` every 5 s and renders a sticky red banner
+  whenever the most recent 20 entries contain a `🚨` line. (server.py,
+  templates/index.html)
+- **Conditional entry: confirm activity_log_fn actually surfaces alarms to a
+  human** — superseded by the Slack + dashboard banner work above.
+- **Broker: add HTTP timeouts to all requests calls** — every `requests.{get,
+  post,put,delete}` in `broker_dhan.py` now passes `timeout=(5, 10)`. No more
+  TCP black-hole hangs that would freeze gunicorn worker threads.
+- **Security: WEBHOOK_SECRET still has public default in server.py** —
+  `SECRET` is fail-closed at boot. Missing or whitespace-only env var raises
+  `RuntimeError` on import, mirroring the `mcp_server.py` fix from commit
+  d2f0adb.
+
+Also shipped (not previously tracked in TODOS):
+- **BrokerDisagreement helper** — canonical fail-closed return shape for any
+  broker/engine disagreement (`{success: False, status: "broker_disagreement",
+  reason, alarm_msg, error, ...fields}`). Used by every fail-closed contract
+  added in this PR and feeds the dashboard alarm taxonomy.
+- **DhanClient.activity_log_fn callback** — broker-layer alarm sink wired
+  through to `_add_activity_log` so broker-internal fail-closed paths reach
+  the same dashboard + Slack pipe.
+- **correlationId is now `b{ms-base36}{uuid6}` (~15 chars)** — old `b_{int(time.time())}`
+  collided under 9:15 IST opening bursts (3 underlyings × CALL/PUT in the same
+  second). PR #9b idempotency relies on uniqueness.
+
 ## Conditional entry: Approach C reconciliation safety net
 - **What:** A periodic reconciliation sweep that detects filled-but-unprotected conditional
   positions and either arms the bracket idempotently, raises a loud alarm, or force-exits.
@@ -79,33 +112,6 @@
   request body and verify the signature. Confirm Dhan supports either; if not, document the
   log-redaction posture explicitly.
 - **Found by:** /ship adversarial review on 2026-05-26.
-
-## Conditional entry: confirm activity_log_fn actually surfaces alarms to a human
-- **Priority:** P1
-- **What:** The "naked position" / "cancel failed" / "armed entry orphan" alarms all fire via
-  `self._activity_log_fn(msg, prefix)`. In server.py:127 this is wired to `_add_activity_log`,
-  which appends to an in-memory deque + a Redis list.
-- **Why:** If nothing reads that deque/list (no dashboard banner, no Slack push, no email),
-  the "loud" alarm is silent. The whole money-protecting alarm machinery only works if a human
-  actually sees it.
-- **How:** trace `_add_activity_log` consumers. Verify there is a UI panel, push notification,
-  or external integration that surfaces alarm-tier messages within minutes. If not, add one
-  (Slack webhook gated on the `🚨` prefix is cheap and sufficient).
-- **Found by:** /ship adversarial review on 2026-05-26.
-
-## Broker: refuse to invent a security_id when strike not in scrip map
-- **Priority:** P0
-- **What:** `broker_dhan.py:503-504` `_get_security_id` returns the literal string `"1333"`
-  as a "dummy" when the requested strike isn't found in `scrip_map`. Only a logger.warning
-  fires; every downstream caller treats the returned id as real and may place a BUY
-  against whatever Dhan instrument `1333` is.
-- **Why:** Scrip master can be partial (truncated download, transient parse error, Dhan
-  CSV schema change). A misconfigured deploy + a TradingView alert at 9:15 IST = the bot
-  places real money on the wrong contract, then arms a bracket against the wrong contract.
-  No alarm path surfaces this. Single most dangerous fail-OPEN in the codebase.
-- **How:** return `None`, propagate up; reject at caller with a loud `🚨 SCRIP MISS for
-  {strike}`. Adversarial test: feed a strike not in scrip_map and assert no order placed.
-- **Found by:** /design-review on 2026-05-27.
 
 ## Exit: super_order_engine.exit_super_order clears state even when broker SELL fails
 - **Priority:** P0
@@ -228,19 +234,6 @@
   `exit_in_progress=order_id` BEFORE the broker call so restart can reconcile.
 - **Found by:** /design-review on 2026-05-27.
 
-## Operational: surface 🚨 alarms to a destination a human actually checks
-- **Priority:** P1 (upgrades the prior P1 — concrete fix now identified)
-- **What:** `_add_activity_log` writes to in-memory deque + Redis list. `templates/index.html`
-  polling loop reads `/get-state` + `/get-history` only — never `/activity-logs` or
-  `/server-logs`. Operator never sees alarms unless they SSH and tail logs.
-- **Why:** every money-protecting alarm in the codebase (`🚨 ARMED ENTRY ORPHAN`, `🚨
-  NAKED POSITION`, `🚨 Conditional entry FILLED but bracket arm FAILED`, `🚨 POLLING
-  MONITOR SL_HIT`) is silent. The "loud" machinery is a black hole.
-- **How:** (a) dashboard adds 5s `/activity-logs` poll with a sticky red banner on `🚨`
-  prefix; (b) Slack/Telegram webhook gated on `🚨` prefix inside `_add_activity_log`. The
-  webhook fix is ~15 lines and closes the loop today.
-- **Found by:** /design-review on 2026-05-27. Supersedes the prior P1 "confirm activity_log_fn".
-
 ## /health: surface degraded state for monitoring probes
 - **Priority:** P1
 - **What:** `/health` reports only `broker_initialized`, `engine_initialized`,
@@ -275,31 +268,6 @@
   the gap, /webhook signals queue as PENDING in trade_feed but never place.
 - **How:** on `consume_consent` success, store `access_token_acquired_at` in Redis.
   Surface `token_age_hours` in `/health`. Emit `🚨 TOKEN EXPIRES SOON` when > 22h.
-- **Found by:** /design-review on 2026-05-27.
-
-## Broker: add HTTP timeouts to all requests calls
-- **Priority:** P1
-- **What:** broker_dhan.py has multiple `requests.post/put/delete/get` calls with no
-  `timeout=` argument (place_super_order, modify_super_*, cancel_super_order,
-  place_conditional_order, get_super_orders, get_conditional_order_details,
-  cancel_conditional_order, etc.).
-- **Why:** Dhan API TCP black-hole hangs the Flask request thread forever. Under
-  gunicorn with finite worker count, every hung thread shrinks capacity until the bot
-  locks up. Especially dangerous during expiry-day API stress.
-- **How:** `timeout=(connect=5, read=10)` on every external requests call; map timeout
-  exceptions into the standard `{"success": False, "error": "timeout"}` envelope.
-- **Found by:** /design-review on 2026-05-27.
-
-## Security: WEBHOOK_SECRET still has public default in server.py
-- **Priority:** P1
-- **What:** `server.py:34` `SECRET = os.getenv("WEBHOOK_SECRET", "60pgS")`. The
-  `mcp_server.py` mirror was fixed in commit d2f0adb to raise at startup if missing;
-  `server.py` still defaults to a publicly-known string.
-- **Why:** misconfigured deploy (forgot to copy `.env`) silently boots with a secret an
-  attacker can read off GitHub. Forged `/super-order`, `/exit-super-order`,
-  `/manual-exit`, `/update-token` calls become possible.
-- **How:** `SECRET = os.environ['WEBHOOK_SECRET']` at module import; raise RuntimeError
-  if missing. Mirror the d2f0adb fix.
 - **Found by:** /design-review on 2026-05-27.
 
 ## Tests: broker_dhan.py has < 5% direct coverage
