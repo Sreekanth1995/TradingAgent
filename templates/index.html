@@ -86,14 +86,14 @@
            Scope is narrow: only direct button/input elements, not the brand
            chips or the connect-btn which carry their own padding logic and
            are read-only state indicators. */
-        button:not(.add-level-btn):not(.connect-btn):not(.feed-refresh-btn):not(.brand-mark),
+        button:not(.add-level-btn):not(.connect-btn):not(.refresh-btn),
         input:not([type=hidden]):not([type=checkbox]):not([type=radio]) {
             min-height: 44px;
         }
         /* On the level studio's '+ Add Upper Level' and 'Refresh' tertiary
            actions, keep a smaller target but still meet the 32 px secondary
            minimum so they aren't accidental hits. */
-        .add-level-btn, .feed-refresh-btn { min-height: 32px; }
+        .add-level-btn, .refresh-btn { min-height: 32px; }
 
         /* ─── TOP BAR ─── */
         .topbar {
@@ -233,7 +233,10 @@
             text-align: center;
         }
 
-        .auth-strip input:focus {
+        /* :focus-visible (keyboard) gets the global accent ring (line 54-58).
+           :focus (mouse-click) keeps the original neutral border so the ring
+           doesn't flash on every click. */
+        .auth-strip input:focus:not(:focus-visible) {
             outline: none;
             border-color: var(--accent);
             background: var(--surface-2);
@@ -530,7 +533,7 @@
             transition: all 0.2s;
         }
 
-        .cond-input:focus {
+        .cond-input:focus:not(:focus-visible) {
             outline: none;
             border-color: var(--accent);
             background: var(--surface-1);
@@ -781,7 +784,7 @@
             transition: all 0.2s;
         }
 
-        .level-input:focus {
+        .level-input:focus:not(:focus-visible) {
             outline: none;
             border-color: var(--accent);
             background: var(--surface-1);
@@ -1163,7 +1166,7 @@
         </label>
         <input type="password" id="secret" name="webhook-secret"
             placeholder="Enter Webhook Secret to Unlock"
-            aria-label="Webhook Secret" autocomplete="current-password">
+            autocomplete="current-password">
     </section>
 
     <!-- MAIN CONTENT -->
