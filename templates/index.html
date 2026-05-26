@@ -35,6 +35,17 @@
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* PR #9a follow-up (design-review F2): keyboard focus must always be
+           visible. The default browser ring is suppressed by every input/button
+           we style, so we re-establish a consistent focus-visible ring here.
+           Use :focus-visible (keyboard-only, not mouse-click focus) so the
+           cyan ring doesn't appear on every click. */
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
         body {
             font-family: var(--body);
             background: var(--bg);
@@ -44,6 +55,18 @@
             color: var(--text-primary);
             min-height: 100vh;
             overflow-x: hidden;
+        }
+
+        /* PR #9a follow-up (design-review F3): semantic <h2>/<h3> were used
+           for section headers. Inherit the visual style of the existing
+           styled-strong/div headers instead of the browser defaults. */
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: inherit;
+            font-size: inherit;
+            color: inherit;
+            letter-spacing: inherit;
+            font-family: inherit;
+            margin: 0;
         }
 
         /* ─── TOP BAR ─── */
@@ -1076,14 +1099,14 @@
 
         <!-- LEFT: CONTROLS -->
         <div class="panel-left">
-            <div class="section-label">Trade Controls</div>
+            <h2 class="section-label">Trade Controls</h2>
 
             <section id="command-center" class="command-center" aria-label="NIFTY Trade Controls">
 
                 <!-- CALL SECTOR -->
                 <div id="sector-call" class="command-sector" data-sector="CALL" aria-label="NIFTY CALL CE Controls">
                     <div class="sector-head">
-                        <span class="sector-title">NIFTY CALL (CE)</span>
+                        <h3 class="sector-title">NIFTY CALL (CE)</h3>
                         <div id="stat-CALL" class="pos-active-label" aria-live="polite" data-status="call-active">
                             CALL ACTIVE
                         </div>
@@ -1136,7 +1159,7 @@
                 <!-- PUT SECTOR -->
                 <div id="sector-put" class="command-sector" data-sector="PUT" aria-label="NIFTY PUT PE Controls">
                     <div class="sector-head">
-                        <span class="sector-title">NIFTY PUT (PE)</span>
+                        <h3 class="sector-title">NIFTY PUT (PE)</h3>
                         <div id="stat-PUT" class="pos-active-label" aria-live="polite" data-status="put-active">
                             PUT ACTIVE
                         </div>
@@ -1207,7 +1230,7 @@
             <!-- PRICE LEVELS STUDIO -->
             <div class="panel-card">
                 <div class="panel-card-head">
-                    <span class="panel-card-title">Price Levels Studio</span>
+                    <h2 class="panel-card-title">Price Levels Studio</h2>
                 </div>
                 <div class="panel-card-body">
                     <button class="add-level-btn" onclick="addLevelRow('UTP')" style="margin-bottom:8px">+ Add Upper Level (UTP)</button>
@@ -1228,7 +1251,7 @@
             <!-- SYSTEM ACTIVITY FEED -->
             <div class="panel-card">
                 <div class="panel-card-head">
-                    <span class="panel-card-title">System Activity Feed</span>
+                    <h2 class="panel-card-title">System Activity Feed</h2>
                     <button class="refresh-btn" onclick="refreshTradeFeed()">↻ Refresh</button>
                 </div>
                 <div class="feed-wrap">
@@ -1261,7 +1284,7 @@
             <!-- PERFORMANCE HISTORY -->
             <div class="panel-card">
                 <div class="panel-card-head">
-                    <span class="panel-card-title">Live Performance History</span>
+                    <h2 class="panel-card-title">Live Performance History</h2>
                 </div>
                 <div class="panel-card-body">
                     <div id="history-list" class="history-list">
