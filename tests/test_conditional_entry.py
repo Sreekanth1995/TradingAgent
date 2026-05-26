@@ -10,6 +10,7 @@ Coverage:
   - regressions: market entry + orderId-keyed market fill still work (T12/R1/R2)
 """
 import pytest
+from unittest.mock import MagicMock
 
 from conditional_order_engine import ConditionalOrderEngine
 from broker_mock import MockDhanClient
@@ -133,6 +134,19 @@ class TestArmConditionalEntry:
         assert broker.mock_gtts == {}                     # never placed an order
         assert eng._get_state('NIFTY')['side'] == 'NONE'  # no PENDING state left
 
+    def test_broker_place_conditional_order_failure_leaves_no_pending_state(self):
+        # Broker rejects the alert order (e.g. Dhan DH-905, network, auth).
+        # The arm path must NOT set PENDING_* state and must NOT store pending_protection
+        # — otherwise a later (unrelated) postback could trigger a phantom bracket.
+        eng, broker = make_engine()
+        broker.place_conditional_order = MagicMock(
+            return_value={'success': False, 'alert_id': None, 'error': 'DH-905 Input_Exception'}
+        )
+        res = arm_call(eng, correlation='ENTRY:NIFTY:fail')
+        assert res['status'] == 'error' and 'DH-905' in res['message']
+        assert eng._get_state('NIFTY')['side'] == 'NONE'
+        assert eng.get_pending_protection('ENTRY:NIFTY:fail', consume=False) is None
+
 
 # ───────────────────────── T10/T2: fill → bracket ─────────────────────────
 class TestConditionalFill:
@@ -181,6 +195,38 @@ class TestConditionalFill:
         res = eng.handle_postback({'orderStatus': 'TRADED', 'orderId': 'O',
                                    'userNote': 'ENTRY:NIFTY:dup', 'filledQty': 75})
         assert res['source'] == 'conditional_fill_dup'
+
+    def test_bracket_arm_failure_raises_naked_position_alarm(self):
+        # If the entry fills but the SL/Target bracket fails to arm, the engine
+        # must shout — a filled-but-unprotected position is the v1 money-loss path
+        # the design called out. We simulate the failure by dropping the lot_map
+        # between arm and fill (mimicking a scrip-master reload race), then check
+        # that activity_log_fn received the loud "FAILED" message and that the
+        # position transitioned to CALL (so the operator can see the live state).
+        broker = MockDhanClient()
+        broker.lot_map = {CE_SID: 75}
+        log = MagicMock()
+        eng = ConditionalOrderEngine(broker=broker, activity_log_fn=log)
+        eng.memory_store = {}
+
+        arm_call(eng, correlation='ENTRY:NIFTY:alarm')
+        # Drop the lot_map so set_index_boundaries cannot arm the bracket.
+        broker.lot_map = {}
+
+        res = eng.handle_postback({
+            'orderStatus': 'TRADED', 'orderId': 'NEW_999',
+            'userNote': 'ENTRY:NIFTY:alarm', 'tradedPrice': 100.0, 'filledQty': 75,
+        })
+        assert res['source'] == 'conditional_fill' and res['final'] is True
+        assert res['gtt']['status'] != 'success'
+
+        # Position is live (we filled) but bracket failed — loud alarm fired.
+        assert eng._get_state('NIFTY')['side'] == 'CALL'
+        alarm_calls = [
+            call.args for call in log.call_args_list
+            if 'FAILED' in str(call.args) or 'unprotected' in str(call.args)
+        ]
+        assert alarm_calls, f"Expected naked-position alarm in activity log, got: {log.call_args_list}"
 
 
 # ───────────────────────── T5: cancel / race ─────────────────────────
@@ -257,3 +303,60 @@ class TestRegressions:
         st = eng._get_state('NIFTY')
         assert st.get('idx_sl_alert_id') and st.get('idx_target_alert_id')
         assert st['entry_price'] == 100.0
+
+
+# ───────────────────────── Polling monitor guard ─────────────────────────
+class TestMonitorGuard:
+    """
+    monitor_positions runs every 2s and checks SL/Target hits against index LTP.
+    PENDING_CALL/PENDING_PUT have no live position yet — without the guard, the
+    `if side == 'CALL' else PUT` branch would mis-classify PENDING_CALL and fire
+    a spurious LONG_EXIT against a position that doesn't exist.
+    """
+
+    def test_monitor_skips_pending_states_even_when_levels_would_trigger(self):
+        broker = MockDhanClient()
+        broker.lot_map = {CE_SID: 75}
+        eng = ConditionalOrderEngine(broker=broker)
+        eng.memory_store = {}
+
+        # PENDING_CALL with levels that WOULD trigger a target hit if treated as live CALL.
+        eng._set_state('NIFTY', {
+            'side': 'PENDING_CALL',
+            'symbol': 'NIFTY_MOCK_24550_CE', 'security_id': CE_SID,
+            'idx_sec_id': '13', 'quantity': 1,
+            'idx_sl_level': 24500.0, 'idx_target_level': 24700.0,
+            'entry_alert_id': 'ALERT_X', 'correlation_id': 'ENTRY:NIFTY:pmon',
+        })
+        # If the guard fails, monitor would call broker.get_ltp and then place_order.
+        broker.place_order = MagicMock(return_value={'success': True, 'order_id': 'X'})
+        get_ltp_spy = MagicMock(return_value=24800.0)  # would trigger target if live
+        broker.get_ltp = get_ltp_spy
+
+        eng.monitor_positions()
+
+        # Guard worked: no LTP fetch, no exit order placed, state unchanged.
+        get_ltp_spy.assert_not_called()
+        broker.place_order.assert_not_called()
+        assert eng._get_state('NIFTY')['side'] == 'PENDING_CALL'
+
+    def test_monitor_still_protects_live_positions(self):
+        # The guard must not break live-position monitoring — a hit should still fire.
+        broker = MockDhanClient()
+        broker.lot_map = {CE_SID: 75}
+        eng = ConditionalOrderEngine(broker=broker)
+        eng.memory_store = {}
+        eng._set_state('NIFTY', {
+            'side': 'CALL',  # live, not pending
+            'symbol': 'NIFTY_MOCK_24550_CE', 'security_id': CE_SID,
+            'idx_sec_id': '13', 'quantity': 1,
+            'idx_sl_level': 24500.0, 'idx_target_level': 24700.0,
+        })
+        broker.get_ltp = MagicMock(return_value=24800.0)  # target hit
+        broker.place_order = MagicMock(return_value={'success': True, 'order_id': 'EXIT'})
+
+        eng.monitor_positions()
+
+        # Live position: LTP checked, exit fired.
+        broker.get_ltp.assert_called_once_with('13', exchange_segment='IDX_I')
+        broker.place_order.assert_called_once()
