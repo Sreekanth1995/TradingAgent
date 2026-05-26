@@ -1036,6 +1036,34 @@
         </div>
     </header>
 
+    <!-- 🚨 ALARM BANNER (PR #9a T3a) — sticky, only visible when active alarms exist -->
+    <div id="alarm-banner" role="alert"
+         style="display:none; position:sticky; top:0; z-index:9999;
+                background:#7c1f1f; color:#ffe; padding:10px 18px;
+                font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+                font-size:14px; line-height:1.4; border-bottom:2px solid #ffb500;
+                box-shadow:0 4px 12px rgba(124,31,31,0.6);">
+        <strong>🚨 ALARM</strong> &mdash; <span id="alarm-banner-msg">checking…</span>
+        <span style="float:right; opacity:0.7; font-size:12px;" id="alarm-banner-count"></span>
+    </div>
+
+    <!-- ACTIVITY LOG PANEL — recent system events, last 20 entries -->
+    <section id="activity-log-panel"
+             aria-label="System activity"
+             style="margin:12px 18px; padding:12px;
+                    background:#161616; border:1px solid #2a2a2a; border-radius:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong style="color:#bbb; font-size:13px; letter-spacing:0.5px;">SYSTEM ACTIVITY</strong>
+            <span id="activity-log-status" style="color:#888; font-size:11px;">--</span>
+        </div>
+        <div id="activity-log-list"
+             style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+                    font-size:12px; line-height:1.6; max-height:260px; overflow-y:auto;
+                    color:#ddd;">
+            <span style="color:#666;">No activity yet.</span>
+        </div>
+    </section>
+
     <!-- AUTH STRIP -->
     <section class="auth-strip" aria-label="Authentication">
         <input type="password" id="secret" name="webhook-secret"
@@ -1263,6 +1291,12 @@
             }
             setInterval(refreshState, 5000);
             setInterval(refreshTradeFeed, 10000);
+            // PR #9a T3a — poll system activity logs so 🚨 alarms reach the operator.
+            // Without this the deque-only writes from server.py:_add_activity_log
+            // were invisible. The 5s cadence matches the existing refreshState
+            // tempo so the dashboard stays cheap.
+            refreshActivityLogs();
+            setInterval(refreshActivityLogs, 5000);
 
             // Handle Auth Success Redirect
             const params = new URLSearchParams(window.location.search);
@@ -1762,6 +1796,67 @@
                 <td>${pnl}</td>
                 <td style="font-size:9px;white-space:normal;min-width:70px;color:var(--text-secondary)">${comment}</td>
             </tr>`;
+        }
+
+        // PR #9a T3a — poll /activity-logs and render the last 20 entries.
+        // Sticky red banner activates whenever any rendered entry starts with 🚨,
+        // mirroring the Slack-webhook gating in server.py:_add_activity_log so the
+        // operator sees the alarm in two places (dashboard + Slack).
+        async function refreshActivityLogs() {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return;
+            try {
+                const res = await fetch('/activity-logs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret })
+                });
+                const data = await res.json();
+                const listEl = document.getElementById('activity-log-list');
+                const statusEl = document.getElementById('activity-log-status');
+                const bannerEl = document.getElementById('alarm-banner');
+                const bannerMsg = document.getElementById('alarm-banner-msg');
+                const bannerCount = document.getElementById('alarm-banner-count');
+                if (data.status !== 'success' || !Array.isArray(data.logs)) {
+                    statusEl.textContent = 'unauthorized or error';
+                    return;
+                }
+                const logs = data.logs.slice(0, 20);
+                if (logs.length === 0) {
+                    listEl.innerHTML = '<span style="color:#666;">No activity yet.</span>';
+                    bannerEl.style.display = 'none';
+                    statusEl.textContent = '0 entries';
+                    return;
+                }
+                // Render entries (newest first per the deque ordering used in server.py)
+                listEl.innerHTML = logs.map(line => {
+                    const isAlarm = /🚨/.test(line);
+                    const color = isAlarm ? '#ff7878' : '#cfcfcf';
+                    const weight = isAlarm ? 'bold' : 'normal';
+                    // Escape HTML
+                    const safe = String(line)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                    return `<div style="color:${color}; font-weight:${weight};">${safe}</div>`;
+                }).join('');
+                statusEl.textContent = `${logs.length} entries (refreshed ${new Date().toLocaleTimeString()})`;
+                // Sticky banner: visible if ANY 🚨 entry exists in the rendered slice
+                const alarms = logs.filter(l => /🚨/.test(l));
+                if (alarms.length > 0) {
+                    bannerEl.style.display = 'block';
+                    bannerMsg.textContent = alarms[0].replace(/^\s*\[\d{2}:\d{2}:\d{2}\]\s*/, '');
+                    bannerCount.textContent = alarms.length > 1
+                        ? `+${alarms.length - 1} more in feed`
+                        : '';
+                } else {
+                    bannerEl.style.display = 'none';
+                }
+            } catch (err) {
+                // Best-effort polling — surface the failure quietly.
+                const statusEl = document.getElementById('activity-log-status');
+                if (statusEl) statusEl.textContent = 'fetch error';
+            }
         }
 
         async function refreshTradeFeed() {
