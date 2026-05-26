@@ -5,6 +5,7 @@ import requests
 import pyotp
 import threading
 import time
+import uuid
 from datetime import datetime
 
 from dhanhq import dhanhq
@@ -44,15 +45,75 @@ DHAN_AVAILABLE = True
 
 logger = logging.getLogger(__name__)
 
+
+_BROKER_DISAGREEMENT_RESERVED = frozenset({
+    "success", "status", "reason", "alarm_msg", "error",
+})
+
+
+def BrokerDisagreement(reason, alarm_msg=None, **fields):
+    """Canonical return shape for any path where the broker disagrees with the
+    engine (unknown security_id, lot_map miss, exit-fail-no-clear, etc.).
+
+    Every fail-closed contract in DhanClient + the engines returns this shape
+    so the dashboard alarm panel (PR #11) and the activity_log subscriber can
+    render one template. Carries enough context for the operator to act.
+
+    Args:
+        reason:    Short machine-readable string (e.g. "scrip_miss",
+                   "lot_map_unknown", "exit_broker_failure").
+        alarm_msg: Human-readable 🚨 message; if provided AND DhanClient's
+                   activity_log_fn is wired, the caller fires it. None means
+                   "log but don't alarm" (e.g. for known graceful rejections).
+        **fields:  Extra context fields (sec_id, underlying, side, etc.).
+                   Reserved keys (success, status, reason, alarm_msg, error)
+                   raise ValueError — preventing the foot-gun where a caller
+                   accidentally passes success=True and silently flips the
+                   contract into "broker agreed" (PR #9a /ship adversarial
+                   review finding).
+
+    Returns a dict with:
+        success:   False (always — this is a disagreement, by definition).
+        status:    "broker_disagreement" (used for dashboard taxonomy).
+        reason:    The short tag passed in.
+        alarm_msg: The 🚨 string or None.
+        error:     Alias of alarm_msg or reason (for legacy callers reading
+                   `resp.get("error")`).
+        ...:       Any extra fields the caller passed.
+    """
+    collisions = _BROKER_DISAGREEMENT_RESERVED & fields.keys()
+    if collisions:
+        raise ValueError(
+            f"BrokerDisagreement: reserved keys {sorted(collisions)} cannot be "
+            f"passed via **fields — they're set by the helper itself"
+        )
+    # Spread fields FIRST then canonical keys LAST so even if the reserved-key
+    # check is bypassed (subclassed dict, etc.), the canonical contract wins.
+    return {
+        **fields,
+        "success": False,
+        "status": "broker_disagreement",
+        "reason": reason,
+        "alarm_msg": alarm_msg,
+        "error": alarm_msg or reason,
+    }
+
+
 class DhanClient:
-    def __init__(self, redis_client=None):
+    def __init__(self, redis_client=None, activity_log_fn=None):
         self.client_id = os.getenv("DHAN_CLIENT_ID")
         self.access_token = os.getenv("DHAN_ACCESS_TOKEN")
         self.api_id = os.getenv("DHAN_API_ID")
         self.api_secret = os.getenv("DHAN_API_SECRET")
-        
+
         # Redis for Token Persistence
         self.r = redis_client
+
+        # Alarm sink. Wired by server.py to _add_activity_log so that 🚨
+        # disagreements reach the dashboard activity feed (and Slack via the
+        # webhook gating, see _add_activity_log in server.py). None during
+        # boot or in tests; methods MUST tolerate that.
+        self._activity_log_fn = activity_log_fn
 
         # LTP cache: {(security_id, exchange_segment): (price, timestamp)}
         # Prevents rate-limit (429) when polling monitor + margin calls fire concurrently.
@@ -98,6 +159,21 @@ class DhanClient:
             logger.warning("dhanhq library not found. Install with `pip install dhanhq`.")
         else:
             logger.warning("No Dhan credentials found. Running in SIMULATION mode.")
+
+    def _alarm(self, msg, prefix="🚨 "):
+        """Surface a 🚨 disagreement to the operator dashboard + Slack webhook.
+
+        Safe to call when activity_log_fn is None (e.g. during boot, in tests):
+        falls back to logger.warning so nothing is silently dropped.
+        """
+        if self._activity_log_fn:
+            try:
+                self._activity_log_fn(msg, prefix)
+                return
+            except Exception as e:
+                logger.warning(f"_alarm activity_log_fn failed: {e}")
+        # Fallback path: at least the broker log captures it.
+        logger.warning(f"{prefix}{msg}")
 
     def save_access_token(self, token):
         """Persists the access token to Redis and reinitializes the broker client."""
@@ -482,26 +558,39 @@ class DhanClient:
         """
         Look up Security ID from the loaded map.
         key = (Symbol, Strike(float), OptionType, Expiry(YYYY-MM-DD))
+
+        Returns None when the strike isn't in scrip_map. Prior versions
+        returned the literal string "1333" as a dummy — that fail-OPEN routed
+        real-money orders to whatever Dhan instrument 1333 happened to be.
+        Now we fail CLOSED: caller (`get_itm_contract`) sees None and refuses
+        to construct an ITM record, every order route checks `if not itm:`
+        and rejects the trade with a structured error. A loud 🚨 alarm fires
+        through `_alarm` so the operator knows scrip_map is missing rows.
         """
         # Normalize inputs
         try:
-             s_price = float(strike)
-        except:
-             s_price = 0.0
-             
+            s_price = float(strike)
+        except Exception:
+            s_price = 0.0
+
         # Normalize expiry (User sends '2025-10-28', map has '2025-10-28')
         # Ensure exact string match
-        
         key = (symbol, s_price, opt_type, expiry)
         sec_id = self.scrip_map.get(key)
-        
+
         if sec_id:
             return sec_id
-        else:
-            # Fallback debug log to help user see what keys exist
-            # logger.debug(f"Missing Key: {key}")
-            logger.warning(f"Security ID NOT FOUND for {key}. Using Dummy 1333.")
-            return "1333"
+
+        # Fail-closed: refuse to invent a security_id. The audit's most-cited
+        # money-loss path. Surface a 🚨 alarm and return None so callers can
+        # propagate the rejection up to the route handler.
+        msg = (
+            f"SCRIP MISS for {symbol} {opt_type} strike={s_price} exp={expiry} — "
+            f"scrip_map has {len(self.scrip_map)} entries but not this strike. "
+            f"Refusing to fabricate a security_id. Check /reload-scrip and CSV freshness."
+        )
+        self._alarm(msg, prefix="🚨 ")
+        return None
 
     def place_buy_order(self, symbol, leg_data):
         return self._place_order(symbol, leg_data, TransactionType.BUY)
@@ -897,14 +986,14 @@ class DhanClient:
              payload.append(item)
 
         try:
-            resp = requests.post(url, headers=headers, json=payload)
+            resp = requests.post(url, headers=headers, json=payload, timeout=(5, 10))
             if resp.status_code == 200:
                 return resp.json()
             elif resp.status_code == 401:
                 logger.warning("Multi Margin: 401 Unauthorized. Syncing...")
                 if self._sync_token_from_redis():
                     headers['access-token'] = self.access_token
-                    resp = requests.post(url, headers=headers, json=payload)
+                    resp = requests.post(url, headers=headers, json=payload, timeout=(5, 10))
                     if resp.status_code == 200:
                         return resp.json()
                 return {"status": "error", "message": "Auth failed"}
@@ -1175,7 +1264,7 @@ class DhanClient:
         }
         
         try:
-            resp = requests.get(url, headers=headers)
+            resp = requests.get(url, headers=headers, timeout=(5, 10))
             if resp.status_code == 200:
                 data = resp.json()
                 # data is expected to be a list of Super Orders
@@ -1299,7 +1388,7 @@ class DhanClient:
         payload_json = json.dumps(payload)
         logger.info(f"$$$ SENDING GTT ALERT PAYLOAD: {payload_json}")
         try:
-            resp = requests.post(url, headers=headers, json=payload)
+            resp = requests.post(url, headers=headers, json=payload, timeout=(5, 10))
             if resp.status_code in [200, 201]:
                 data = resp.json()
                 alert_id = data.get('alertId') or (data.get('data') or {}).get('alertId')
@@ -1331,7 +1420,7 @@ class DhanClient:
             'client-id': self.client_id
         }
         try:
-            resp = requests.delete(url, headers=headers)
+            resp = requests.delete(url, headers=headers, timeout=(5, 10))
             if resp.status_code in [200, 204]:
                 logger.info(f"Conditional order cancelled: alertId={alert_id}")
                 return {"success": True}
@@ -1401,7 +1490,7 @@ class DhanClient:
             'client-id': self.client_id
         }
         try:
-            resp = requests.get(url, headers=headers)
+            resp = requests.get(url, headers=headers, timeout=(5, 10))
             if resp.status_code == 200:
                 return resp.json().get('data', {})
         except:
@@ -1482,9 +1571,22 @@ class DhanClient:
         stop_loss_price = self._round_to_tick(stop_loss_price)
         trailing_jump = self._round_to_tick(trailing_jump) if trailing_jump else 1.0 # Mandatory 1.0 default if None
         
+        # correlationId MUST be unique within a session. The old generator used
+        # int(time.time()) — 1-second resolution — which collided under bursts
+        # (9:15 IST opening with 3 underlyings × CALL+PUT can all hit the same
+        # second). PR #9b's M5 idempotency (poll-and-scan on 500) is built on
+        # uniqueness; without this fix the "find my order by correlationId"
+        # branch can match an unrelated order from another underlying.
+        #
+        # Format: "b" + millisecond-base36(8) + uuid hex(6) = 15 chars. Stays
+        # comfortably under Dhan's documented 25-char limit for correlationId
+        # while keeping the legacy "b" prefix for log-greppers. Uniqueness
+        # comes from the uuid suffix (24 bits = 16M space) combined with the
+        # millisecond timestamp — collision-free within a session.
+        correlation_id = f"b{int(time.time() * 1000):x}{uuid.uuid4().hex[:6]}"
         payload = {
             "dhanClientId": self.client_id,
-            "correlationId": str(f"b_{int(time.time())}"),
+            "correlationId": correlation_id,
             "transactionType": txn_type,
             "exchangeSegment": exchange_segment,
             "productType": product_type,
@@ -1500,7 +1602,7 @@ class DhanClient:
         logger.info(f"$$$ [BROKER] PLACING SUPER ORDER: {payload} $$$")
 
         try:
-            resp = requests.post(url, headers=headers, json=payload)
+            resp = requests.post(url, headers=headers, json=payload, timeout=(5, 10))
             if resp.status_code == 200:
                 data = resp.json()
                 # Super Order API v2 response might have orderId at top level or in 'data'
@@ -1514,7 +1616,7 @@ class DhanClient:
                 logger.warning("Super Order Placement: 401 Unauthorized. Syncing token...")
                 if self._sync_token_from_redis():
                     headers['access-token'] = self.access_token # Retry once
-                    resp = requests.post(url, headers=headers, json=payload)
+                    resp = requests.post(url, headers=headers, json=payload, timeout=(5, 10))
                     if resp.status_code == 200:
                         data = resp.json()
                         order_id = data.get('orderId') or data.get('data', {}).get('orderId')
@@ -1525,7 +1627,7 @@ class DhanClient:
             elif resp.status_code == 500:
                 logger.warning(f"Super Order: 500 Internal Server Error from Dhan. Retrying in 2s... | Body: {resp.text[:200]}")
                 time.sleep(2)
-                resp = requests.post(url, headers=headers, json=payload)
+                resp = requests.post(url, headers=headers, json=payload, timeout=(5, 10))
                 if resp.status_code == 200:
                     data = resp.json()
                     order_id = data.get('orderId') or data.get('data', {}).get('orderId')
@@ -1569,14 +1671,14 @@ class DhanClient:
         logger.info(f"$$$ [BROKER] MODIFYING SUPER TARGET LEG: {payload} $$$")
 
         try:
-            resp = requests.put(url, headers=headers, json=payload)
+            resp = requests.put(url, headers=headers, json=payload, timeout=(5, 10))
             if resp.status_code == 200:
                 return {"success": True, "data": resp.json()}
             elif resp.status_code == 401:
                 logger.warning("Modify Super Target: 401 Unauthorized. Syncing token...")
                 if self._sync_token_from_redis():
                     headers['access-token'] = self.access_token
-                    resp = requests.put(url, headers=headers, json=payload)
+                    resp = requests.put(url, headers=headers, json=payload, timeout=(5, 10))
                     if resp.status_code == 200:
                         return {"success": True, "data": resp.json()}
                 return {"success": False, "error": f"Auth failed after sync: {resp.text}"}
@@ -1615,14 +1717,14 @@ class DhanClient:
         logger.info(f"$$$ [BROKER] MODIFYING SUPER SL LEG: {payload} $$$")
 
         try:
-            resp = requests.put(url, headers=headers, json=payload)
+            resp = requests.put(url, headers=headers, json=payload, timeout=(5, 10))
             if resp.status_code == 200:
                 return {"success": True, "data": resp.json()}
             elif resp.status_code == 401:
                 logger.warning("Modify Super SL: 401 Unauthorized. Syncing token...")
                 if self._sync_token_from_redis():
                     headers['access-token'] = self.access_token
-                    resp = requests.put(url, headers=headers, json=payload)
+                    resp = requests.put(url, headers=headers, json=payload, timeout=(5, 10))
                     if resp.status_code == 200:
                         return {"success": True, "data": resp.json()}
                 return {"success": False, "error": f"Auth failed after sync: {resp.text}"}
@@ -1667,14 +1769,14 @@ class DhanClient:
         logger.info(f"$$$ [BROKER] MODIFYING SUPER ENTRY LEG: {payload} $$$")
 
         try:
-            resp = requests.put(url, headers=headers, json=payload)
+            resp = requests.put(url, headers=headers, json=payload, timeout=(5, 10))
             if resp.status_code == 200:
                 return {"success": True, "data": resp.json()}
             elif resp.status_code == 401:
                 logger.warning("Modify Super Entry: 401 Unauthorized. Syncing token...")
                 if self._sync_token_from_redis():
                     headers['access-token'] = self.access_token
-                    resp = requests.put(url, headers=headers, json=payload)
+                    resp = requests.put(url, headers=headers, json=payload, timeout=(5, 10))
                     if resp.status_code == 200:
                         return {"success": True, "data": resp.json()}
                 return {"success": False, "error": f"Auth failed after sync: {resp.text}"}
@@ -1705,7 +1807,7 @@ class DhanClient:
         }
 
         try:
-            resp = requests.delete(url, headers=headers)
+            resp = requests.delete(url, headers=headers, timeout=(5, 10))
             # Docs say 202 Accepted, but 200 is also common
             if resp.status_code in [200, 202]:
                 return {"success": True, "data": resp.json() if resp.text else {}}
@@ -1713,7 +1815,7 @@ class DhanClient:
                 logger.warning("Cancel Super Order: 401 Unauthorized. Syncing token...")
                 if self._sync_token_from_redis():
                     headers['access-token'] = self.access_token
-                    resp = requests.delete(url, headers=headers)
+                    resp = requests.delete(url, headers=headers, timeout=(5, 10))
                     if resp.status_code in [200, 202]:
                         return {"success": True, "data": resp.json() if resp.text else {}}
                 return {"success": False, "error": f"Auth failed after sync: {resp.text}"}
@@ -1777,7 +1879,7 @@ class DhanClient:
         }
         
         try:
-            resp = requests.post(url, headers=headers)
+            resp = requests.post(url, headers=headers, timeout=(5, 10))
             if resp.status_code == 200:
                 data = resp.json()
                 consent_id = data.get("consentAppId")
@@ -1806,7 +1908,7 @@ class DhanClient:
         }
 
         try:
-            resp = requests.post(url, headers=headers)
+            resp = requests.post(url, headers=headers, timeout=(5, 10))
             if resp.status_code == 200:
                 data = resp.json()
                 access_token = data.get("accessToken")
