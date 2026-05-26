@@ -397,5 +397,47 @@ async def get_performance_history():
     return await _call("/get-history")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# MARKET-FEELING TOOLS  (per-underlying trade gate)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+async def set_feeling(underlying: str, value: str = None):
+    """
+    Set the directional bias for one underlying. The bot will hard-block
+    contra-bias entries until the feeling is cleared or flipped.
+
+    Args:
+        underlying: NIFTY, BANKNIFTY, or FINNIFTY.
+        value:      Bullish (allow CALL, block PUT), Bearish (allow PUT, block CALL),
+                    Inside (block both — range-bound), or null/None to clear.
+
+    Returns a dict that may include `warnings[]` if the new feeling contradicts
+    an armed-but-unfilled conditional entry. Auto-cancel is deliberately NOT
+    done; use cancel_conditional_order if you want to drop the armed entry.
+    """
+    return await _call("/set-feeling", {
+        "underlying": underlying,
+        "value": value,
+    })
+
+
+@mcp.tool()
+async def get_feeling(underlying: str = None):
+    """
+    Read the directional bias.
+
+    Args:
+        underlying: NIFTY, BANKNIFTY, FINNIFTY — or omit to read all three.
+
+    Returns the feeling (Bullish/Bearish/Inside) or null when unset.
+    Returns HTTP 503 with recovery hint when the store is corrupt
+    (entries are blocked in that state; the operator must delete
+    feelings.json and restart the server).
+    """
+    payload = {"underlying": underlying} if underlying else {}
+    return await _call("/get-feeling", payload)
+
+
 if __name__ == "__main__":
     mcp.run()
