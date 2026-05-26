@@ -18,13 +18,16 @@ class ConditionalOrderEngine:
     Manages GTT (Good Till Triggered) and Alert-based Conditional Orders 
     for Index levels and Premium bounds.
     """
-    def __init__(self, broker=None, is_dry_run=False, redis_client=None, activity_log_fn=None):
+    def __init__(self, broker=None, is_dry_run=False, redis_client=None, activity_log_fn=None, feeling_state=None):
         self.broker = broker
         self.is_dry_run = is_dry_run
         self.r = redis_client
         self.use_redis = False
         self.memory_store = {}
         self._activity_log_fn = activity_log_fn  # injected to avoid circular import from server
+        # Engine-layer feeling gate (Approach C safety net). Routes are the
+        # primary gate; this catches a bypass. None disables the engine gate.
+        self.feeling_state = feeling_state
 
         if self.r:
             try:
@@ -123,6 +126,41 @@ class ConditionalOrderEngine:
         new_state = {'side': 'NONE', 'last_signal': 'NONE'}
         self._set_state(underlying, new_state)
 
+    def _engine_gate_check(self, underlying, side):
+        """Engine-layer feeling-gate check (Approach C safety net).
+
+        Returns None if the entry should proceed; returns a structured error
+        dict if the entry should be blocked. Skipped entirely when
+        feeling_state is None (e.g. older tests or legacy callers).
+
+        Uses FeelingState.decide_for_entry() for a single atomic read — no
+        TOCTOU window between is_unreadable and get(). Invalid side fails
+        CLOSED so a typo or future caller bug can't make the guard disappear.
+
+        side must be 'CALL' or 'PUT'. Exits are filtered out by the caller.
+        """
+        if self.feeling_state is None:
+            return None
+        allow, reason, status = self.feeling_state.decide_for_entry(underlying, side)
+        if allow:
+            return None
+        if status == "unreadable":
+            msg = f"feelings store unreadable — refusing {side} entry for {underlying}"
+            logger.warning(msg)
+            if self._activity_log_fn:
+                self._activity_log_fn(msg, "🚨 ")
+            return {"status": "skipped_by_feeling_unreadable",
+                    "underlying": underlying, "side": side,
+                    "reason": "feelings store unreadable; delete feelings.json (no restart needed)"}
+        feeling = self.feeling_state.get(underlying) if side in ('CALL', 'PUT') else None
+        msg = f"engine gate: blocked {side} entry for {underlying} ({reason})"
+        logger.info(msg)
+        if self._activity_log_fn:
+            self._activity_log_fn(msg, "🛑 ")
+        return {"status": "skipped_by_feeling",
+                "underlying": underlying, "side": side,
+                "feeling": feeling, "reason": reason}
+
     def handle_signal(self, signal_type, leg_data):
         """
         Independent entry/exit logic for Conditional Engine.
@@ -140,6 +178,15 @@ class ConditionalOrderEngine:
             if signal_type in ['B', 'S']:
                 if not itm:
                     return {"status": "error", "message": f"Missing ITM context for {underlying} {signal_type}"}
+
+                # Engine-layer feeling gate (Approach C safety net). The route is
+                # the primary gate; this catches a bypass. signal_type 'B' = CALL
+                # (long bet), 'S' = PUT (short bet) — same mapping the existing
+                # state-update uses below.
+                side_for_gate = 'CALL' if signal_type == 'B' else 'PUT'
+                gate_result = self._engine_gate_check(underlying, side_for_gate)
+                if gate_result is not None:
+                    return gate_result
 
                 symbol = itm.get('symbol') or itm.get('tradingSymbol')
                 sec_id = itm.get('security_id')
@@ -253,6 +300,12 @@ class ConditionalOrderEngine:
                 return {"status": "error", "message": "Missing/invalid index trigger context"}
             if not correlation_id:
                 return {"status": "error", "message": "Missing correlation_id for conditional entry"}
+
+            # Engine-layer feeling gate (Approach C safety net). The route is the
+            # primary gate; this catches a bypass.
+            gate_result = self._engine_gate_check(underlying, side)
+            if gate_result is not None:
+                return gate_result
 
             # Lot-size: place_conditional_order takes RAW quantity (units), so we
             # pre-multiply here exactly once. A lot_map miss must REJECT — never

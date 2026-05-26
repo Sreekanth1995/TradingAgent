@@ -15,13 +15,17 @@ class SuperOrderEngine:
     Handles Native Bracket Orders using Dhan API v2.
     Operations: 1. Place, 2. Modify, 3. Cancel, 4. Exit
     """
-    def __init__(self, broker=None, is_dry_run=False, redis_client=None, activity_logs=None):
+    def __init__(self, broker=None, is_dry_run=False, redis_client=None, activity_logs=None, feeling_state=None):
         self.broker = broker
         self.is_dry_run = is_dry_run
         self.r = redis_client
         self.activity_logs = activity_logs
         self.use_redis = False
         self.memory_store = {}
+        # Engine-layer feeling gate (Approach C safety net). Routes are the
+        # primary gate; this catches a bypass (new caller missing the route
+        # check). None disables the engine gate — used in older tests.
+        self.feeling_state = feeling_state
         
         # Risk Defaults
         self.configs = {
@@ -78,7 +82,36 @@ class SuperOrderEngine:
         """
         Calculates levels and places a Native Super Order using the provided instrument (itm).
         Expects actual absolute prices for target_price, stop_loss_price, and entry_price.
+
+        Engine-layer feeling gate runs FIRST (Approach C). The route layer is the
+        primary gate; this catches a bypass. `side` is already explicit
+        ('CALL'/'PUT'), so no symbol parsing is required.
+
+        Uses FeelingState.decide_for_entry() for a single atomic read — no
+        TOCTOU window between is_unreadable and get(). Invalid side fails
+        CLOSED so a typo or future caller bug can't make the guard disappear.
         """
+        # Engine-layer gate (Approach C safety net). Skipped only when no
+        # feeling_state is wired in (older tests / legacy callers).
+        if self.feeling_state is not None:
+            allow, reason, status = self.feeling_state.decide_for_entry(underlying, side)
+            if not allow:
+                if status == "unreadable":
+                    msg = f"engine gate: feelings store unreadable — refusing {side} entry for {underlying}"
+                    logger.warning(msg)
+                    self._add_activity_log(msg, "🚨 ")
+                    return {"success": False, "status": "skipped_by_feeling_unreadable",
+                            "underlying": underlying, "side": side,
+                            "reason": "feelings store unreadable; delete feelings.json (no restart needed)"}
+                # Normal block (Bullish/Bearish/Inside contra-bias, or invalid side fail-closed)
+                feeling = self.feeling_state.get(underlying) if side in ('CALL', 'PUT') else None
+                msg = f"engine gate: blocked {side} entry for {underlying} ({reason})"
+                logger.info(msg)
+                self._add_activity_log(msg, "🛑 ")
+                return {"success": False, "status": "skipped_by_feeling",
+                        "underlying": underlying, "side": side,
+                        "feeling": feeling, "reason": reason}
+
         symbol = itm['symbol']
         sec_id = itm['security_id']
         

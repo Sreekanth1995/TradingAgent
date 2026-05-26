@@ -51,6 +51,16 @@ A Model Context Protocol (MCP) server runs alongside the main system to provide 
 - Checking unified aggregated trade status (`get_trading_status`), exposing boundary parameters such as `idx_target_level`, `idx_sl_level`, `tgt_price`, and `sl_price`.
 - Placing conditional (index-triggered) orders. `place_conditional_order` accepts an optional `entry_index` parameter: omit it for an immediate market entry, or pass an index level to defer the BUY until the index touches that level (operator direction auto-derived from spot).
 
+### Per-Underlying Feeling Gate (`feeling_gate.py`, `atomic_json.py`)
+A route-and-engine trade gate that hard-blocks contra-bias **entries** for NIFTY / BANKNIFTY / FINNIFTY. Exits and cancels bypass the gate by design.
+- **Surfaces**: HTTP `POST /set-feeling`, `POST /get-feeling`, the MCP tools `set_feeling` / `get_feeling`, and a `feelings_store ∈ {ok,unreadable}` field on `/health`.
+- **Decision function**: `feeling_gate(side, feeling)` is pure — 8 cases (`Bullish×{CALL,PUT}`, `Bearish×{CALL,PUT}`, `Inside×{CALL,PUT}`, `None×{CALL,PUT}`).
+- **State storage**: `FeelingState` wraps `feelings.json` next to `server.py`. Writes go through `atomic_json.write_json` (tmp file + `os.replace`) so a mid-write crash leaves either the prior or the new version, never a torn JSON. A `threading.Lock` serializes concurrent setters.
+- **Fail-closed reads**: `atomic_json.read_json` returns one of `{ok, missing, corrupt, denied}`. Missing means "fresh install → allow all"; corrupt/denied flips the store into `unreadable` and every entry returns `skipped_by_feeling_unreadable` until the operator deletes the file (no restart required because `_load()` reads fresh on every call).
+- **Single-read decision**: `FeelingState.decide_for_entry(underlying, side)` folds the unreadable preflight and the per-underlying lookup into ONE atomic disk read — closes a TOCTOU window where the store could go corrupt between two separate reads and silently fail OPEN.
+- **Defense in depth**: the route layer is the primary gate (`server._feeling_block_for_entry` runs before spot resolution and dedup, in `/webhook`, `/conditional-order`, and `/super-order`). Both engines re-check using `decide_for_entry()` so a new caller that bypasses the route still fail-closes. Invalid side fails CLOSED — a typo never silently disables the guard.
+- **Pending-entry warnings**: setting a feeling that contradicts an armed `PENDING_CALL` / `PENDING_PUT` returns `warnings[]` but does NOT auto-cancel; the operator decides whether to call `cancel_conditional_order`.
+
 ### Shared constants (`constants.py`)
 Index identifiers (`INDEX_NAME_TO_ID`, `INDEX_ID_TO_NAME`, helpers `index_id_for` / `index_name_for` / `is_index_id`), the index exchange segment (`IDX_SEGMENT = "IDX_I"`), and the options product type (`OPTIONS_PRODUCT_TYPE = "INTRADAY"`) are centralized in `constants.py`. The product type MUST stay identical across entry, SL/Target GTT, and manual-exit legs — otherwise the exit SELL opens a new short instead of netting the long.
 

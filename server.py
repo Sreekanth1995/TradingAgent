@@ -19,6 +19,10 @@ from instrument_resolver import (
     derive_entry_trigger, validate_sl_target,
 )
 from constants import index_id_for
+from feeling_gate import (
+    FeelingState, feeling_gate, normalize_feeling, VALID_FEELINGS,
+)
+from atomic_json import read_json as _atomic_read_json, write_json as _atomic_write_json, write_text as _atomic_write_text
 import uuid
 import trade_feed
 
@@ -111,6 +115,11 @@ super_order_engine = None
 conditional_engine = None
 init_error = None
 
+# Per-underlying feeling-gate state (Bullish/Bearish/Inside, persisted to
+# feelings.json with atomic writes). Constructed unconditionally so /health
+# and /get-feeling work even if broker init fails.
+feeling_state = FeelingState()
+
 USE_MOCK = os.getenv("USE_MOCK_API", "false").lower() == "true"
 
 try:
@@ -122,9 +131,9 @@ try:
         from broker_dhan import DhanClient
         broker = DhanClient(redis_client=redis_client)
         logger.info("🔗 Running in LIVE API MODE - Using broker_dhan.py")
-        
-    super_order_engine = SuperOrderEngine(broker, redis_client=redis_client, activity_logs=activity_logs)
-    conditional_engine = ConditionalOrderEngine(broker, redis_client=redis_client, activity_log_fn=_add_activity_log)
+
+    super_order_engine = SuperOrderEngine(broker, redis_client=redis_client, activity_logs=activity_logs, feeling_state=feeling_state)
+    conditional_engine = ConditionalOrderEngine(broker, redis_client=redis_client, activity_log_fn=_add_activity_log, feeling_state=feeling_state)
     
     # --- Start Background Protection Monitor ---
     def _protection_monitor_loop():
@@ -293,65 +302,96 @@ def _add_to_history(trade):
     history.append(trade)
     _save_history(history)
 
+_levels_lock = threading.Lock()
+_context_lock = threading.Lock()
+
+
 def _load_levels():
     """
     Loads levels from file, but clears them if it's after NSE market hours (15:30 IST)
     and the file has not been updated since market close.
-    """
-    try:
-        if os.path.exists(_LEVELS_FILE):
-            IST = pytz.timezone('Asia/Kolkata')
-            now = datetime.now(IST)
-            
-            # Market close is 3:30 PM (15:30) IST
-            market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
-            
-            # If it's currently PAST market close
-            if now > market_close:
-                mtime = datetime.fromtimestamp(os.path.getmtime(_LEVELS_FILE), IST)
-                # If the file was last modified BEFORE today's market close, it's stale.
-                if mtime < market_close:
-                    content = {}
-                    with open(_LEVELS_FILE) as f:
-                         content = json.load(f)
-                    
-                    if content and content != {} and content != []:
-                        logger.info("NSE Market Closed (15:30 IST). Clearing stale levels.")
-                        _save_levels({})
-                        return {}
 
-        with open(_LEVELS_FILE) as f:
-            return json.load(f)
-    except Exception as e:
+    Uses atomic_json.read_json so a torn write from a previous crash returns
+    {} rather than raising. The EOD-staleness check is unchanged.
+    """
+    if not os.path.exists(_LEVELS_FILE):
         return {}
 
+    IST = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(IST)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+
+    # EOD staleness sweep: after market close, wipe stale levels.
+    if now > market_close:
+        try:
+            mtime = datetime.fromtimestamp(os.path.getmtime(_LEVELS_FILE), IST)
+        except OSError:
+            mtime = None
+        if mtime is not None and mtime < market_close:
+            r = _atomic_read_json(_LEVELS_FILE)
+            if r.status == "ok" and r.data:
+                logger.info("NSE Market Closed (15:30 IST). Clearing stale levels.")
+                _save_levels({})
+                return {}
+
+    r = _atomic_read_json(_LEVELS_FILE)
+    if r.status == "ok":
+        return r.data
+    if r.status == "corrupt":
+        logger.warning(f"{_LEVELS_FILE} corrupt; returning empty levels")
+    elif r.status == "denied":
+        logger.warning(f"{_LEVELS_FILE} unreadable (permission denied); returning empty levels")
+    return {}
+
+
 def _save_levels(data):
-    with open(_LEVELS_FILE, 'w') as f:
-        json.dump(data, f)
+    """Atomic write so a mid-write crash never leaves a torn file."""
+    try:
+        _atomic_write_json(_LEVELS_FILE, data, lock=_levels_lock)
+    except Exception as e:
+        logger.error(f"_save_levels failed: {e}")
+
 
 def _load_context():
     try:
         with open(_CONTEXT_FILE) as f:
             return f.read()
-    except Exception:
+    except FileNotFoundError:
+        return ""
+    except Exception as e:
+        logger.warning(f"_load_context failed: {e}")
         return ""
 
+
 def _save_context(text):
-    with open(_CONTEXT_FILE, 'w') as f:
-        f.write(text)
+    """Atomic write so a mid-write crash never leaves a torn AI context."""
+    try:
+        _atomic_write_text(_CONTEXT_FILE, text, lock=_context_lock)
+    except Exception as e:
+        logger.error(f"_save_context failed: {e}")
 
 
 @app.route('/health')
 def health():
     """
     Health check endpoint for monitoring.
+
+    `feelings_store` is 'ok' (file readable, including missing-as-fresh-install)
+    or 'unreadable' (corrupt JSON / permission denied). Operators should alert
+    on unreadable — entries are blocked with status=skipped_by_feeling_unreadable
+    and the recovery path is `delete feelings.json (no restart needed)`.
     """
     try:
+        try:
+            feelings_store = feeling_state.store_status
+        except Exception:
+            feelings_store = "unknown"
         status = {
             "status": "healthy" if broker and super_order_engine else "degraded",
             "broker_initialized": broker is not None,
             "engine_initialized": super_order_engine is not None,
-            "error": init_error
+            "feelings_store": feelings_store,
+            "error": init_error,
         }
     except Exception as e:
         status = {"status": "error", "message": str(e)}
@@ -559,6 +599,19 @@ def webhook():
                 _add_activity_log(msg, "⏭️ ")
                 results.append({"status": "ignored", "action": "SAME_DIRECTION_SKIP", "message": msg})
                 continue
+
+            # Feeling-gate (route layer). Runs BEFORE spot resolution and BEFORE
+            # the 60s dedup window so a vetoed signal doesn't consume retries.
+            # Exits bypass the gate by design (premise 3) — already encoded in
+            # `is_exit` above.
+            if not is_exit:
+                gate_side = 'CALL' if is_buy else 'PUT'
+                blocked = _feeling_block_for_entry(underlying, gate_side)
+                if blocked is not None:
+                    # Do NOT update last_signal_storage and do NOT emit to SSE —
+                    # vetoed signals stay invisible to Claude (AI mode) per design.
+                    results.append({"status": "ignored", "action": blocked['status'], **blocked})
+                    continue
 
             spot_index = 0
             specific_itm = None
@@ -1316,6 +1369,14 @@ def conditional_order():
         idx_sec_id = index_id_for(underlying)
         if not idx_sec_id:
             return jsonify({"status": "error", "message": f"Unknown index: {underlying}"}), 400
+
+        # Feeling-gate check (route layer). Gates BOTH sub-paths below
+        # (conditional-arm and immediate-market). EXIT path above (is_exit=True)
+        # is unreachable from here so exits remain ungated by design.
+        blocked = _feeling_block_for_entry(underlying, side)
+        if blocked is not None:
+            return jsonify(blocked), 200
+
         entry_index = data.get('entry_index')  # present => conditional (index-touch) entry
 
         # 4. Position / reversal guard. An opposite signal while an entry is armed
@@ -1582,6 +1643,13 @@ def set_super_order():
         return jsonify({"status": "error", "message": "target_price and sl_price are required"}), 400
     if side not in ('CALL', 'PUT'):
         return jsonify({"status": "error", "message": "side must be CALL or PUT"}), 400
+
+    # Feeling-gate check (route layer). AI_IN_THE_LOOP routes Claude through
+    # this endpoint, so this is THE money path for the AI. Engine-layer also
+    # gates (defense in depth) but the route is the first stop.
+    blocked = _feeling_block_for_entry(underlying, side)
+    if blocked is not None:
+        return jsonify(blocked), 200
 
     try:
         option_symbol = data.get('option')
@@ -2050,8 +2118,221 @@ def get_context():
     data = request.get_json(force=True, silent=True)
     if not data or data.get('secret') != SECRET:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
-    
+
     return jsonify({"status": "success", "context": _load_context()}), 200
+
+
+# ───────────────────────── Per-underlying market-feeling gate ─────────────────────────
+#
+# Operator/AI sets a directional bias per underlying. The gate hard-stops
+# contra-bias entries at the route layer (and at the engine layer, for safety).
+# Exits and cancels are NEVER blocked. See feeling_gate.py for the truth table.
+
+_FEELING_UNDERLYINGS = ('NIFTY', 'BANKNIFTY', 'FINNIFTY')
+
+
+def _feeling_block_for_entry(underlying, side):
+    """Route-layer feeling gate. Returns None to allow the entry, or a dict
+    body to short-circuit with HTTP 200 status=skipped_by_feeling[_unreadable].
+
+    Uses FeelingState.decide_for_entry() to fold the is_unreadable preflight
+    and the per-underlying lookup into ONE atomic disk read. Two separate
+    reads (the prior shape) had a TOCTOU window where the store could become
+    unreadable between them — the gate would then silently fail OPEN.
+
+    `side` is the normalized CALL/PUT. Exits MUST be filtered out by the caller
+    before invoking this — the gate never blocks exits.
+
+    Also writes a SKIPPED trade_feed row + activity_log line on block, so the
+    operator has a paper trail of vetoed signals.
+    """
+    if side not in ('CALL', 'PUT'):
+        return None
+    underlying = (underlying or '').upper() or 'NIFTY'
+
+    allow, reason, status = feeling_state.decide_for_entry(underlying, side)
+    if allow:
+        return None
+
+    signal_label = 'LONG_ENTRY' if side == 'CALL' else 'SHORT_ENTRY'
+
+    if status == "unreadable":
+        msg = f"Entry blocked: feelings store unreadable ({underlying} {side})"
+        _add_activity_log(msg, "🚨 ")
+        try:
+            trade_feed.insert_trade(
+                underlying=underlying, signal=signal_label,
+                status='SKIPPED', comment='skipped_by_feeling_unreadable',
+            )
+        except Exception as e:
+            logger.warning(f"trade_feed SKIPPED row failed: {e}")
+        return {
+            "status": "skipped_by_feeling_unreadable",
+            "underlying": underlying,
+            "side": side,
+            "recovery": "delete feelings.json (no restart needed)",
+        }
+
+    # Normal-status block (Bullish/Bearish/Inside contra-bias).
+    msg = f"Entry blocked by feeling: {underlying} {side} ({reason})"
+    _add_activity_log(msg, "🛑 ")
+    try:
+        trade_feed.insert_trade(
+            underlying=underlying, signal=signal_label,
+            status='SKIPPED', comment=f'skipped_by_feeling ({reason})',
+        )
+    except Exception as e:
+        logger.warning(f"trade_feed SKIPPED row failed: {e}")
+    # Surface the raw feeling for the caller (re-read is cheap and only happens
+    # on the rare blocked path — and the active-feeling lookup here is for the
+    # response body only, not for the gate decision).
+    feeling = feeling_state.get(underlying)
+    return {
+        "status": "skipped_by_feeling",
+        "underlying": underlying,
+        "side": side,
+        "feeling": feeling,
+        "reason": reason,
+    }
+
+
+def _contra_pending_warnings(underlying, new_feeling):
+    """Return a list of warnings if the new feeling contradicts existing PENDING entries.
+
+    Detection reuses the conditional-engine state pattern. We DO NOT auto-cancel
+    here — that's deliberate per design open-question (premise 4 / 12). The
+    operator sees the warning and decides via `cancel_pending_entry`.
+    """
+    if not conditional_engine or new_feeling is None:
+        return []
+    warnings = []
+    state = conditional_engine._get_state(underlying)
+    pending_side = state.get('side')
+    if pending_side not in ('PENDING_CALL', 'PENDING_PUT'):
+        return []
+    side_for_gate = 'CALL' if pending_side == 'PENDING_CALL' else 'PUT'
+    allow, reason = feeling_gate(side_for_gate, new_feeling)
+    if not allow:
+        warnings.append({
+            "kind": "contra_pending_entry",
+            "side": side_for_gate,
+            "trigger": state.get('entry_trigger'),
+            "alert_id": state.get('entry_alert_id'),
+            "message": (
+                f"{pending_side} armed at {state.get('entry_trigger')} contradicts "
+                f"{new_feeling} — consider cancel_pending_entry"
+            ),
+        })
+    return warnings
+
+
+@app.route('/set-feeling', methods=['POST'])
+def set_feeling_route():
+    """Set per-underlying market feeling.
+
+    Payload: {secret, underlying, value}
+      - underlying ∈ {NIFTY, BANKNIFTY, FINNIFTY} (normalized to upper)
+      - value ∈ {Bullish, Bearish, Inside} (normalized via .strip().capitalize())
+              or explicit JSON null to clear
+
+    Returns 200 with {status, underlying, feeling, warnings[]}. The warnings
+    array surfaces contra-direction armed-pending entries; auto-cancel is
+    deliberate-deferred (operator decides).
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    if data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying_raw = data.get('underlying')
+    if not underlying_raw or not isinstance(underlying_raw, str):
+        return jsonify({"status": "error", "message": "underlying required (NIFTY|BANKNIFTY|FINNIFTY)"}), 400
+    underlying = underlying_raw.strip().upper()
+    if underlying not in _FEELING_UNDERLYINGS:
+        return jsonify({"status": "error",
+                        "message": f"underlying must be one of {list(_FEELING_UNDERLYINGS)}"}), 400
+
+    # `value` may be the JSON literal null. data.get('value') returns None for
+    # both "value":null and a missing key. Distinguish by checking the parsed
+    # dict directly: missing → 400; null → clear.
+    if 'value' not in data:
+        return jsonify({"status": "error",
+                        "message": "value required (Bullish|Bearish|Inside or null to clear)"}), 400
+    try:
+        value = normalize_feeling(data['value'])
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+    # Refuse to write into an unreadable store. The recovery path is to delete
+    # feelings.json + restart — silently writing would mask the corruption.
+    if feeling_state.is_unreadable:
+        return jsonify({
+            "status": "error",
+            "feelings_store": "unreadable",
+            "message": "feelings store unreadable",
+            "recovery": "delete feelings.json (no restart needed)",
+        }), 503
+
+    try:
+        feeling_state.set(underlying, value)
+    except Exception as e:
+        logger.error(f"/set-feeling: write failed for {underlying}: {e}")
+        return jsonify({"status": "error", "message": f"write failed: {e}"}), 500
+
+    warnings = _contra_pending_warnings(underlying, value)
+    if warnings:
+        for w in warnings:
+            _add_activity_log(w['message'], "⚠️ ")
+
+    log_msg = f"Feeling set: {underlying} → {value}" if value else f"Feeling cleared: {underlying}"
+    _add_activity_log(log_msg, "🎯 ")
+
+    return jsonify({
+        "status": "success",
+        "underlying": underlying,
+        "feeling": value,
+        "warnings": warnings,
+    }), 200
+
+
+@app.route('/get-feeling', methods=['POST'])
+def get_feeling_route():
+    """Get per-underlying market feeling.
+
+    Payload: {secret, underlying?}
+      - If underlying omitted, returns the full map.
+
+    503 when the store is unreadable, with recovery hint.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    if data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    if feeling_state.is_unreadable:
+        return jsonify({
+            "status": "error",
+            "feelings_store": "unreadable",
+            "message": "feelings store unreadable",
+            "recovery": "delete feelings.json (no restart needed)",
+        }), 503
+
+    underlying_raw = data.get('underlying')
+    if underlying_raw:
+        underlying = underlying_raw.strip().upper()
+        if underlying not in _FEELING_UNDERLYINGS:
+            return jsonify({"status": "error",
+                            "message": f"underlying must be one of {list(_FEELING_UNDERLYINGS)}"}), 400
+        return jsonify({
+            "status": "success",
+            "underlying": underlying,
+            "feeling": feeling_state.get(underlying),
+        }), 200
+
+    # No underlying → return all three. Missing keys explicitly show null so the
+    # caller doesn't have to guess about defaults.
+    all_map = feeling_state.get_all()
+    full = {u: all_map.get(u) for u in _FEELING_UNDERLYINGS}
+    return jsonify({"status": "success", "feelings": full}), 200
+
 
 @app.route('/update-token', methods=['POST'])
 def update_token():
