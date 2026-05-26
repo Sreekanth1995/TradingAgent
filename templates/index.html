@@ -1060,30 +1060,37 @@
     </header>
 
     <!-- 🚨 ALARM BANNER (PR #9a T3a) — sticky, only visible when active alarms exist -->
-    <div id="alarm-banner" role="alert"
-         style="display:none; position:sticky; top:0; z-index:9999;
-                background:#7c1f1f; color:#ffe; padding:10px 18px;
-                font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-                font-size:14px; line-height:1.4; border-bottom:2px solid #ffb500;
-                box-shadow:0 4px 12px rgba(124,31,31,0.6);">
-        <strong>🚨 ALARM</strong> &mdash; <span id="alarm-banner-msg">checking…</span>
+    <!-- ALARM BANNER — sticky red bar shown when any 🚨 entry appears in
+         the recent activity feed. Hidden until JS confirms an alarm. -->
+    <div id="alarm-banner" role="alert" aria-live="assertive" hidden
+         style="position:sticky; top:0; z-index:9999;
+                background:var(--danger); color:#fff; padding:10px 18px;
+                font-family:var(--mono);
+                font-size:14px; line-height:1.4;
+                border-bottom:2px solid var(--amber);
+                box-shadow:0 4px 12px var(--danger-glow);">
+        <strong>🚨 ALARM</strong> &mdash; <span id="alarm-banner-msg"></span>
         <span style="float:right; opacity:0.7; font-size:12px;" id="alarm-banner-count"></span>
     </div>
 
-    <!-- ACTIVITY LOG PANEL — recent system events, last 20 entries -->
+    <!-- RECENT EVENTS PANEL — last 20 system events, polled from /activity-logs.
+         Renamed from "SYSTEM ACTIVITY" so it does not collide with the
+         "System Activity Feed" trade-signal table below. Hidden until the
+         dashboard is authenticated AND at least one event exists. -->
     <section id="activity-log-panel"
-             aria-label="System activity"
+             aria-label="Recent system events"
+             hidden
              style="margin:12px 18px; padding:12px;
-                    background:#161616; border:1px solid #2a2a2a; border-radius:6px;">
+                    background:var(--surface-1); border:1px solid var(--border);
+                    border-radius:6px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <strong style="color:#bbb; font-size:13px; letter-spacing:0.5px;">SYSTEM ACTIVITY</strong>
-            <span id="activity-log-status" style="color:#888; font-size:11px;">--</span>
+            <h2 style="color:var(--text-secondary); font-size:13px; letter-spacing:0.5px; font-weight:700;">RECENT EVENTS</h2>
+            <span id="activity-log-status" style="color:var(--text-muted); font-size:11px;">--</span>
         </div>
         <div id="activity-log-list"
-             style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+             style="font-family:var(--mono);
                     font-size:12px; line-height:1.6; max-height:260px; overflow-y:auto;
-                    color:#ddd;">
-            <span style="color:#666;">No activity yet.</span>
+                    color:var(--text-primary);">
         </div>
     </section>
 
@@ -1825,9 +1832,27 @@
         // Sticky red banner activates whenever any rendered entry starts with 🚨,
         // mirroring the Slack-webhook gating in server.py:_add_activity_log so the
         // operator sees the alarm in two places (dashboard + Slack).
+        //
+        // /design-review F1+F18 follow-up:
+        //  - Use the `hidden` attribute (toggles both display + a11y tree) instead
+        //    of inline `style.display`. The activity-log-panel starts hidden and
+        //    only appears once we know there are real entries to show. This keeps
+        //    the locked/empty dashboard from looking like it has an alarm.
+        //  - Drop the "checking…" placeholder. The banner reveals only after we
+        //    confirm at least one 🚨 entry, so the first-paint never flashes a
+        //    fake alarm.
         async function refreshActivityLogs() {
             const secret = document.getElementById('secret').value.trim();
-            if (!secret) return;
+            const panelEl = document.getElementById('activity-log-panel');
+            const bannerEl = document.getElementById('alarm-banner');
+            if (!secret) {
+                // Dashboard locked. Both surfaces stay hidden — no "checking…"
+                // flash, no empty-state demoware. The user sees the lock state
+                // from the auth-strip, not from the alarm pipe.
+                panelEl.hidden = true;
+                bannerEl.hidden = true;
+                return;
+            }
             try {
                 const res = await fetch('/activity-logs', {
                     method: 'POST',
@@ -1837,24 +1862,27 @@
                 const data = await res.json();
                 const listEl = document.getElementById('activity-log-list');
                 const statusEl = document.getElementById('activity-log-status');
-                const bannerEl = document.getElementById('alarm-banner');
                 const bannerMsg = document.getElementById('alarm-banner-msg');
                 const bannerCount = document.getElementById('alarm-banner-count');
                 if (data.status !== 'success' || !Array.isArray(data.logs)) {
                     statusEl.textContent = 'unauthorized or error';
+                    panelEl.hidden = true;
+                    bannerEl.hidden = true;
                     return;
                 }
                 const logs = data.logs.slice(0, 20);
                 if (logs.length === 0) {
-                    listEl.innerHTML = '<span style="color:#666;">No activity yet.</span>';
-                    bannerEl.style.display = 'none';
+                    // No events yet. Keep the panel hidden so we don't waste
+                    // above-the-fold real estate on "No activity yet."
+                    panelEl.hidden = true;
+                    bannerEl.hidden = true;
                     statusEl.textContent = '0 entries';
                     return;
                 }
                 // Render entries (newest first per the deque ordering used in server.py)
                 listEl.innerHTML = logs.map(line => {
                     const isAlarm = /🚨/.test(line);
-                    const color = isAlarm ? '#ff7878' : '#cfcfcf';
+                    const color = isAlarm ? 'var(--danger)' : 'var(--text-primary)';
                     const weight = isAlarm ? 'bold' : 'normal';
                     // Escape HTML
                     const safe = String(line)
@@ -1864,16 +1892,17 @@
                     return `<div style="color:${color}; font-weight:${weight};">${safe}</div>`;
                 }).join('');
                 statusEl.textContent = `${logs.length} entries (refreshed ${new Date().toLocaleTimeString()})`;
+                panelEl.hidden = false;
                 // Sticky banner: visible if ANY 🚨 entry exists in the rendered slice
                 const alarms = logs.filter(l => /🚨/.test(l));
                 if (alarms.length > 0) {
-                    bannerEl.style.display = 'block';
+                    bannerEl.hidden = false;
                     bannerMsg.textContent = alarms[0].replace(/^\s*\[\d{2}:\d{2}:\d{2}\]\s*/, '');
                     bannerCount.textContent = alarms.length > 1
                         ? `+${alarms.length - 1} more in feed`
                         : '';
                 } else {
-                    bannerEl.style.display = 'none';
+                    bannerEl.hidden = true;
                 }
             } catch (err) {
                 // Best-effort polling — surface the failure quietly.
