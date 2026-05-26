@@ -21,3 +21,4 @@ check_import.py
 test_signals.py
 test_token_refresh.py
 deploy_automated.exp
+.gstack/
