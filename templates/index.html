@@ -586,6 +586,86 @@
             min-height: 14px;
         }
 
+        /* ─── MARKET FEELING WIDGET ─── */
+        .feeling-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+        }
+        .feeling-row:last-child {
+            border-bottom: none;
+        }
+        .feeling-badge {
+            font-family: var(--mono);
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        .feeling-badge.BULLISH {
+            background: var(--success-dim);
+            color: var(--success);
+            border: 1px solid rgba(16,185,129,0.2);
+        }
+        .feeling-badge.BEARISH {
+            background: var(--danger-dim);
+            color: var(--danger);
+            border: 1px solid rgba(244,63,94,0.2);
+        }
+        .feeling-badge.INSIDE {
+            background: rgba(245,158,11,0.1);
+            color: var(--amber);
+            border: 1px solid rgba(245,158,11,0.2);
+        }
+        .feeling-badge.NONE {
+            background: var(--surface-2);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        
+        .feeling-btn {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .feeling-btn:hover {
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+        .feeling-btn.active.btn-bullish {
+            background: var(--success-dim);
+            color: var(--success);
+            border-color: var(--success);
+            box-shadow: 0 0 8px rgba(16,185,129,0.15);
+        }
+        .feeling-btn.active.btn-bearish {
+            background: var(--danger-dim);
+            color: var(--danger);
+            border-color: var(--danger);
+            box-shadow: 0 0 8px rgba(244,63,94,0.15);
+        }
+        .feeling-btn.active.btn-inside {
+            background: rgba(245,158,11,0.15);
+            color: var(--amber);
+            border-color: var(--amber);
+            box-shadow: 0 0 8px rgba(245,158,11,0.15);
+        }
+        .feeling-btn.active.btn-clear {
+            background: var(--surface-3);
+            color: var(--text-primary);
+            border-color: var(--text-secondary);
+        }
+
         /* ─── ACTIVE POSITIONS ─── */
         #active-positions-container {
             padding-top: 16px;
@@ -1174,6 +1254,57 @@
 
         <!-- LEFT: CONTROLS -->
         <div class="panel-left">
+            <h2 class="section-label">Market Bias (Feelings)</h2>
+            <div class="panel-card" style="margin-bottom: 20px;">
+                <div class="panel-card-head">
+                    <span class="panel-card-title">Directional Gating</span>
+                    <span id="feeling-store-status" class="badge NONE" style="font-size: 8px; text-transform: uppercase;">STORE: --</span>
+                </div>
+                <div class="panel-card-body" style="padding: 12px 14px;">
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <!-- Row for NIFTY -->
+                        <div class="feeling-row" id="feeling-row-NIFTY">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="hist-symbol" style="font-size: 11px;">NIFTY</span>
+                                <span id="feeling-badge-NIFTY" class="badge feeling-badge NONE">None</span>
+                            </div>
+                            <div style="display: flex; gap: 4px;">
+                                <button class="feeling-btn btn-bullish" onclick="updateFeeling('NIFTY', 'Bullish')">Bullish</button>
+                                <button class="feeling-btn btn-bearish" onclick="updateFeeling('NIFTY', 'Bearish')">Bearish</button>
+                                <button class="feeling-btn btn-inside" onclick="updateFeeling('NIFTY', 'Inside')">Inside</button>
+                                <button class="feeling-btn btn-clear" onclick="updateFeeling('NIFTY', null)">Clear</button>
+                            </div>
+                        </div>
+                        <!-- Row for BANKNIFTY -->
+                        <div class="feeling-row" id="feeling-row-BANKNIFTY">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="hist-symbol" style="font-size: 11px;">BNIFTY</span>
+                                <span id="feeling-badge-BANKNIFTY" class="badge feeling-badge NONE">None</span>
+                            </div>
+                            <div style="display: flex; gap: 4px;">
+                                <button class="feeling-btn btn-bullish" onclick="updateFeeling('BANKNIFTY', 'Bullish')">Bullish</button>
+                                <button class="feeling-btn btn-bearish" onclick="updateFeeling('BANKNIFTY', 'Bearish')">Bearish</button>
+                                <button class="feeling-btn btn-inside" onclick="updateFeeling('BANKNIFTY', 'Inside')">Inside</button>
+                                <button class="feeling-btn btn-clear" onclick="updateFeeling('BANKNIFTY', null)">Clear</button>
+                            </div>
+                        </div>
+                        <!-- Row for FINNIFTY -->
+                        <div class="feeling-row" id="feeling-row-FINNIFTY">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="hist-symbol" style="font-size: 11px;">FNIFTY</span>
+                                <span id="feeling-badge-FINNIFTY" class="badge feeling-badge NONE">None</span>
+                            </div>
+                            <div style="display: flex; gap: 4px;">
+                                <button class="feeling-btn btn-bullish" onclick="updateFeeling('FINNIFTY', 'Bullish')">Bullish</button>
+                                <button class="feeling-btn btn-bearish" onclick="updateFeeling('FINNIFTY', 'Bearish')">Bearish</button>
+                                <button class="feeling-btn btn-inside" onclick="updateFeeling('FINNIFTY', 'Inside')">Inside</button>
+                                <button class="feeling-btn btn-clear" onclick="updateFeeling('FINNIFTY', null)">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <h2 class="section-label">Trade Controls</h2>
 
             <section id="command-center" class="command-center" aria-label="NIFTY Trade Controls">
@@ -1388,6 +1519,7 @@
                 refreshState();
                 loadLevels();
                 refreshTradeFeed();
+                refreshFeelings();
             }
             setInterval(refreshState, 5000);
             setInterval(refreshTradeFeed, 10000);
@@ -1434,6 +1566,9 @@
                 if (histData.status === 'success') {
                     updateHistoryUI(histData.history);
                 }
+
+                // 3. Fetch Feelings
+                refreshFeelings();
             } catch (err) { console.error('Data Sync Failed', err); }
         }
 
@@ -2002,6 +2137,96 @@
                     tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic;font-family:var(--body)">No trade signals yet.</td></tr>';
                 }
             } catch (err) { console.error('Trade feed fetch failed', err); }
+        }
+
+        async function refreshFeelings() {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return;
+            try {
+                const response = await fetch('/get-feeling', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret })
+                });
+                const data = await response.json();
+                if (data.status === 'success' && data.feelings) {
+                    updateFeelingsUI(data.feelings);
+                } else if (data.status === 'error' && data.feelings_store === 'unreadable') {
+                    setFeelingsStoreUnreadable();
+                }
+            } catch (err) {
+                console.error('Failed to sync feelings', err);
+            }
+        }
+
+        function setFeelingsStoreUnreadable() {
+            const storeStatusEl = document.getElementById('feeling-store-status');
+            if (storeStatusEl) {
+                storeStatusEl.textContent = 'STORE: UNREADABLE';
+                storeStatusEl.className = 'badge badge-sl';
+            }
+            ['NIFTY', 'BANKNIFTY', 'FINNIFTY'].forEach(symbol => {
+                const badge = document.getElementById(`feeling-badge-${symbol}`);
+                if (badge) {
+                    badge.textContent = 'Unreadable';
+                    badge.className = 'badge feeling-badge BEARISH';
+                }
+            });
+        }
+
+        function updateFeelingsUI(feelings) {
+            const storeStatusEl = document.getElementById('feeling-store-status');
+            if (storeStatusEl) {
+                storeStatusEl.textContent = 'STORE: OK';
+                storeStatusEl.className = 'badge badge-target';
+            }
+            for (const [symbol, val] of Object.entries(feelings)) {
+                const badge = document.getElementById(`feeling-badge-${symbol}`);
+                if (badge) {
+                    const displayVal = val || 'None';
+                    badge.textContent = displayVal;
+                    badge.className = 'badge feeling-badge ' + (val ? val.toUpperCase() : 'NONE');
+                }
+
+                const row = document.getElementById(`feeling-row-${symbol}`);
+                if (row) {
+                    const buttons = row.querySelectorAll('.feeling-btn');
+                    buttons.forEach(btn => btn.classList.remove('active'));
+
+                    if (val === 'Bullish') {
+                        row.querySelector('.btn-bullish')?.classList.add('active');
+                    } else if (val === 'Bearish') {
+                        row.querySelector('.btn-bearish')?.classList.add('active');
+                    } else if (val === 'Inside') {
+                        row.querySelector('.btn-inside')?.classList.add('active');
+                    } else {
+                        row.querySelector('.btn-clear')?.classList.add('active');
+                    }
+                }
+            }
+        }
+
+        async function updateFeeling(underlying, value) {
+            const secret = document.getElementById('secret').value.trim();
+            if (!secret) return notify('⚠️ Webhook secret required to update feeling', 'error');
+
+            notify(`🎯 Updating Feeling for ${underlying} to ${value || 'None'}...`, 'success');
+            try {
+                const response = await fetch('/set-feeling', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret, underlying, value })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    notify(`✅ Feeling updated for ${underlying}`, 'success');
+                    refreshFeelings();
+                } else {
+                    notify(`❌ Failed: ${result.message || 'Unknown error'}`, 'error');
+                }
+            } catch (err) {
+                notify('❌ Connection error to backend', 'error');
+            }
         }
 
         async function setConditionalOrders(side, opts = {}) {
