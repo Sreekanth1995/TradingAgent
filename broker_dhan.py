@@ -207,8 +207,45 @@ class DhanClient:
                 super().__init__(*args, **kwargs)
                 self_._on_update = on_update
 
+            async def connect_order_update(self_):
+                import websockets
+                import json
+                async with websockets.connect(self_.order_feed_wss) as websocket:
+                    auth_message = {
+                        "LoginReq": {
+                            "MsgCode": 42,
+                            "ClientId": str(self_.client_id),
+                            "Token": str(self_.access_token)
+                        },
+                        "UserType": "SELF"
+                    }
+
+                    await websocket.send(json.dumps(auth_message))
+                    logger.info(f"Sent subscribe message to Dhan WS.")
+
+                    async for message in websocket:
+                        if not message:
+                            continue
+                        if isinstance(message, bytes):
+                            try:
+                                message = message.decode('utf-8')
+                            except Exception as decode_err:
+                                logger.warning(f"Failed to decode bytes message: {decode_err}")
+                                continue
+                        for part in message.strip().split('\n'):
+                            part = part.strip()
+                            if not part:
+                                continue
+                            try:
+                                data = json.loads(part)
+                                await self_.handle_order_update(data)
+                            except json.JSONDecodeError as je:
+                                logger.warning(f"Failed to decode message part: {part!r} | Error: {je}")
+
             async def handle_order_update(self_, order_update):
                 try:
+                    if not isinstance(order_update, dict):
+                        return
                     if order_update.get('Type') == 'order_alert':
                         data = order_update.get('Data', {})
                         order_id = str(data.get('orderNo', ''))
@@ -359,7 +396,9 @@ class DhanClient:
             
             # --- Identify Expiry Days for Indices ---
             self.expiry_indices = set()
-            today_str = datetime.now().strftime('%Y-%m-%d')
+            import pytz
+            IST = pytz.timezone('Asia/Kolkata')
+            today_str = datetime.now(IST).strftime('%Y-%m-%d')
             for (sym, strike, opt_type, exp) in self.scrip_map.keys():
                 if exp == today_str and sym in ['NIFTY', 'BANKNIFTY', 'FINNIFTY']:
                     self.expiry_indices.add(sym)
@@ -377,7 +416,13 @@ class DhanClient:
         """
         Checks if today is an expiry day for the given underlying index.
         """
-        return underlying.upper() in getattr(self, 'expiry_indices', set())
+        nearest = self.get_nearest_expiry(underlying)
+        if not nearest:
+            return False
+        import pytz
+        IST = pytz.timezone('Asia/Kolkata')
+        today_str = datetime.now(IST).strftime('%Y-%m-%d')
+        return nearest == today_str
 
     def get_nearest_expiry(self, symbol):
         """
@@ -431,6 +476,12 @@ class DhanClient:
         if len(sorted_future) >= 2:
             return sorted_future[1]
         elif sorted_future:
+            if sorted_future[0] == today_str:
+                self._alarm(
+                    f"get_next_expiry fallback rejected: Only today's expiry ({today_str}) "
+                    f"is available for {symbol}. Refusing to trade today's expiry option."
+                )
+                return None
             logger.warning(f"Only one future expiry for {symbol}; using it as next expiry fallback.")
             return sorted_future[0]
 

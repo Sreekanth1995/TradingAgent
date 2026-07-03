@@ -216,17 +216,31 @@ class MockDhanClient:
         strike = atm - 50 if side == 'CE' else atm + 50
         sec_id = f"SID_{underlying}_{int(strike)}_{side}"
         
+        if self.is_expiry_day(underlying):
+            expiry = self.get_next_expiry(underlying)
+        else:
+            expiry = self.get_nearest_expiry(underlying)
+            
         return {
             "security_id": sec_id,
             "strike": strike,
-            "expiry": datetime.now().strftime('%Y-%m-%d'),
+            "expiry": expiry,
             "symbol": f"{underlying}_MOCK_{int(strike)}_{side}"
         }
 
     def get_nearest_expiry(self, underlying):
         """Returns a mock expiry date (today) for any underlying."""
         from datetime import datetime
-        return datetime.now().strftime('%Y-%m-%d')
+        import pytz
+        IST = pytz.timezone('Asia/Kolkata')
+        return datetime.now(IST).strftime('%Y-%m-%d')
+
+    def get_next_expiry(self, underlying):
+        """Returns next week's mock expiry date (7 days from now) for any underlying."""
+        from datetime import datetime, timedelta
+        import pytz
+        IST = pytz.timezone('Asia/Kolkata')
+        return (datetime.now(IST) + timedelta(days=7)).strftime('%Y-%m-%d')
 
     def get_index_spot_fallback(self, symbol):
         """Returns a mock spot price for the index."""
@@ -306,7 +320,14 @@ class MockDhanClient:
         return {"success": True}
 
     def is_expiry_day(self, underlying):
-        return False
+        nearest = self.get_nearest_expiry(underlying)
+        if not nearest:
+            return False
+        from datetime import datetime
+        import pytz
+        IST = pytz.timezone('Asia/Kolkata')
+        today_str = datetime.now(IST).strftime('%Y-%m-%d')
+        return nearest == today_str
 
     def get_fund_limits(self):
         """Mock fund limits."""

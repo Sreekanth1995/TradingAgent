@@ -18,3 +18,13 @@
 - [x] Phase 10: Implement Margin and Fund APIs
     - **Goal**: Implement Dhan margin calculation and fund limit retrieval endpoints and expose them to Claude via MCP.
     - **Depends on**: Phase 6
+
+### Phase 1: Skip trade on Expiry days
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 0
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 1 to break down)
