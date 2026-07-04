@@ -974,11 +974,68 @@ def get_state():
             for trade in broker.get_completed_trades():
                 _add_to_history(trade)
 
+        # Fetch fund limits & position realized profits directly from Dhan
+        funds = {
+            "available_balance": 100000.0,
+            "utilized_margin": 0.0,
+            "equity": 100000.0,
+            "net_pnl": 0.0,
+            "net_pnl_pct": 0.0
+        }
+        try:
+            fund_resp = broker.get_fund_limits()
+            if fund_resp and fund_resp.get('status') == 'success':
+                fund_data = fund_resp.get('data', {})
+                avail_bal = float(fund_data.get('availabelBalance') or fund_data.get('availableBalance') or 0.0)
+                utilized = float(fund_data.get('utilizedAmount') or fund_data.get('utilizedMargin') or 0.0)
+                funds["available_balance"] = avail_bal
+                funds["utilized_margin"] = utilized
+                funds["equity"] = avail_bal + utilized
+
+            # Query positions directly for the profits (source of truth)
+            positions = broker.get_positions() or []
+            net_pnl = sum(float(pos.get('realizedProfit', 0) or 0.0) for pos in positions)
+            funds["net_pnl"] = round(net_pnl, 2)
+            
+            starting_balance = funds["equity"] - net_pnl
+            if starting_balance > 0:
+                funds["net_pnl_pct"] = round((net_pnl / starting_balance) * 100, 2)
+            else:
+                funds["net_pnl_pct"] = 0.0
+        except Exception as e:
+            logger.error(f"Error calculating direct Dhan profits / funds: {e}")
+
+        # Fetch index prices for NIFTY, BANKNIFTY, FINNIFTY
+        index_prices = {}
+        for sym in ['NIFTY', 'BANKNIFTY', 'FINNIFTY']:
+            try:
+                idx_id = broker.get_index_id(sym)
+                if idx_id:
+                    ltp = broker.get_ltp(idx_id, exchange_segment="IDX_I")
+                    if ltp:
+                        index_prices[sym] = float(ltp)
+            except Exception as e:
+                logger.error(f"Error getting LTP for index {sym}: {e}")
+
+        # Fetch range trackers for all indices
+        range_tracker = {}
+        for sym in ['NIFTY', 'BANKNIFTY', 'FINNIFTY']:
+            try:
+                sym_state = super_order_engine._get_state(sym)
+                rt = sym_state.get('range_tracker_position')
+                if rt:
+                    range_tracker[sym] = rt
+            except Exception as e:
+                logger.error(f"Error getting range tracker for {sym}: {e}")
+
         return jsonify({
             "status": "success",
             "state": state,
             "active_positions": active_positions,
             "sector_details": sector_details,
+            "funds": funds,
+            "index_prices": index_prices,
+            "range_tracker": range_tracker
         }), 200
     except Exception as e:
         logger.error(f"Get State Error: {e}")

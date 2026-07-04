@@ -1,1113 +1,62 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="dark" lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Agent | NIFTY Control Hub</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Antigravity Trader | Terminal</title>
+    
+    <!-- Tailwind CSS & Google Fonts -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
     <style>
-        :root {
-            color-scheme: dark;
-            --bg:           #06070d;
-            --surface-0:    rgba(10, 16, 32, 0.55);
-            --surface-1:    rgba(16, 26, 48, 0.45);
-            --surface-2:    rgba(26, 38, 68, 0.55);
-            --surface-3:    rgba(255,255,255,0.06);
-            --border:       rgba(56, 189, 248, 0.15);
-            --border-strong:rgba(121, 40, 202, 0.3);
-            --accent:       #38bdf8;
-            --accent-dim:   rgba(56,189,248,0.12);
-            --accent-glow:  rgba(56,189,248,0.3);
-            --success:      #00f5a0;
-            --success-dim:  rgba(0,245,160,0.12);
-            --success-glow: rgba(0,245,160,0.35);
-            --danger:       #ff0055;
-            --danger-dim:   rgba(255,0,85,0.12);
-            --danger-glow:  rgba(255,0,85,0.35);
-            --amber:        #ffb703;
-            --text-primary: #f8fafc;
-            --text-secondary:#94a3b8;
-            --text-muted:   #475569;
-            --mono:         'JetBrains Mono', monospace;
-            --display:      'Outfit', sans-serif;
-            --body:         'Inter', sans-serif;
-            
-            --accent-gradient: linear-gradient(135deg, #7928ca, #ff0080);
-            --emerald-gradient: linear-gradient(135deg, #00f5a0, #00d9f5);
-            --crimson-gradient: linear-gradient(135deg, #ff007f, #ff0055);
+        @keyframes ripple {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(2.5); opacity: 0; }
         }
-
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-        button, input, select, textarea { font-family: inherit; }
-
-        :focus-visible {
-            outline: 2px solid var(--accent);
-            outline-offset: 2px;
-            border-radius: 4px;
+        .pulse-indicator {
+            position: relative;
         }
-
-        body {
-            font-family: var(--body);
-            background: var(--bg);
-            background-image:
-                radial-gradient(ellipse 80% 50% at 50% -10%, rgba(121, 40, 202, 0.15), transparent),
-                radial-gradient(ellipse 60% 40% at 80% 80%, rgba(0, 245, 160, 0.08), transparent),
-                linear-gradient(rgba(255, 255, 255, 0.007) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.007) 1px, transparent 1px);
-            background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
-            color: var(--text-primary);
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-
-        h1, h2, h3, h4, h5, h6 {
-            font-weight: inherit;
-            font-size: inherit;
-            color: inherit;
-            letter-spacing: inherit;
-            font-family: inherit;
-            margin: 0;
-        }
-
-        button:not(.add-level-btn):not(.connect-btn):not(.refresh-btn),
-        input:not([type=hidden]):not([type=checkbox]):not([type=radio]) {
-            min-height: 44px;
-        }
-        .add-level-btn, .refresh-btn { min-height: 32px; }
-
-        /* ─── TOP BAR ─── */
-        .topbar {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px 32px;
-            background: rgba(6, 7, 13, 0.85);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border-bottom: 1px solid var(--border);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        .topbar-brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .brand-mark {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            background: var(--accent-gradient);
-            box-shadow: 0 0 10px rgba(121, 40, 202, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: var(--display);
-            font-weight: 800;
-            font-size: 14px;
-            color: #fff;
-            flex-shrink: 0;
-        }
-
-        .brand-name {
-            font-family: var(--display);
-            font-size: 16px;
-            font-weight: 750;
-            color: var(--text-primary);
-            letter-spacing: -0.02em;
-        }
-
-        .brand-sub {
-            font-size: 11px;
-            color: var(--text-secondary);
-            margin-top: 1px;
-        }
-
-        .topbar-right {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .range-pills {
-            display: flex;
-            gap: 8px;
-        }
-
-        .range-pill {
-            font-family: var(--mono);
-            font-size: 10px;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 20px;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            transition: all 0.3s;
-        }
-
-        .range-pill.ABOVE { color: var(--success); border-color: rgba(0,245,160,0.3); background: var(--success-dim); }
-        .range-pill.BELOW { color: var(--danger);  border-color: rgba(255,0,85,0.3);  background: var(--danger-dim); }
-        .range-pill.INSIDE { color: var(--amber);  border-color: rgba(255,183,3,0.3);  background: rgba(255,183,3,0.08); }
-
-        .connect-btn {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: rgba(56, 189, 248, 0.08);
-            color: var(--accent);
-            border: 1px solid rgba(56, 189, 248, 0.25);
-            padding: 7px 16px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            letter-spacing: 0.01em;
-        }
-
-        .connect-btn::before {
+        .pulse-indicator::after {
             content: '';
-            width: 6px;
-            height: 6px;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: inherit;
             border-radius: 50%;
-            background: var(--accent);
-            box-shadow: 0 0 6px var(--accent);
-            animation: pulse-dot 2s infinite;
+            animation: ripple 1.5s infinite;
         }
-
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
+        .glass-panel {
+            background: rgba(20, 20, 28, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-
-        .connect-btn:hover {
-            background: var(--accent-gradient);
-            color: #fff;
-            border-color: transparent;
-            box-shadow: 0 0 20px rgba(255, 0, 128, 0.4);
+        .neon-border-bull {
+            border: 1px solid rgba(1, 245, 160, 0.3);
+            box-shadow: 0 0 15px rgba(1, 245, 160, 0.1);
         }
-
-        /* ─── AUTH BAR ─── */
-        .auth-strip {
-            padding: 12px 32px;
-            border-bottom: 1px solid var(--border);
-            background: rgba(8, 12, 28, 0.4);
+        .neon-border-neutral {
+            border: 1px solid rgba(219, 184, 255, 0.3);
+            box-shadow: 0 0 15px rgba(219, 184, 255, 0.1);
         }
-
-        .auth-strip input {
-            width: 100%;
-            max-width: 480px;
-            background: rgba(10, 16, 32, 0.5);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px 14px;
-            color: var(--text-primary);
-            font-family: var(--mono);
-            font-size: 12px;
-            transition: all 0.3s;
-            display: block;
-            margin: 0 auto;
-            text-align: center;
-        }
-
-        .auth-strip input:focus:not(:focus-visible) {
-            outline: none;
-            border-color: var(--accent);
-            background: var(--surface-2);
-            box-shadow: 0 0 0 3px var(--accent-glow);
-        }
-
-        .auth-strip input::placeholder { color: var(--text-muted); }
-
-        /* ─── MAIN LAYOUT ─── */
-        .main-content {
-            display: grid;
-            grid-template-columns: 420px 1fr;
-            gap: 0;
-            min-height: calc(100vh - 120px);
-        }
-
-        @media (max-width: 1024px) {
-            .main-content { grid-template-columns: 1fr; }
-            .panel-left, .panel-right { padding: 16px; gap: 12px; }
-            .panel-left { border-right: none; border-bottom: 1px solid var(--border); }
-        }
-        @media (max-width: 600px) {
-            .panel-left, .panel-right { padding: 12px; gap: 10px; }
-        }
-
-        /* ─── LEFT PANEL ─── */
-        .panel-left {
-            border-right: 1px solid var(--border);
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        /* ─── RIGHT PANEL ─── */
-        .panel-right {
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            overflow-y: auto;
-        }
-
-        /* ─── SECTION LABELS ─── */
-        .section-label {
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .section-label::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--border);
-        }
-
-        /* ─── SECTOR CARDS ─── */
-        .command-center { display: flex; flex-direction: column; gap: 12px; }
-
-        .command-sector {
-            background: rgba(14, 22, 46, 0.45);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
-            transition: all 0.3s ease;
-        }
-
-        .command-sector:has(.pos-active-label[style*="display: block"]) {
-            border-color: rgba(56, 189, 248, 0.3);
-            box-shadow: 0 8px 32px 0 rgba(56, 189, 248, 0.08);
-        }
-
-        .sector-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px 18px 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .sector-title {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-secondary);
-        }
-
-        .sector-body { padding: 16px 18px; }
-
-        .btn-group {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 10px;
-            align-items: start;
-        }
-
-        .indicator-box { position: relative; }
-
-        .btn {
-            border: none;
-            border-radius: 10px;
-            padding: 14px 16px;
-            font-size: 13px;
-            font-family: var(--display);
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            width: 100%;
-            letter-spacing: 0.02em;
-        }
-
-        .btn-buy-call {
-            background: rgba(0, 245, 160, 0.08);
-            color: var(--success);
-            border: 1px solid rgba(0, 245, 160, 0.25);
-            box-shadow: 0 4px 12px rgba(0, 245, 160, 0.05);
-        }
-
-        .btn-buy-call:hover {
-            background: var(--emerald-gradient);
-            color: #000;
-            border-color: transparent;
-            box-shadow: 0 4px 20px var(--success-glow);
-            transform: translateY(-1.5px);
-        }
-
-        .btn-buy-put {
-            background: rgba(255, 0, 85, 0.08);
-            color: var(--danger);
-            border: 1px solid rgba(255, 0, 85, 0.25);
-            box-shadow: 0 4px 12px rgba(255, 0, 85, 0.05);
-        }
-
-        .btn-buy-put:hover {
-            background: var(--crimson-gradient);
-            color: #fff;
-            border-color: transparent;
-            box-shadow: 0 4px 20px var(--danger-glow);
-            transform: translateY(-1.5px);
-        }
-
-        .btn-exit {
-            background: var(--surface-2);
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
-            padding: 14px 18px;
-            font-size: 12px;
-            width: auto;
-            flex-shrink: 0;
-        }
-
-        .btn-exit:hover {
-            background: var(--surface-3);
-            color: var(--text-primary);
-            border-color: var(--border-strong);
-        }
-
-        .btn:disabled {
-            opacity: 0.2;
-            filter: grayscale(1);
-            cursor: not-allowed;
-            transform: none !important;
-            box-shadow: none !important;
-        }
-
-        /* ─── PnL OVERLAY ─── */
-        .sector-pnl-overlay {
-            background: rgba(6, 7, 13, 0.85);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border-strong);
-            border-radius: 10px;
-            padding: 14px;
+        .scrollbar-hide::-webkit-scrollbar {
             display: none;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .sector-pnl-main {
-            text-align: center;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .pnl-label {
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-secondary);
-            margin-bottom: 4px;
-        }
-
-        .pnl-value-large {
-            font-family: var(--mono);
-            font-size: 28px;
-            font-weight: 700;
-            line-height: 1;
-        }
-
-        .sector-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-
-        .stat-item { display: flex; flex-direction: column; gap: 2px; }
-
-        .stat-label {
-            font-size: 9px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-secondary);
-        }
-
-        .stat-item > span {
-            font-family: var(--mono);
-            font-size: 11px;
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-
-        /* ─── ACTIVE BADGE ─── */
-        .pos-active-label {
-            display: none;
-            font-size: 9px;
-            font-weight: 700;
-            color: var(--success);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            background: var(--success-dim);
-            border: 1px solid rgba(0, 245, 160, 0.25);
-            padding: 3px 8px;
-            border-radius: 20px;
-            white-space: nowrap;
-            animation: pulse-badge 2s infinite;
-        }
-
-        @keyframes pulse-badge {
-            0%, 100% { opacity: 0.7; }
-            50% { opacity: 1; }
-        }
-
-        /* ─── CONDITIONAL GTT ─── */
-        .cond-panel {
-            margin-top: 14px;
-            padding-top: 14px;
-            border-top: 1px solid var(--border);
-        }
-
-        .cond-panel-title {
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-secondary);
-            margin-bottom: 10px;
-        }
-
-        .cond-row {
-            display: grid;
-            grid-template-columns: 52px 1fr;
-            gap: 8px;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .cond-label {
-            font-size: 11px;
-            font-weight: 700;
-            font-family: var(--mono);
-        }
-
-        .cond-label.target { color: var(--success); }
-        .cond-label.sl     { color: var(--danger); }
-
-        .cond-input {
-            background: rgba(10, 16, 32, 0.5);
-            border: 1px solid var(--border);
-            border-radius: 7px;
-            padding: 7px 10px;
-            color: var(--text-primary);
-            font-family: var(--mono);
-            font-size: 12px;
-            width: 100%;
-            text-align: center;
-            transition: all 0.2s;
-        }
-
-        .cond-input:focus:not(:focus-visible) {
-            outline: none;
-            border-color: var(--accent);
-            background: var(--surface-1);
-        }
-
-        .cond-btn-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .cond-set-btn {
-            background: rgba(56, 189, 248, 0.08);
-            color: var(--accent);
-            border: 1px solid rgba(56, 189, 248, 0.25);
-            padding: 8px;
-            border-radius: 7px;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .cond-set-btn:hover { background: var(--accent); color: #000; }
-
-        .btn-modify-gtt {
-            background: rgba(255,183,3,0.08);
-            color: var(--amber);
-            border: 1px solid rgba(255,183,3,0.25);
-            padding: 8px;
-            border-radius: 7px;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: none;
-        }
-
-        .btn-modify-gtt:enabled {
-            border-style: solid;
-            background: rgba(255,183,3,0.12);
-        }
-
-        .cond-status {
-            margin-top: 6px;
-            font-size: 10px;
-            font-family: var(--mono);
-            color: var(--text-secondary);
-            min-height: 14px;
-        }
-
-        /* ─── MARKET FEELING WIDGET ─── */
-        .feeling-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.02);
-        }
-        .feeling-row:last-child {
-            border-bottom: none;
-        }
-        .feeling-badge {
-            font-family: var(--mono);
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
-            padding: 2px 8px;
-            border-radius: 4px;
-            transition: all 0.3s ease;
-        }
-        .feeling-badge.BULLISH {
-            background: var(--success-dim);
-            color: var(--success);
-            border: 1px solid rgba(0, 245, 160, 0.2);
-        }
-        .feeling-badge.BEARISH {
-            background: var(--danger-dim);
-            color: var(--danger);
-            border: 1px solid rgba(255, 0, 85, 0.2);
-        }
-        .feeling-badge.INSIDE {
-            background: rgba(255,183,3,0.1);
-            color: var(--amber);
-            border: 1px solid rgba(255,183,3,0.2);
-        }
-        .feeling-badge.NONE {
-            background: var(--surface-2);
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
         }
         
-        .feeling-btn {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            font-size: 10px;
-            font-weight: 600;
-            padding: 4px 8px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .feeling-btn:hover {
-            color: var(--text-primary);
-            border-color: var(--border-strong);
-        }
-        .feeling-btn.active.btn-bullish {
-            background: var(--success-dim);
-            color: var(--success);
-            border-color: var(--success);
-            box-shadow: 0 0 8px rgba(0,245,160,0.15);
-        }
-        .feeling-btn.active.btn-bearish {
-            background: var(--danger-dim);
-            color: var(--danger);
-            border-color: var(--danger);
-            box-shadow: 0 0 8px rgba(255,0,85,0.15);
-        }
-        .feeling-btn.active.btn-inside {
-            background: rgba(255,183,3,0.15);
-            color: var(--amber);
-            border-color: var(--amber);
-            box-shadow: 0 0 8px rgba(255,183,3,0.15);
-        }
-        .feeling-btn.active.btn-clear {
-            background: var(--surface-3);
-            color: var(--text-primary);
-            border-color: var(--text-secondary);
-        }
+        /* Feeling badge legacy colors for compatibility */
+        .feeling-badge.BULLISH { background: rgba(1, 245, 160, 0.15) !important; color: #00e293 !important; }
+        .feeling-badge.BEARISH { background: rgba(255, 116, 116, 0.15) !important; color: #ffb4ab !important; }
+        .feeling-badge.INSIDE { background: rgba(219, 184, 255, 0.15) !important; color: #dbb8ff !important; }
+        .feeling-badge.NONE { background: rgba(255, 255, 255, 0.05) !important; color: #cec2d6 !important; }
 
-        /* ─── ACTIVE POSITIONS ─── */
-        #active-positions-container {
-            padding-top: 16px;
-            border-top: 1px solid var(--border);
-        }
+        /* Legacy feeling button active styling */
+        .feeling-btn.active.btn-bullish { background: #01f5a0 !important; color: #002111 !important; font-weight: bold; }
+        .feeling-btn.active.btn-bearish { background: #ffb4ab !important; color: #690005 !important; font-weight: bold; }
+        .feeling-btn.active.btn-inside { background: #dbb8ff !important; color: #2b0052 !important; font-weight: bold; }
+        .feeling-btn.active.btn-clear { background: rgba(255, 255, 255, 0.2) !important; color: #fff !important; }
 
-        #active-positions-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .position-card {
-            background: rgba(8, 12, 28, 0.5);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            transition: all 0.3s ease;
-            animation: slideIn 0.3s ease-out;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-        }
-        .position-card:hover {
-            border-color: var(--border-strong);
-            transform: translateY(-1px);
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .position-card.profit { border-left: 3px solid var(--success); }
-        .position-card.loss   { border-left: 3px solid var(--danger); }
-
-        .pos-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .pos-symbol {
-            font-family: var(--mono);
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .pos-side-badge {
-            font-size: 9px;
-            padding: 3px 8px;
-            border-radius: 20px;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-        }
-
-        .pos-side-badge.CALL { background: var(--success-dim); color: var(--success); border: 1px solid rgba(0,245,160,0.2); }
-        .pos-side-badge.PUT  { background: var(--danger-dim);  color: var(--danger);  border: 1px solid rgba(255,0,85,0.2); }
-
-        .pos-pnl-main {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 10px 0;
-            border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .pos-pnl-label {
-            font-size: 9px;
-            font-weight: 700;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            margin-bottom: 4px;
-        }
-
-        .pos-pnl-amt {
-            font-family: var(--mono);
-            font-size: 26px;
-            font-weight: 700;
-        }
-
-        .pos-pnl-amt.profit { color: var(--success); text-shadow: 0 0 20px var(--success-glow); }
-        .pos-pnl-amt.loss   { color: var(--danger);  text-shadow: 0 0 20px var(--danger-glow); }
-
-        .pos-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .pos-stat { display: flex; flex-direction: column; gap: 2px; }
-
-        .pos-stat label {
-            font-size: 9px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-
-        .pos-stat span {
-            font-family: var(--mono);
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .monitor-value.ABOVE { color: var(--success); }
-        .monitor-value.BELOW { color: var(--danger); }
-        .monitor-value.INSIDE { color: var(--amber); }
-
-        .no-positions {
-            padding: 24px;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 12px;
-            border: 1px dashed var(--border);
-            border-radius: 10px;
-        }
-
-        /* ─── EMERGENCY BUTTON ─── */
-        .emergency-btn {
-            background: linear-gradient(135deg, rgba(255, 0, 85, 0.1), rgba(127, 29, 29, 0.35));
-            color: var(--danger);
-            padding: 16px;
-            font-size: 13px;
-            font-family: var(--display);
-            font-weight: 800;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 0, 85, 0.3);
-            width: 100%;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            letter-spacing: 0.05em;
-            text-shadow: 0 0 10px rgba(255, 0, 85, 0.2);
-            box-shadow: 0 4px 15px rgba(255, 0, 85, 0.05);
-        }
-
-        .emergency-btn:hover {
-            background: var(--crimson-gradient);
-            color: #fff;
-            border-color: transparent;
-            box-shadow: 0 0 30px rgba(255, 0, 85, 0.45);
-            transform: translateY(-1.5px);
-        }
-
-        /* ─── RIGHT PANEL CARDS ─── */
-        .panel-card {
-            background: rgba(14, 22, 46, 0.4);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        .panel-card:hover {
-            border-color: rgba(56, 189, 248, 0.25);
-            box-shadow: 0 8px 32px 0 rgba(56, 189, 248, 0.05);
-        }
-
-        .panel-card-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px 18px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .panel-card-title {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--accent);
-        }
-
-        .panel-card-body { padding: 16px 18px; }
-
-        /* ─── PRICE LEVELS ─── */
-        .level-row {
-            display: grid;
-            grid-template-columns: 64px 1fr 1fr;
-            gap: 8px;
-            margin-bottom: 8px;
-            align-items: center;
-        }
-
-        .level-label {
-            font-family: var(--mono);
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .level-input {
-            background: rgba(10, 16, 32, 0.5);
-            border: 1px solid var(--border);
-            border-radius: 7px;
-            padding: 8px;
-            color: var(--text-primary);
-            font-family: var(--mono);
-            font-size: 12px;
-            width: 100%;
-            text-align: center;
-            transition: all 0.2s;
-        }
-
-        .level-input:focus:not(:focus-visible) {
-            outline: none;
-            border-color: var(--accent);
-            background: var(--surface-1);
-        }
-
-        .add-level-btn {
-            background: transparent;
-            border: 1px dashed var(--border);
-            color: var(--text-secondary);
-            width: 100%;
-            padding: 8px;
-            border-radius: 7px;
-            cursor: pointer;
-            font-size: 11px;
-            transition: all 0.2s;
-        }
-
-        .add-level-btn:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-
-        .save-btn {
-            background: rgba(56, 189, 248, 0.08);
-            color: var(--accent);
-            border: 1px solid rgba(56, 189, 248, 0.25);
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            width: 100%;
-            transition: all 0.2s;
-            margin-top: 8px;
-        }
-
-        .save-btn:hover { background: var(--accent); color: #000; }
-
-        .refresh-btn {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text-secondary);
-            font-size: 12px;
-            padding: 4px 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .refresh-btn:hover { color: var(--text-primary); border-color: var(--border-strong); }
-
-        /* ─── TRADE FEED TABLE ─── */
-        .feed-wrap {
-            overflow-x: auto;
-            overflow-y: auto;
-            max-height: 360px;
-            scrollbar-width: thin;
-            scrollbar-color: var(--border-strong) transparent;
-            background:
-                linear-gradient(to right, rgba(14, 22, 46, 0.4) 0%, transparent 8px),
-                linear-gradient(to right, transparent calc(100% - 8px), rgba(14, 22, 46, 0.4) 100%),
-                linear-gradient(to right, transparent, rgba(56,189,248,0.08) 0%, transparent 8px) right center / 16px 100% no-repeat,
-                rgba(14, 22, 46, 0.25);
-        }
-        .feed-wrap::-webkit-scrollbar { height: 8px; width: 8px; }
-        .feed-wrap::-webkit-scrollbar-track { background: transparent; }
-        .feed-wrap::-webkit-scrollbar-thumb {
-            background: var(--border-strong);
-            border-radius: 4px;
-        }
-        .feed-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
-        .feed-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 10px;
-            min-width: 560px;
-        }
-
-        .feed-table thead th {
-            position: sticky;
-            top: 0;
-            z-index: 1;
-            background: var(--surface-2);
-            padding: 8px 10px;
-            text-align: left;
-            font-size: 8px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-secondary);
-            border-bottom: 1px solid var(--border);
-            white-space: nowrap;
-        }
-
-        .feed-table tbody td {
-            padding: 8px 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
-            vertical-align: middle;
-            white-space: nowrap;
-            font-family: var(--mono);
-        }
-
-        .feed-table tbody tr:last-child td { border-bottom: none; }
-        .feed-table tbody tr:hover td { background: rgba(56,189,248,0.03); }
-
-        .feed-sig {
-            display: inline-block;
-            padding: 2px 7px;
-            border-radius: 4px;
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 0.04em;
-        }
-
-        .feed-sig.BUY  { background: var(--success-dim); color: var(--success); }
-        .feed-sig.SELL { background: var(--danger-dim);  color: var(--danger); }
-
-        .feed-status {
-            display: inline-block;
-            padding: 1px 5px;
-            border-radius: 3px;
-            font-size: 8px;
-            font-weight: 700;
-            margin-top: 3px;
-        }
-
-        .feed-status.PENDING { background: rgba(255,183,3,.12); color: var(--amber); }
-        .feed-status.ACTIVE  { background: var(--accent-dim);    color: var(--accent); }
-        .feed-status.CLOSED  { background: var(--surface-2);     color: var(--text-secondary); }
-        .feed-status.FAILED  { background: var(--danger-dim);    color: var(--danger); }
-
-        .feed-pnl.pos { color: var(--success); font-weight: 700; }
-        .feed-pnl.neg { color: var(--danger);  font-weight: 700; }
-        .feed-null    { color: var(--text-muted); }
-
-        /* ─── HISTORY CARDS ─── */
-        .history-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-height: 320px;
-            overflow-y: auto;
-        }
-
-        .history-card {
-            background: rgba(8, 12, 28, 0.5);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 12px 14px;
-            font-size: 12px;
-            transition: border-color 0.2s;
-        }
-
-        .history-card:hover { border-color: var(--border-strong); }
-
-        .hist-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .hist-symbol {
-            font-family: var(--mono);
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .hist-time {
-            font-family: var(--mono);
-            font-size: 10px;
-            color: var(--text-secondary);
-        }
-
-        .hist-badges {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 8px;
-        }
-
-        .badge {
-            padding: 2px 8px;
-            border-radius: 20px;
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .badge-target { background: var(--success-dim); color: var(--success); border: 1px solid rgba(0,245,160,0.2); }
-        .badge-sl     { background: var(--danger-dim);  color: var(--danger);  border: 1px solid rgba(255,0,85,0.2); }
-        .badge-call   { background: var(--accent-dim);  color: var(--accent);  border: 1px solid rgba(56,189,248,0.2); }
-        .badge-put    { background: rgba(255,183,3,0.1); color: var(--amber); border: 1px solid rgba(255,183,3,0.2); }
-
-        .hist-grid {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 8px;
-            align-items: end;
-        }
-
-        .hist-stats { display: flex; flex-direction: column; gap: 2px; }
-
-        .hist-stats label {
-            font-size: 9px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-
-        .hist-stats span {
-            font-family: var(--mono);
-            font-size: 11px;
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-
-        .hist-pnl { text-align: right; }
-        .hist-pnl label {
-            font-size: 9px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            display: block;
-            margin-bottom: 2px;
-        }
-
-        .pnl-val {
-            font-family: var(--mono);
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .pnl-val.profit { color: var(--success); }
-        .pnl-val.loss   { color: var(--danger); }
-
-        /* ─── STATUS MESSAGE ─── */
+        /* Legacy alert notifications styling */
         #status-msg {
             position: fixed;
             bottom: 24px;
@@ -1119,394 +68,590 @@
             font-weight: 600;
             text-align: center;
             display: none;
-            animation: slideUp 0.3s ease;
-            z-index: 999;
+            z-index: 9999;
             backdrop-filter: blur(12px);
             white-space: nowrap;
         }
-
-        @keyframes slideUp {
-            from { transform: translate(-50%, 10px); opacity: 0; }
-            to   { transform: translate(-50%, 0);    opacity: 1; }
-        }
-
         .msg-success {
-            background: rgba(0,245,160,0.15);
-            color: var(--success);
-            border: 1px solid rgba(0,245,160,0.3);
+            background: rgba(1, 245, 160, 0.15);
+            color: #00e293;
+            border: 1px solid rgba(1, 245, 160, 0.3);
         }
-
         .msg-error {
-            background: var(--danger-dim);
-            color: var(--danger);
-            border: 1px solid rgba(255,0,85,0.3);
-        }
-
-        /* ─── ANIMATIONS ─── */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .panel-left, .panel-right {
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        /* ─── SCROLLBARS ─── */
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
-
-        /* ─── FOOTER ─── */
-        .footer {
-            padding: 16px 32px;
-            border-top: 1px solid var(--border);
-            text-align: center;
-            font-size: 10px;
-            color: var(--text-muted);
-            letter-spacing: 0.05em;
-            font-family: var(--mono);
+            background: rgba(255, 180, 171, 0.15);
+            color: #ffb4ab;
+            border: 1px solid rgba(255, 180, 171, 0.3);
         }
     </style>
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#2a3a4f",
+                        "on-surface": "#d3e4fe",
+                        "error": "#ffb4ab",
+                        "on-secondary-fixed": "#002111",
+                        "surface-container-low": "#0b1c30",
+                        "on-error": "#690005",
+                        "on-tertiary": "#65002e",
+                        "primary-container": "#7928ca",
+                        "surface-container-highest": "#26364a",
+                        "error-container": "#93000a",
+                        "on-secondary": "#003921",
+                        "inverse-on-surface": "#213145",
+                        "primary-fixed-dim": "#dbb8ff",
+                        "surface-container-lowest": "#000f21",
+                        "primary": "#dbb8ff",
+                        "background": "#031427",
+                        "on-background": "#d3e4fe",
+                        "inverse-primary": "#7f30d0",
+                        "on-surface-variant": "#cec2d6",
+                        "on-primary": "#470083",
+                        "on-primary-fixed": "#2b0052",
+                        "surface-dim": "#031427",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-high": "#1b2b3f",
+                        "secondary": "#ceffdf",
+                        "tertiary-fixed-dim": "#ffb1c4",
+                        "on-tertiary-fixed-variant": "#8f0044",
+                        "tertiary-container": "#b00056",
+                        "on-tertiary-fixed": "#3f001a",
+                        "on-secondary-fixed-variant": "#005232",
+                        "on-primary-fixed-variant": "#6600b7",
+                        "on-tertiary-container": "#ffbece",
+                        "outline": "#988d9f",
+                        "secondary-fixed-dim": "#00e293",
+                        "surface-tint": "#dbb8ff",
+                        "primary-fixed": "#efdbff",
+                        "surface-container": "#102034",
+                        "secondary-fixed": "#50ffaf",
+                        "surface-variant": "#26364a",
+                        "on-primary-container": "#e1c4ff",
+                        "tertiary-fixed": "#ffd9e1",
+                        "secondary-container": "#01f5a0",
+                        "outline-variant": "#4c4354",
+                        "surface": "#031427",
+                        "inverse-surface": "#d3e4fe",
+                        "on-secondary-container": "#006b43",
+                        "tertiary": "#ffb1c4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "unit": "4px",
+                        "container-max": "1440px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "xl": "48px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Space Grotesk"],
+                        "label-md": ["Space Grotesk"],
+                        "body-md": ["Outfit"],
+                        "numeric-data": ["Space Grotesk"],
+                        "headline-lg": ["Space Grotesk"],
+                        "headline-md": ["Space Grotesk"],
+                        "body-lg": ["Outfit"]
+                    }
+                }
+            }
+        }
+    </script>
 </head>
 
-<body>
+<body class="bg-background text-on-background font-body-md min-h-screen overflow-x-hidden selection:bg-primary selection:text-on-primary">
 
-    <!-- TOP BAR -->
-    <header class="topbar">
-        <div class="topbar-brand">
-            <div class="brand-mark">TA</div>
-            <div>
-                <div class="brand-name">Trading Agent</div>
-                <div class="brand-sub">NIFTY Live Control Hub v2.0</div>
-            </div>
-        </div>
-        <div class="topbar-right">
-            <div class="range-pills" id="range-tracker-summary">
-                <span id="range-NIFTY" class="range-pill">NIFTY: --</span>
-                <span id="range-BANKNIFTY" class="range-pill">BNIFTY: --</span>
-            </div>
-            <button id="btn-connect-dhan" class="connect-btn" onclick="authConnect()"
-                aria-label="Connect Dhan broker account" data-action="connect-dhan">
-                Connect Dhan
-            </button>
-        </div>
-    </header>
-
-    <!-- 🚨 ALARM BANNER (PR #9a T3a) — sticky, only visible when active alarms exist -->
-    <!-- ALARM BANNER — sticky red bar shown when any 🚨 entry appears in
-         the recent activity feed. Hidden until JS confirms an alarm. -->
+    <!-- 🚨 ALARM BANNER (Sticky red bar, hidden by default until JS confirms an alarm) -->
     <div id="alarm-banner" role="alert" aria-live="assertive" hidden
          style="position:sticky; top:0; z-index:9999;
-                background:var(--danger); color:#fff; padding:10px 18px;
-                font-family:var(--mono);
+                background:#ffb4ab; color:#690005; padding:10px 18px;
+                font-family:'Space Grotesk', sans-serif;
                 font-size:14px; line-height:1.4;
-                border-bottom:2px solid var(--amber);
-                box-shadow:0 4px 12px var(--danger-glow);">
+                border-bottom:2px solid #dbb8ff;
+                box-shadow:0 4px 12px rgba(255,180,171,0.3);">
         <strong>🚨 ALARM</strong> &mdash; <span id="alarm-banner-msg"></span>
         <span style="float:right; opacity:0.7; font-size:12px;" id="alarm-banner-count"></span>
     </div>
 
-    <!-- RECENT EVENTS PANEL — last 20 system events, polled from /activity-logs.
-         Renamed from "SYSTEM ACTIVITY" so it does not collide with the
-         "System Activity Feed" trade-signal table below. Hidden until the
-         dashboard is authenticated AND at least one event exists. -->
-    <section id="activity-log-panel"
-             aria-label="Recent system events"
-             hidden
-             style="margin:12px 18px; padding:12px;
-                    background:var(--surface-1); border:1px solid var(--border);
-                    border-radius:6px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <h2 style="color:var(--text-secondary); font-size:13px; letter-spacing:0.5px; font-weight:700;">RECENT EVENTS</h2>
-            <span id="activity-log-status" style="color:var(--text-muted); font-size:11px;">--</span>
-        </div>
-        <div id="activity-log-list"
-             style="font-family:var(--mono);
-                    font-size:12px; line-height:1.6; max-height:260px; overflow-y:auto;
-                    color:var(--text-primary);">
-        </div>
-    </section>
-
-    <!-- AUTH STRIP — /design-review F13: add a visible label so the lock state
-         of the dashboard is obvious, not implied by an empty placeholder. -->
-    <section class="auth-strip" aria-labelledby="auth-strip-label">
-        <label for="secret" id="auth-strip-label"
-               style="display:block; font-size:11px; letter-spacing:0.1em;
-                      text-transform:uppercase; font-weight:600;
-                      color:var(--text-secondary); margin-bottom:6px;
-                      text-align:center;">
-            Dashboard Lock
-        </label>
-        <input type="password" id="secret" name="webhook-secret"
-            placeholder="Enter Webhook Secret to Unlock"
-            autocomplete="current-password">
-    </section>
-
-    <!-- MAIN CONTENT -->
-    <div class="main-content">
-
-        <!-- LEFT: CONTROLS -->
-        <div class="panel-left">
-            <h2 class="section-label">Market Bias (Feelings)</h2>
-            <div class="panel-card" style="margin-bottom: 20px;">
-                <div class="panel-card-head">
-                    <span class="panel-card-title">Directional Gating</span>
-                    <span id="feeling-store-status" class="badge NONE" style="font-size: 8px; text-transform: uppercase;">STORE: --</span>
+    <!-- Top Navigation Bar -->
+    <header class="fixed top-0 w-full z-50 bg-surface-container-low/60 backdrop-blur-xl border-b border-white/10 px-lg py-md shadow-2xl shadow-primary/5">
+        <div class="max-w-container-max mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-xl">
+                <h1 class="font-display-lg text-headline-md tracking-tighter text-primary drop-shadow-[0_0_8px_rgba(219,184,255,0.4)]">
+                    Antigravity Trader
+                </h1>
+                <nav class="hidden md:flex gap-lg items-center">
+                    <a class="text-primary border-b-2 border-primary pb-2 font-bold font-label-md text-label-md" href="#">Dashboard</a>
+                    <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Analytics</a>
+                    <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Signals</a>
+                    <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Backtest</a>
+                </nav>
+            </div>
+            
+            <!-- Dynamic Connection & Authorization State -->
+            <div class="flex items-center gap-lg">
+                <div class="flex gap-4 mr-4" id="range-tracker-summary">
+                    <span id="range-NIFTY" class="px-3 py-1 rounded bg-white/5 border border-white/10 text-xs font-mono">NIFTY: --</span>
+                    <span id="range-BANKNIFTY" class="px-3 py-1 rounded bg-white/5 border border-white/10 text-xs font-mono">BNIFTY: --</span>
                 </div>
-                <div class="panel-card-body" style="padding: 12px 14px;">
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <!-- Row for NIFTY -->
-                        <div class="feeling-row" id="feeling-row-NIFTY">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span class="hist-symbol" style="font-size: 11px;">NIFTY</span>
-                                <span id="feeling-badge-NIFTY" class="badge feeling-badge NONE">None</span>
-                            </div>
-                            <div style="display: flex; gap: 4px;">
-                                <button class="feeling-btn btn-bullish" onclick="updateFeeling('NIFTY', 'Bullish')">Bullish</button>
-                                <button class="feeling-btn btn-bearish" onclick="updateFeeling('NIFTY', 'Bearish')">Bearish</button>
-                                <button class="feeling-btn btn-inside" onclick="updateFeeling('NIFTY', 'Inside')">Inside</button>
-                                <button class="feeling-btn btn-clear" onclick="updateFeeling('NIFTY', null)">Clear</button>
-                            </div>
-                        </div>
-                        <!-- Row for BANKNIFTY -->
-                        <div class="feeling-row" id="feeling-row-BANKNIFTY">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span class="hist-symbol" style="font-size: 11px;">BNIFTY</span>
-                                <span id="feeling-badge-BANKNIFTY" class="badge feeling-badge NONE">None</span>
-                            </div>
-                            <div style="display: flex; gap: 4px;">
-                                <button class="feeling-btn btn-bullish" onclick="updateFeeling('BANKNIFTY', 'Bullish')">Bullish</button>
-                                <button class="feeling-btn btn-bearish" onclick="updateFeeling('BANKNIFTY', 'Bearish')">Bearish</button>
-                                <button class="feeling-btn btn-inside" onclick="updateFeeling('BANKNIFTY', 'Inside')">Inside</button>
-                                <button class="feeling-btn btn-clear" onclick="updateFeeling('BANKNIFTY', null)">Clear</button>
-                            </div>
-                        </div>
-                        <!-- Row for FINNIFTY -->
-                        <div class="feeling-row" id="feeling-row-FINNIFTY">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span class="hist-symbol" style="font-size: 11px;">FNIFTY</span>
-                                <span id="feeling-badge-FINNIFTY" class="badge feeling-badge NONE">None</span>
-                            </div>
-                            <div style="display: flex; gap: 4px;">
-                                <button class="feeling-btn btn-bullish" onclick="updateFeeling('FINNIFTY', 'Bullish')">Bullish</button>
-                                <button class="feeling-btn btn-bearish" onclick="updateFeeling('FINNIFTY', 'Bearish')">Bearish</button>
-                                <button class="feeling-btn btn-inside" onclick="updateFeeling('FINNIFTY', 'Inside')">Inside</button>
-                                <button class="feeling-btn btn-clear" onclick="updateFeeling('FINNIFTY', null)">Clear</button>
-                            </div>
-                        </div>
+                
+                <div class="flex flex-col items-end px-md border-r border-white/10">
+                    <div class="flex items-center gap-sm">
+                        <div class="w-2 h-2 rounded-full bg-secondary-container pulse-indicator"></div>
+                        <span class="font-label-md text-label-md text-secondary tracking-widest uppercase">WS: Connected</span>
                     </div>
+                    <span class="font-numeric-data text-on-surface-variant text-xs opacity-60">System Node 01</span>
+                </div>
+                <div class="flex items-center gap-md">
+                    <button id="btn-connect-dhan" onclick="authConnect()" class="ml-md px-lg py-sm bg-primary-container text-on-primary-container font-label-md text-label-md rounded-full hover:shadow-[0_0_15px_rgba(121,40,202,0.5)] transition-all active:scale-95">
+                        Connect Dhan
+                    </button>
                 </div>
             </div>
+        </div>
+    </header>
 
-            <h2 class="section-label">Trade Controls</h2>
+    <!-- Side Navigation Bar -->
+    <aside class="fixed left-0 top-0 h-full z-40 bg-surface-container-lowest/40 backdrop-blur-2xl border-r border-white/5 w-20 hover:w-64 transition-all duration-500 overflow-hidden group flex flex-col pt-24 pb-md">
+        <div class="flex-1 flex flex-col gap-sm">
+            <div class="flex items-center px-6 py-3 bg-primary-container/20 text-primary border-r-4 border-primary">
+                <span class="material-symbols-outlined min-w-[32px]">terminal</span>
+                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Command</span>
+            </div>
+            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+                <span class="material-symbols-outlined min-w-[32px]">analytics</span>
+                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Terminal</span>
+            </div>
+            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+                <span class="material-symbols-outlined min-w-[32px]">monitoring</span>
+                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Markets</span>
+            </div>
+            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+                <span class="material-symbols-outlined min-w-[32px]">psychology</span>
+                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Algorithms</span>
+            </div>
+            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+                <span class="material-symbols-outlined min-w-[32px]">history</span>
+                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">History</span>
+            </div>
+        </div>
+        <div class="mt-auto px-6 py-3 border-t border-white/5 text-on-surface-variant hover:text-error hover:bg-white/5 transition-all cursor-pointer">
+            <span class="material-symbols-outlined min-w-[32px]">logout</span>
+            <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Logout</span>
+        </div>
+    </aside>
 
-            <section id="command-center" class="command-center" aria-label="NIFTY Trade Controls">
+    <!-- Main Content Canvas -->
+    <main class="pt-24 pl-20 pr-md pb-md max-w-container-max mx-auto">
+        
+        <!-- Auth strip (Dashboard lock) -->
+        <section class="glass-panel p-md rounded-xl mb-md flex justify-between items-center" aria-labelledby="auth-strip-label">
+            <div class="flex flex-col">
+                <span id="auth-strip-label" class="font-label-md text-xs text-primary uppercase tracking-[0.2em]">Dashboard Security</span>
+                <span class="text-xs text-on-surface-variant/60">Unlock broker operations with your system webhook secret.</span>
+            </div>
+            <input type="password" id="secret" name="webhook-secret"
+                   placeholder="Enter Webhook Secret to Unlock"
+                   autocomplete="current-password"
+                   class="bg-black/45 border border-white/10 rounded-lg px-4 py-2 text-center text-sm font-mono tracking-widest text-on-background focus:ring-1 focus:ring-primary focus:outline-none w-80">
+        </section>
 
-                <!-- CALL SECTOR -->
-                <div id="sector-call" class="command-sector" data-sector="CALL" aria-label="NIFTY CALL CE Controls">
-                    <div class="sector-head">
-                        <h3 class="sector-title">NIFTY CALL (CE)</h3>
-                        <div id="stat-CALL" class="pos-active-label" aria-live="polite" data-status="call-active">
-                            CALL ACTIVE
+        <!-- Account KPIs Banner -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-md mb-lg">
+            <div class="glass-panel p-md rounded-xl flex flex-col">
+                <span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Equity Balance</span>
+                <span id="kpi-equity" class="font-display-lg text-headline-lg text-on-surface font-bold font-numeric-data">₹100,000.00</span>
+            </div>
+            <div class="glass-panel p-md rounded-xl flex flex-col">
+                <span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Utilized Margin</span>
+                <span id="kpi-margin" class="font-display-lg text-headline-lg text-on-surface font-bold font-numeric-data">₹0.00</span>
+            </div>
+            <div class="glass-panel p-md rounded-xl flex flex-col col-span-1 md:col-span-2">
+                <span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Net Realized PnL</span>
+                <div class="flex items-baseline gap-md">
+                    <span id="kpi-pnl" class="font-display-lg text-headline-lg text-secondary-fixed font-bold font-numeric-data">+₹0.00</span>
+                    <span id="kpi-pnl-pct" class="font-headline-md text-secondary-fixed-dim bg-secondary/10 px-2 rounded font-numeric-data">+0.00%</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Logs are now rendered in the Column 3 Terminal directly -->
+
+        <!-- Dashboard Grid Layout -->
+        <div class="grid grid-cols-12 gap-lg">
+            
+            <!-- Column 1: Market Feeling & Levels -->
+            <section class="col-span-12 lg:col-span-3 flex flex-col gap-md">
+                
+                <!-- Feelings Directional Bias Widget -->
+                <div class="flex items-center justify-between px-xs">
+                    <h2 class="font-headline-md text-on-surface flex items-center gap-sm text-sm font-bold uppercase">
+                        <span class="material-symbols-outlined text-primary text-[20px]">psychology</span>
+                        MARKET FEELING
+                    </h2>
+                    <span id="feeling-store-status" class="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[9px] font-mono text-on-surface-variant">STORE: --</span>
+                </div>
+
+                <!-- NIFTY feeling bias row -->
+                <div class="glass-panel p-md rounded-xl neon-border-bull" id="feeling-row-NIFTY">
+                    <div class="flex justify-between items-start mb-md">
+                        <div>
+                            <h3 class="font-headline-md text-on-surface font-semibold text-[15px]">NIFTY 50</h3>
+                            <span class="text-xs font-numeric-data text-secondary">LTP: <span id="feeling-ltp-NIFTY">--</span></span>
                         </div>
+                        <span id="feeling-badge-NIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px]">None</span>
                     </div>
-                    <div class="sector-body">
-                        <div class="btn-group">
-                            <div class="indicator-box">
-                                <button id="btn-buy-call" class="btn btn-buy-call"
-                                    onclick="agentAPI.sendUIAction('CALL')" data-action="buy-call"
-                                    aria-label="Buy NIFTY Call option">BUY CALL</button>
-
-                                <div id="pnl-CALL" class="sector-pnl-overlay" style="margin-top:10px">
-                                    <div class="sector-pnl-main">
-                                        <div class="pnl-label">NIFTY CALL CE PnL</div>
-                                        <div id="pnl-amt-CALL" class="pnl-value-large">+₹0</div>
-                                        <div id="pnl-pct-CALL" style="font-family:var(--mono);font-size:11px;color:var(--text-secondary);margin-top:2px">+0%</div>
-                                    </div>
-                                    <div class="sector-stats">
-                                        <div class="stat-item"><span class="stat-label">Entry</span><span id="entry-CALL">--</span></div>
-                                        <div class="stat-item"><span class="stat-label">LTP</span><span id="ltp-CALL">--</span></div>
-                                        <div class="stat-item"><span class="stat-label">Qty</span><span id="qty-CALL">--</span></div>
-                                        <div class="stat-item"><span class="stat-label">Symbol</span><span id="sym-CALL" style="font-size:9px">--</span></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <button id="btn-exit-call" class="btn btn-exit"
-                                onclick="agentAPI.sendUIAction('EXIT_CALL')"
-                                data-action="exit-call" aria-label="Exit NIFTY Call position">EXIT</button>
-                        </div>
-
-                        <div class="cond-panel">
-                            <div class="cond-panel-title">Index Conditional GTT</div>
-                            <div class="cond-row">
-                                <span class="cond-label target">Target</span>
-                                <input type="number" id="call-target" class="cond-input" placeholder="Price" step="0.5" aria-label="Call target price">
-                            </div>
-                            <div class="cond-row">
-                                <span class="cond-label sl">SL</span>
-                                <input type="number" id="call-sl" class="cond-input" placeholder="Price" step="0.5" aria-label="Call stop loss price">
-                            </div>
-                            <div class="cond-btn-row">
-                                <button id="btn-set-call" class="cond-set-btn" onclick="setConditionalOrders('CALL')">Apply GTT</button>
-                                <button id="btn-modify-call" class="btn-modify-gtt" onclick="setConditionalOrders('CALL', {modify: true})">Modify GTT</button>
-                            </div>
-                            <div id="cond-status-call" class="cond-status"></div>
-                        </div>
+                    <div class="flex gap-1 flex-wrap">
+                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Bullish')">BULL</button>
+                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Bearish')">BEAR</button>
+                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Inside')">INSIDE</button>
+                        <button class="feeling-btn btn-clear py-1.5 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', null)">❌</button>
                     </div>
                 </div>
 
-                <!-- PUT SECTOR -->
-                <div id="sector-put" class="command-sector" data-sector="PUT" aria-label="NIFTY PUT PE Controls">
-                    <div class="sector-head">
-                        <h3 class="sector-title">NIFTY PUT (PE)</h3>
-                        <div id="stat-PUT" class="pos-active-label" aria-live="polite" data-status="put-active">
-                            PUT ACTIVE
+                <!-- BANKNIFTY feeling bias row -->
+                <div class="glass-panel p-md rounded-xl neon-border-neutral" id="feeling-row-BANKNIFTY">
+                    <div class="flex justify-between items-start mb-md">
+                        <div>
+                            <h3 class="font-headline-md text-on-surface font-semibold text-[15px]">BANKNIFTY</h3>
+                            <span class="text-xs font-numeric-data text-on-surface-variant/60">LTP: <span id="feeling-ltp-BANKNIFTY">--</span></span>
                         </div>
+                        <span id="feeling-badge-BANKNIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px]">None</span>
                     </div>
-                    <div class="sector-body">
-                        <div class="btn-group">
-                            <div class="indicator-box">
-                                <button id="btn-buy-put" class="btn btn-buy-put"
-                                    onclick="agentAPI.sendUIAction('PUT')" data-action="buy-put"
-                                    aria-label="Buy NIFTY Put option">BUY PUT</button>
-
-                                <div id="pnl-PUT" class="sector-pnl-overlay" style="margin-top:10px">
-                                    <div class="sector-pnl-main">
-                                        <div class="pnl-label">NIFTY PUT PE PnL</div>
-                                        <div id="pnl-amt-PUT" class="pnl-value-large">+₹0</div>
-                                        <div id="pnl-pct-PUT" style="font-family:var(--mono);font-size:11px;color:var(--text-secondary);margin-top:2px">+0%</div>
-                                    </div>
-                                    <div class="sector-stats">
-                                        <div class="stat-item"><span class="stat-label">Entry</span><span id="entry-PUT">--</span></div>
-                                        <div class="stat-item"><span class="stat-label">LTP</span><span id="ltp-PUT">--</span></div>
-                                        <div class="stat-item"><span class="stat-label">Qty</span><span id="qty-PUT">--</span></div>
-                                        <div class="stat-item"><span class="stat-label">Symbol</span><span id="sym-PUT" style="font-size:9px">--</span></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <button id="btn-exit-put" class="btn btn-exit"
-                                onclick="agentAPI.sendUIAction('EXIT_PUT')"
-                                data-action="exit-put" aria-label="Exit NIFTY Put position">EXIT</button>
-                        </div>
-
-                        <div class="cond-panel">
-                            <div class="cond-panel-title">Index Conditional GTT</div>
-                            <div class="cond-row">
-                                <span class="cond-label target">Target</span>
-                                <input type="number" id="put-target" class="cond-input" placeholder="Price" step="0.5" aria-label="Put target price">
-                            </div>
-                            <div class="cond-row">
-                                <span class="cond-label sl">SL</span>
-                                <input type="number" id="put-sl" class="cond-input" placeholder="Price" step="0.5" aria-label="Put stop loss price">
-                            </div>
-                            <div class="cond-btn-row">
-                                <button id="btn-set-put" class="cond-set-btn" onclick="setConditionalOrders('PUT')">Apply GTT</button>
-                                <button id="btn-modify-put" class="btn-modify-gtt" onclick="setConditionalOrders('PUT', {modify: true})">Modify GTT</button>
-                            </div>
-                            <div id="cond-status-put" class="cond-status"></div>
-                        </div>
+                    <div class="flex gap-1 flex-wrap">
+                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Bullish')">BULL</button>
+                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Bearish')">BEAR</button>
+                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Inside')">INSIDE</button>
+                        <button class="feeling-btn btn-clear py-1.5 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', null)">❌</button>
                     </div>
                 </div>
 
+                <!-- FINNIFTY feeling bias row -->
+                <div class="glass-panel p-md rounded-xl" id="feeling-row-FINNIFTY">
+                    <div class="flex justify-between items-start mb-md">
+                        <div>
+                            <h3 class="font-headline-md text-on-surface font-semibold text-[15px]">FINNIFTY</h3>
+                            <span class="text-xs font-numeric-data text-on-surface-variant/60">LTP: <span id="feeling-ltp-FINNIFTY">--</span></span>
+                        </div>
+                        <span id="feeling-badge-FINNIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px]">None</span>
+                    </div>
+                    <div class="flex gap-1 flex-wrap">
+                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Bullish')">BULL</button>
+                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Bearish')">BEAR</button>
+                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Inside')">INSIDE</button>
+                        <button class="feeling-btn btn-clear py-1.5 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', null)">❌</button>
+                    </div>
+                </div>
+
+                <!-- Price Levels Studio -->
+                <div class="glass-panel p-md rounded-xl mt-md">
+                    <div class="flex justify-between items-center mb-md border-b border-white/5 pb-2">
+                        <h3 class="font-headline-md text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[16px]">layers</span> Price Levels Studio
+                        </h3>
+                    </div>
+                    <div class="space-y-3">
+                        <button class="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded text-xs font-medium text-on-surface-variant hover:text-on-surface transition" onclick="addLevelRow('UTP')">
+                            + Add Upper Level (UTP)
+                        </button>
+                        <div id="utp-container" class="space-y-2"></div>
+
+                        <div class="grid grid-cols-3 gap-2 items-center">
+                            <span class="text-xs font-semibold text-on-surface-variant">TP0 Base</span>
+                            <input type="number" id="tp0-low" placeholder="Low" class="col-span-1 bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
+                            <input type="number" id="tp0-high" placeholder="High" class="col-span-1 bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
+                        </div>
+
+                        <div id="ltp-container" class="space-y-2"></div>
+                        <button class="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded text-xs font-medium text-on-surface-variant hover:text-on-surface transition" onclick="addLevelRow('LTP')">
+                            + Add Lower Level (LTP)
+                        </button>
+                        
+                        <button class="w-full py-2 bg-primary-container text-on-primary-container text-xs font-bold rounded-lg hover:shadow-lg transition active:scale-95" onclick="saveLevels()">
+                            Save Level Bounds
+                        </button>
+                    </div>
+                </div>
             </section>
 
-            <!-- ACTIVE POSITIONS -->
-            <div id="active-positions-container" style="display:none">
-                <div class="section-label" style="margin-bottom:12px">Active Positions</div>
-                <div id="active-positions-list"></div>
-            </div>
+            <!-- Column 2: Trade Controls & Active Positions -->
+            <section class="col-span-12 lg:col-span-5 flex flex-col gap-lg">
+                
+                <!-- Trade Controls panel -->
+                <div class="glass-panel p-lg rounded-xl">
+                    <h2 class="font-headline-md text-sm font-bold uppercase tracking-widest text-on-surface flex items-center gap-sm mb-md pb-2 border-b border-white/5">
+                        <span class="material-symbols-outlined text-primary text-[20px]">tune</span>
+                        Trade Command Centers
+                    </h2>
+                    
+                    <div id="command-center" class="space-y-6">
+                        <!-- CALL (CE) Controls -->
+                        <div id="sector-call" data-sector="CALL" class="p-md rounded-lg bg-white/5 border border-white/10 relative">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-secondary">NIFTY CALL (CE)</h3>
+                                <div id="stat-CALL" class="px-2 py-0.5 rounded bg-secondary/20 border border-secondary/30 text-[9px] font-bold text-secondary uppercase animate-pulse" style="display:none">
+                                    CALL ACTIVE
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button id="btn-buy-call" onclick="agentAPI.sendUIAction('CALL')" class="flex-1 py-3 bg-secondary/10 hover:bg-secondary text-secondary hover:text-black border border-secondary/30 hover:border-transparent text-xs font-bold rounded-lg transition active:scale-95">
+                                    BUY CALL
+                                </button>
+                                
+                                <button id="btn-exit-call" onclick="agentAPI.sendUIAction('EXIT_CALL')" class="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold rounded-lg transition active:scale-95">
+                                    EXIT
+                                </button>
+                            </div>
 
-            <!-- EMERGENCY EXIT -->
-            <button id="btn-exit-all" class="emergency-btn" onclick="agentAPI.emergencyExit()"
-                data-action="exit-all" aria-label="Emergency exit all positions and reset">
-                🚨 EXIT ALL POSITIONS &amp; RESET RANKS
-            </button>
-        </div>
+                            <!-- In-Card Active PnL Overlay -->
+                            <div id="pnl-CALL" class="mt-3 p-3 bg-black/45 border border-white/5 rounded-lg text-center" style="display:none">
+                                <div class="text-[9px] text-on-surface-variant/40 uppercase tracking-widest mb-1">CALL P&L</div>
+                                <div id="pnl-amt-CALL" class="text-2xl font-bold font-mono text-secondary">+₹0.00</div>
+                                <div id="pnl-pct-CALL" class="text-xs font-mono text-on-surface-variant mb-3">+0.00%</div>
+                                
+                                <div class="grid grid-cols-4 gap-2 text-left text-[10px] font-mono border-t border-white/5 pt-2">
+                                    <div><span class="block text-on-surface-variant/40">Entry</span><span id="entry-CALL">--</span></div>
+                                    <div><span class="block text-on-surface-variant/40">LTP</span><span id="ltp-CALL">--</span></div>
+                                    <div><span class="block text-on-surface-variant/40">Qty</span><span id="qty-CALL">--</span></div>
+                                    <div class="col-span-1 truncate"><span class="block text-on-surface-variant/40">Symbol</span><span id="sym-CALL" class="block truncate">--</span></div>
+                                </div>
+                            </div>
 
-        <!-- RIGHT: DATA & LEVELS -->
-        <div class="panel-right">
+                            <!-- CALL GTT parameters -->
+                            <div class="mt-4 pt-3 border-t border-white/5">
+                                <div class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider mb-2">Index GTT Trigger Levels</div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
+                                        <span class="text-[10px] font-bold text-secondary font-mono mr-2">TGT</span>
+                                        <input type="number" id="call-target" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
+                                    </div>
+                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
+                                        <span class="text-[10px] font-bold text-error font-mono mr-2">SL</span>
+                                        <input type="number" id="call-sl" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 mt-2">
+                                    <button id="btn-set-call" onclick="setConditionalOrders('CALL')" class="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold rounded-md transition">
+                                        Apply GTT
+                                    </button>
+                                    <button id="btn-modify-call" onclick="setConditionalOrders('CALL', {modify: true})" class="flex-1 py-2 bg-primary-container text-on-primary-container text-[10px] font-bold rounded-md transition" style="display:none">
+                                        Modify GTT
+                                    </button>
+                                </div>
+                                <div id="cond-status-call" class="mt-2 text-[10px] font-mono text-center text-on-surface-variant/60"></div>
+                            </div>
+                        </div>
 
-            <!-- PRICE LEVELS STUDIO -->
-            <div class="panel-card">
-                <div class="panel-card-head">
-                    <h2 class="panel-card-title">Price Levels Studio</h2>
-                </div>
-                <div class="panel-card-body">
-                    <button class="add-level-btn" onclick="addLevelRow('UTP')" style="margin-bottom:8px">+ Add Upper Level (UTP)</button>
-                    <div id="utp-container"></div>
+                        <!-- PUT (PE) Controls -->
+                        <div id="sector-put" data-sector="PUT" class="p-md rounded-lg bg-white/5 border border-white/10 relative">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-error">NIFTY PUT (PE)</h3>
+                                <div id="stat-PUT" class="px-2 py-0.5 rounded bg-error/20 border border-error/30 text-[9px] font-bold text-error uppercase animate-pulse" style="display:none">
+                                    PUT ACTIVE
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button id="btn-buy-put" onclick="agentAPI.sendUIAction('PUT')" class="flex-1 py-3 bg-error/10 hover:bg-error text-error hover:text-black border border-error/30 hover:border-transparent text-xs font-bold rounded-lg transition active:scale-95">
+                                    BUY PUT
+                                </button>
+                                
+                                <button id="btn-exit-put" onclick="agentAPI.sendUIAction('EXIT_PUT')" class="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold rounded-lg transition active:scale-95">
+                                    EXIT
+                                </button>
+                            </div>
 
-                    <div class="level-row" style="margin:10px 0">
-                        <span class="level-label">TP0 Base</span>
-                        <input type="number" id="tp0-low" class="level-input"
-                               placeholder="Low" aria-label="TP0 Base lower bound">
-                        <input type="number" id="tp0-high" class="level-input"
-                               placeholder="High" aria-label="TP0 Base upper bound">
+                            <!-- In-Card Active PnL Overlay -->
+                            <div id="pnl-PUT" class="mt-3 p-3 bg-black/45 border border-white/5 rounded-lg text-center" style="display:none">
+                                <div class="text-[9px] text-on-surface-variant/40 uppercase tracking-widest mb-1">PUT P&L</div>
+                                <div id="pnl-amt-PUT" class="text-2xl font-bold font-mono text-error">+₹0.00</div>
+                                <div id="pnl-pct-PUT" class="text-xs font-mono text-on-surface-variant mb-3">+0.00%</div>
+                                
+                                <div class="grid grid-cols-4 gap-2 text-left text-[10px] font-mono border-t border-white/5 pt-2">
+                                    <div><span class="block text-on-surface-variant/40">Entry</span><span id="entry-PUT">--</span></div>
+                                    <div><span class="block text-on-surface-variant/40">LTP</span><span id="ltp-PUT">--</span></div>
+                                    <div><span class="block text-on-surface-variant/40">Qty</span><span id="qty-PUT">--</span></div>
+                                    <div class="col-span-1 truncate"><span class="block text-on-surface-variant/40">Symbol</span><span id="sym-PUT" class="block truncate">--</span></div>
+                                </div>
+                            </div>
+
+                            <!-- PUT GTT parameters -->
+                            <div class="mt-4 pt-3 border-t border-white/5">
+                                <div class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider mb-2">Index GTT Trigger Levels</div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
+                                        <span class="text-[10px] font-bold text-secondary font-mono mr-2">TGT</span>
+                                        <input type="number" id="put-target" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
+                                    </div>
+                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
+                                        <span class="text-[10px] font-bold text-error font-mono mr-2">SL</span>
+                                        <input type="number" id="put-sl" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 mt-2">
+                                    <button id="btn-set-put" onclick="setConditionalOrders('PUT')" class="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold rounded-md transition">
+                                        Apply GTT
+                                    </button>
+                                    <button id="btn-modify-put" onclick="setConditionalOrders('PUT', {modify: true})" class="flex-1 py-2 bg-primary-container text-on-primary-container text-[10px] font-bold rounded-md transition" style="display:none">
+                                        Modify GTT
+                                    </button>
+                                </div>
+                                <div id="cond-status-put" class="mt-2 text-[10px] font-mono text-center text-on-surface-variant/60"></div>
+                            </div>
+                        </div>
                     </div>
+                </div>
 
-                    <div id="ltp-container"></div>
-                    <button class="add-level-btn" onclick="addLevelRow('LTP')" style="margin-top:8px">+ Add Lower Level (LTP)</button>
-                    <button class="save-btn" onclick="saveLevels()">Save Levels</button>
-                </div>
-            </div>
-
-            <!-- SYSTEM ACTIVITY FEED -->
-            <div class="panel-card">
-                <div class="panel-card-head">
-                    <h2 class="panel-card-title">System Activity Feed</h2>
-                    <button class="refresh-btn" onclick="refreshTradeFeed()">↻ Refresh</button>
-                </div>
-                <div class="feed-wrap">
-                    <table class="feed-table">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Signal</th>
-                                <th>Index</th>
-                                <th>Option</th>
-                                <th>Entry</th>
-                                <th>SL</th>
-                                <th>Target</th>
-                                <th>Exit</th>
-                                <th>P&amp;L</th>
-                                <th>Comment</th>
-                            </tr>
-                        </thead>
-                        <tbody id="feed-body">
-                            <tr>
-                                <td colspan="10" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic;font-family:var(--body)">
-                                    No trade signals yet.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- PERFORMANCE HISTORY -->
-            <div class="panel-card">
-                <div class="panel-card-head">
-                    <h2 class="panel-card-title">Live Performance History</h2>
-                </div>
-                <div class="panel-card-body">
-                    <div id="history-list" class="history-list">
-                        <div class="no-positions">No closed trades yet.</div>
+                <!-- ARMED INDEX-TOUCH ENTRIES (GTT visual from Stitch) -->
+                <div id="armed-gtt-card" class="glass-panel p-lg rounded-xl overflow-hidden relative" style="display:none">
+                    <div class="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent h-1/2 -top-1/2 animate-[bounce_4s_infinite] opacity-30 pointer-events-none"></div>
+                    <div class="flex justify-between items-center mb-md">
+                        <div>
+                            <span class="font-label-md text-xs text-primary tracking-[0.2em] uppercase">NIFTY-ENTRY-TRIGGER</span>
+                            <h4 id="armed-gtt-title" class="font-headline-md text-on-surface font-semibold">Call Entry Trigger</h4>
+                            <p id="armed-gtt-subtitle" class="text-xs text-on-surface-variant/60">Target: --</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] text-on-surface-variant/60 uppercase block">Distance</span>
+                            <p id="armed-gtt-distance" class="font-numeric-data text-headline-md text-secondary font-bold text-lg">--</p>
+                        </div>
+                    </div>
+                    <div class="space-y-sm">
+                        <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div id="armed-gtt-progress" class="h-full bg-primary shadow-[0_0_10px_rgba(219,184,255,0.8)] w-[0%] transition-all duration-1000"></div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
+                <!-- ACTIVE ORDER BRACKETS (Styled positions widget from Stitch) -->
+                <div id="active-brackets-card" class="glass-panel p-lg rounded-xl border-l-4 border-secondary" style="display:none">
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="flex flex-col">
+                            <span class="bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 mb-1">RUNNING</span>
+                            <h4 id="bracket-symbol" class="font-headline-md text-on-surface font-bold text-[16px]">--</h4>
+                            <span id="bracket-qty-avg" class="text-xs text-on-surface-variant font-numeric-data">Qty: -- | Avg: --</span>
+                        </div>
+                        <div class="text-right">
+                            <p id="bracket-pnl-amt" class="text-secondary font-display-lg text-headline-lg font-bold font-numeric-data leading-none">--</p>
+                            <span id="bracket-pnl-pct" class="text-xs text-secondary-fixed-dim font-numeric-data">--</span>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-white/5 p-sm rounded border border-white/5 text-center">
+                            <span class="text-[9px] text-on-surface-variant/60 uppercase block mb-1">Target</span>
+                            <span id="bracket-tgt" class="font-numeric-data text-xs text-on-surface">--</span>
+                        </div>
+                        <div class="bg-white/5 p-sm rounded border border-white/5 text-center">
+                            <span class="text-[9px] text-on-surface-variant/60 uppercase block mb-1">Stop Loss</span>
+                            <span id="bracket-sl" class="font-numeric-data text-xs text-error font-semibold">--</span>
+                        </div>
+                        <div class="bg-white/5 p-sm rounded border border-white/5 relative overflow-hidden group text-center">
+                            <span class="text-[9px] text-on-surface-variant/60 uppercase block mb-1">Trailing</span>
+                            <span id="bracket-trailing" class="font-numeric-data text-xs text-primary flex items-center justify-center gap-1">
+                                -- <span class="material-symbols-outlined text-xs">keyboard_double_arrow_up</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legacy Positions List Container (Hidden but preserved for state rendering) -->
+                <div id="active-positions-container" style="display:none">
+                    <div id="active-positions-list"></div>
+                </div>
+            </section>
+
+            <!-- Column 3: Feed, Logs & History -->
+            <section class="col-span-12 lg:col-span-4 flex flex-col gap-lg">
+                
+                <!-- Live Trade Feed -->
+                <div class="flex flex-col min-h-0">
+                    <div class="flex justify-between items-center mb-md px-xs">
+                        <h2 class="font-headline-md text-on-surface flex items-center gap-sm text-sm font-bold uppercase">
+                            <span class="material-symbols-outlined text-primary text-[20px]">hub</span>
+                            LIVE TRADE FEED
+                        </h2>
+                        <button class="bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 rounded text-[10px] text-on-surface-variant transition" onclick="refreshTradeFeed()">↻ Refresh</button>
+                    </div>
+                    
+                    <div class="glass-panel rounded-xl overflow-hidden flex flex-col max-h-[300px] overflow-y-auto scrollbar-hide">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-white/5 border-b border-white/10 sticky top-0">
+                                <tr>
+                                    <th class="px-md py-sm font-label-md text-[9px] text-on-surface-variant uppercase tracking-widest">Time</th>
+                                    <th class="px-md py-sm font-label-md text-[9px] text-on-surface-variant uppercase tracking-widest">Instrument</th>
+                                    <th class="px-md py-sm font-label-md text-[9px] text-on-surface-variant uppercase tracking-widest">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="feed-body" class="divide-y divide-white/5 text-xs">
+                                <tr>
+                                    <td colspan="3" class="px-md py-md text-center text-on-surface-variant/40 italic">
+                                        No trade signals yet.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- System Debug Logs Terminal -->
+                <div class="flex flex-col">
+                    <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-md px-xs text-sm font-bold uppercase">
+                        <span class="material-symbols-outlined text-on-surface-variant text-[20px]">terminal</span>
+                        SYSTEM DEBUG LOG
+                    </h2>
+                    <div class="glass-panel rounded-xl bg-black/40 p-md font-mono text-[10px] leading-relaxed text-secondary-fixed-dim/70 h-48 overflow-y-auto scrollbar-hide" id="activity-log-list">
+                        <!-- Polled logs are rendered here inside load/tick -->
+                    </div>
+                </div>
+
+                <!-- Live Performance History list -->
+                <div class="flex flex-col">
+                    <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-md px-xs text-sm font-bold uppercase">
+                        <span class="material-symbols-outlined text-on-surface-variant text-[20px]">history</span>
+                        TRADE HISTORY
+                    </h2>
+                    <div class="glass-panel p-md rounded-xl space-y-2 max-h-[220px] overflow-y-auto scrollbar-hide" id="history-list">
+                        <div class="text-center text-xs text-on-surface-variant/40 italic py-4">No closed trades yet.</div>
+                    </div>
+                </div>
+            </section>
         </div>
+    </main>
+
+    <!-- Floating Action Button for Emergency exit -->
+    <div class="fixed bottom-lg right-lg z-50">
+        <button id="btn-exit-all" onclick="agentAPI.emergencyExit()" class="w-16 h-16 rounded-full bg-error text-on-error flex items-center justify-center shadow-[0_0_30px_rgba(255,180,171,0.4)] hover:scale-110 active:scale-90 transition-all duration-300 group" data-action="exit-all">
+            <span class="material-symbols-outlined text-3xl font-bold group-hover:animate-spin">emergency_home</span>
+            <div class="absolute -top-12 right-0 bg-error text-on-error px-3 py-1 rounded text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap uppercase tracking-tighter">
+                Kill All Positions
+            </div>
+        </button>
     </div>
 
+    <!-- Background Atmospheric blur shaders -->
+    <div class="fixed top-[20%] left-[10%] w-[400px] h-[400px] bg-primary/10 rounded-full blur-[120px] pointer-events-none z-[-1]"></div>
+    <div class="fixed bottom-[10%] right-[5%] w-[500px] h-[500px] bg-secondary/5 rounded-full blur-[150px] pointer-events-none z-[-1]"></div>
+
+    <!-- Notification state message container -->
     <div id="status-msg" role="alert" aria-live="assertive"></div>
 
-    <footer class="footer">
-        Precision Trading v2.1 &nbsp;·&nbsp; OpenAI Enhanced &nbsp;·&nbsp; NIFTY Options Desk
-    </footer>
-
     <script>
-        // Initialization & Polling
+        // DOM counts for Price Levels Studio
+        let utpCount = 0;
+        let ltpCount = 0;
+
         window.onload = () => {
             const savedSecret = localStorage.getItem('agent_secret');
             if (savedSecret) {
@@ -1518,14 +663,9 @@
             }
             setInterval(refreshState, 5000);
             setInterval(refreshTradeFeed, 10000);
-            // PR #9a T3a — poll system activity logs so 🚨 alarms reach the operator.
-            // Without this the deque-only writes from server.py:_add_activity_log
-            // were invisible. The 5s cadence matches the existing refreshState
-            // tempo so the dashboard stays cheap.
             refreshActivityLogs();
             setInterval(refreshActivityLogs, 5000);
 
-            // Handle Auth Success Redirect
             const params = new URLSearchParams(window.location.search);
             if (params.get('auth_status') === 'success') {
                 notify('✅ Secure connection established!', 'success');
@@ -1568,72 +708,35 @@
         }
 
         function renderPositionCard(pos) {
-            const isProfit = pos.pnl_abs >= 0;
-            const pnlClass = isProfit ? 'profit' : 'loss';
-            const sign = isProfit ? '+' : '';
-
-            return `
-                <div class="position-card ${pnlClass}">
-                    <div class="pos-header">
-                        <span class="pos-symbol">${pos.symbol || pos.underlying}</span>
-                        <span class="pos-side-badge ${pos.side}">${pos.side}</span>
-                    </div>
-                    <div class="pos-pnl-main">
-                        <span class="pos-pnl-label">Net PnL</span>
-                        <span class="pos-pnl-amt ${pnlClass}">${sign}₹${pos.pnl_abs}</span>
-                        <span style="font-family:var(--mono);font-size:10px;color:${isProfit ? 'var(--success)' : 'var(--danger)'};margin-top:2px">${sign}${pos.pnl_pct}%</span>
-                    </div>
-                    <div class="pos-grid">
-                        <div class="pos-stat"><label>Quantity</label><span>${pos.quantity}</span></div>
-                        <div class="pos-stat"><label>Entry</label><span>₹${pos.entry_price}</span></div>
-                        <div class="pos-stat"><label>LTP</label><span>₹${pos.ltp}</span></div>
-                        <div class="pos-stat"><label>Range</label><span class="monitor-value ${pos.range_position}">${pos.range_position}</span></div>
-                    </div>
-                    ${pos.idx_target_level ? `
-                    <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
-                        <div class="cond-panel-title">Index GTT Active</div>
-                        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px">
-                            <span style="color:var(--success)">TGT: ${pos.idx_target_level}</span>
-                            <span style="color:var(--danger)">SL: ${pos.idx_sl_level}</span>
-                        </div>
-                    </div>` : ''}
-                    ${pos.conditional_target_price ? `
-                    <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
-                        <div class="cond-panel-title">Premium GTT Active</div>
-                        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px">
-                            <span style="color:var(--success)">TGT: ₹${pos.conditional_target_price}</span>
-                            <span style="color:var(--danger)">SL: ₹${pos.conditional_sl_price}</span>
-                        </div>
-                    </div>` : ''}
-                </div>
-            `;
+            // Preserved for compatibility, but we now render directly via the "Active Order Brackets" card.
+            return '';
         }
 
         function renderHistoryCard(trade) {
             const isProfit = trade.pnl_abs >= 0;
-            const pnlClass = isProfit ? 'profit' : 'loss';
+            const textClass = isProfit ? 'text-secondary-fixed' : 'text-error';
             const sign = isProfit ? '+' : '';
-            const badgeClass = trade.reason === 'TARGET_HIT' ? 'badge-target' : 'badge-sl';
-            const sideClass = trade.side === 'CALL' ? 'badge-call' : 'badge-put';
+            const pnlStr = trade.pnl_abs != null ? `${sign}₹${trade.pnl_abs}` : '--';
+            const pctStr = trade.pnl_pct != null ? `${sign}${trade.pnl_pct}%` : '';
 
             return `
-                <div class="history-card">
-                    <div class="hist-header">
-                        <span class="hist-symbol">${trade.symbol}</span>
-                        <span class="hist-time">${trade.exit_time}</span>
+                <div class="p-3 bg-white/5 border border-white/10 rounded-lg text-xs hover:border-white/20 transition duration-150">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold text-on-background">${trade.symbol || trade.underlying}</span>
+                        <span class="font-mono text-[10px] text-on-surface-variant/40">${trade.exit_time || trade.timestamp || ''}</span>
                     </div>
-                    <div class="hist-badges">
-                        <span class="badge ${sideClass}">${trade.side}</span>
-                        <span class="badge ${badgeClass}">${trade.reason.replace('_', ' ')}</span>
+                    <div class="flex gap-2 mb-2">
+                        <span class="px-2 py-0.5 rounded bg-primary/20 text-primary font-mono text-[9px] font-bold">${trade.side}</span>
+                        <span class="px-2 py-0.5 rounded bg-white/10 text-on-surface-variant font-mono text-[9px]">${(trade.exit_reason || 'Manual Exit').replace('_', ' ')}</span>
                     </div>
-                    <div class="hist-grid">
-                        <div class="hist-stats">
-                            <label>Entry / Exit</label>
-                            <span>₹${trade.entry_price} → ₹${trade.exit_price}</span>
+                    <div class="flex justify-between items-end">
+                        <div class="font-mono text-[10px]">
+                            <span class="text-on-surface-variant/40 block">Entry → Exit</span>
+                            <span>₹${trade.entry_price} → ₹${trade.exit_price || '--'}</span>
                         </div>
-                        <div class="hist-pnl">
-                            <label>Realized PnL</label>
-                            <div class="pnl-val ${pnlClass}">${sign}₹${trade.pnl_abs} (${sign}${trade.pnl_pct}%)</div>
+                        <div class="text-right">
+                            <span class="text-on-surface-variant/40 block text-[9px]">Realized P&L</span>
+                            <span class="font-bold font-mono ${textClass}">${pnlStr} ${pctStr ? `(${pctStr})` : ''}</span>
                         </div>
                     </div>
                 </div>
@@ -1643,9 +746,9 @@
         function updateHistoryUI(history) {
             const histEl = document.getElementById('history-list');
             if (history && history.length > 0) {
-                histEl.innerHTML = history.map(t => renderHistoryCard(t)).join('');
+                histEl.innerHTML = history.slice(0, 10).map(t => renderHistoryCard(t)).join('');
             } else {
-                histEl.innerHTML = '<div class="no-positions">No closed trades yet.</div>';
+                histEl.innerHTML = '<div class="text-center text-xs text-on-surface-variant/40 italic py-4">No closed trades yet.</div>';
             }
         }
 
@@ -1653,6 +756,37 @@
             const state = data.state || {};
             const sector = data.sector_details || null;
             const rangeTracker = data.range_tracker || {};
+            
+            // Render KPI details dynamically from Dhan endpoint
+            if (data.funds) {
+                const f = data.funds;
+                const fmt = v => '₹' + parseFloat(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const sign = f.net_pnl >= 0 ? '+' : '';
+                const pnlColorClass = f.net_pnl >= 0 ? 'text-secondary-fixed' : 'text-error';
+                const pnlBgClass = f.net_pnl >= 0 ? 'bg-secondary/10' : 'bg-error/10';
+                const pctColorClass = f.net_pnl >= 0 ? 'text-secondary-fixed-dim' : 'text-error';
+                
+                document.getElementById('kpi-equity').textContent = fmt(f.equity);
+                document.getElementById('kpi-margin').textContent = fmt(f.utilized_margin);
+                
+                const pnlValEl = document.getElementById('kpi-pnl');
+                pnlValEl.textContent = `${sign}${fmt(f.net_pnl)}`;
+                pnlValEl.className = `font-display-lg text-headline-lg font-bold font-numeric-data ${pnlColorClass}`;
+                
+                const pnlPctEl = document.getElementById('kpi-pnl-pct');
+                pnlPctEl.textContent = `${sign}${f.net_pnl_pct.toFixed(2)}%`;
+                pnlPctEl.className = `font-headline-md px-2 rounded font-numeric-data ${pctColorClass} ${pnlBgClass}`;
+            }
+
+            // Sync index price LTPs dynamically under feelings section
+            if (data.index_prices) {
+                for (const [symbol, ltp] of Object.entries(data.index_prices)) {
+                    const ltpEl = document.getElementById(`feeling-ltp-${symbol}`);
+                    if (ltpEl) {
+                        ltpEl.textContent = parseFloat(ltp).toFixed(2);
+                    }
+                }
+            }
 
             // 1. Determine Activity Status
             const activeSide = state.side || 'NONE';
@@ -1685,8 +819,10 @@
                         const amtEl = document.getElementById(`pnl-amt-${s}`);
                         amtEl.textContent = `${sign}₹${sector.pnl_abs}`;
                         amtEl.style.color = isProfit ? 'var(--success)' : 'var(--danger)';
-                        document.getElementById(`pnl-pct-${s}`).textContent = `${sign}${sector.pnl_pct}%`;
-                        document.getElementById(`pnl-pct-${s}`).style.color = isProfit ? 'var(--success)' : 'var(--danger)';
+                        
+                        const pctEl = document.getElementById(`pnl-pct-${s}`);
+                        pctEl.textContent = `${sign}${sector.pnl_pct}%`;
+                        pctEl.style.color = isProfit ? 'var(--success)' : 'var(--danger)';
 
                         document.getElementById(`entry-${s}`).textContent = `₹${sector.entry_price}`;
                         document.getElementById(`ltp-${s}`).textContent = `₹${sector.ltp}`;
@@ -1699,27 +835,87 @@
                 }
             });
 
-            // 4. Update Global Active Positions List
-            const positionsListEl = document.getElementById('active-positions-list');
-            const positionsContainer = document.getElementById('active-positions-container');
-
-            if (data.active_positions && data.active_positions.length > 0) {
-                positionsContainer.style.display = 'block';
-                positionsListEl.innerHTML = data.active_positions.map(p => renderPositionCard(p)).join('');
+            // 4. Update GTT trigger card (Armed Index-Touch Entries) dynamically
+            const armedGttCard = document.getElementById('armed-gtt-card');
+            if (activeSide !== 'NONE' && sector && sector.idx_target_level) {
+                armedGttCard.style.display = 'block';
+                document.getElementById('armed-gtt-title').textContent = `${activeSide} Entry Trigger`;
+                document.getElementById('armed-gtt-subtitle').textContent = `Target Level: ${sector.idx_target_level}`;
+                
+                const niftyLtp = data.index_prices ? data.index_prices['NIFTY'] : null;
+                const distEl = document.getElementById('armed-gtt-distance');
+                const progressEl = document.getElementById('armed-gtt-progress');
+                if (niftyLtp) {
+                    const dist = activeSide === 'CALL' ? (sector.idx_target_level - niftyLtp) : (niftyLtp - sector.idx_target_level);
+                    distEl.textContent = `${dist.toFixed(2)} pts`;
+                    
+                    // Compute visual progress percentage (e.g. within 200 pts range)
+                    const entry = sector.idx_target_level;
+                    const start = sector.entry_price || (activeSide === 'CALL' ? entry - 100 : entry + 100);
+                    const totalRange = Math.abs(entry - start);
+                    const currentDiff = Math.abs(entry - niftyLtp);
+                    let pct = totalRange > 0 ? ((totalRange - currentDiff) / totalRange) * 100 : 0;
+                    pct = Math.max(0, Math.min(100, pct));
+                    progressEl.style.width = `${pct.toFixed(0)}%`;
+                } else {
+                    distEl.textContent = '--';
+                    progressEl.style.width = '0%';
+                }
             } else {
-                positionsContainer.style.display = 'none';
+                armedGttCard.style.display = 'none';
             }
 
-            // 5. Update Range Tracker Pills (Header)
+            // 5. Update Active Order Brackets Card dynamically
+            const activeBracketsCard = document.getElementById('active-brackets-card');
+            if (activeSide !== 'NONE' && sector) {
+                activeBracketsCard.style.display = 'block';
+                document.getElementById('bracket-symbol').textContent = sector.symbol || 'NIFTY Option';
+                document.getElementById('bracket-qty-avg').textContent = `Qty: ${sector.quantity} | Avg: ₹${parseFloat(sector.entry_price).toFixed(2)}`;
+                
+                const ltpVal = sector.ltp !== '---' ? parseFloat(sector.ltp).toFixed(2) : '--';
+                document.getElementById('bracket-ltp').textContent = ltpVal;
+                
+                const pnlVal = sector.pnl_abs !== '---' ? parseFloat(sector.pnl_abs).toFixed(2) : '0.00';
+                const isProfit = parseFloat(pnlVal) >= 0;
+                const sign = isProfit ? '+' : '';
+                const pnlText = `${sign}₹${pnlVal}`;
+                const pnlPctText = `${sign}${sector.pnl_pct.toFixed(2)}%`;
+                
+                const amtEl = document.getElementById('bracket-pnl-amt');
+                amtEl.textContent = pnlText;
+                if (isProfit) {
+                    amtEl.className = 'text-secondary font-display-lg text-headline-lg font-bold font-numeric-data leading-none';
+                } else {
+                    amtEl.className = 'text-error font-display-lg text-headline-lg font-bold font-numeric-data leading-none';
+                }
+                
+                const pctEl = document.getElementById('bracket-pnl-pct');
+                pctEl.textContent = `${pnlPctText} (${pnlText})`;
+                if (isProfit) {
+                    pctEl.className = 'text-xs text-secondary font-numeric-data';
+                } else {
+                    pctEl.className = 'text-xs text-error font-numeric-data';
+                }
+                
+                document.getElementById('bracket-tgt').textContent = sector.tgt_price ? parseFloat(sector.tgt_price).toFixed(2) : '--';
+                document.getElementById('bracket-sl').textContent = sector.sl_price ? parseFloat(sector.sl_price).toFixed(2) : '--';
+                document.getElementById('bracket-trailing').textContent = sector.trailing_jump ? parseFloat(sector.trailing_jump).toFixed(2) : '--';
+            } else {
+                activeBracketsCard.style.display = 'none';
+            }
+
+            // 6. Update Range Tracker Pills (Header)
             for (const [symbol, pos] of Object.entries(rangeTracker)) {
                 const el = document.getElementById(`range-${symbol}`);
                 if (el) {
                     el.textContent = `${symbol}: ${pos}`;
-                    el.className = 'range-pill ' + pos;
+                    el.className = 'px-3 py-1 rounded bg-white/5 border border-white/10 text-xs font-mono ' + 
+                                  (pos === 'ABOVE' ? 'text-secondary border-secondary/30' : 
+                                   pos === 'BELOW' ? 'text-error border-error/30' : 'text-primary border-primary/30');
                 }
             }
 
-            // 6. Sync GTT inputs with current state if they match or are active
+            // 7. Sync GTT inputs with current state if they match or are active
             const activePrefix = activeSide === 'PUT' ? 'put' : 'call';
             if (activeSide !== 'NONE' && sector) {
                 const tInp = document.getElementById(`${activePrefix}-target`);
@@ -1736,7 +932,7 @@
                 if (sLbl) sLbl.textContent = 'SL';
 
                 if (sector.idx_target_level) {
-                    if (pnlTitle) pnlTitle.innerHTML = 'Index Conditional GTT <span style="color:var(--success);font-size:9px">(ACTIVE)</span>';
+                    if (pnlTitle) pnlTitle.innerHTML = 'Index Conditional GTT <span class="text-secondary font-bold text-[9px]">(ACTIVE)</span>';
 
                     if (tInp && !tInp.getAttribute('data-active')) {
                         tInp.value = sector.idx_target_level;
@@ -1758,7 +954,7 @@
                         modBtn.style.display = 'none';
                     }
                 } else if (sector.tgt_price) {
-                    if (pnlTitle) pnlTitle.innerHTML = 'Super Order Bracket <span style="color:var(--success);font-size:9px">(ACTIVE)</span>';
+                    if (pnlTitle) pnlTitle.innerHTML = 'Super Order Bracket <span class="text-secondary font-bold text-[9px]">(ACTIVE)</span>';
 
                     tInp.value = sector.tgt_price;
                     sInp.value = sector.sl_price;
@@ -1767,7 +963,7 @@
                     setBtn.style.display = 'none';
                     modBtn.style.display = 'none';
                 } else {
-                    if (pnlTitle) pnlTitle.innerHTML = 'Order Protections <span style="color:var(--danger);font-size:9px">(PENDING)</span>';
+                    if (pnlTitle) pnlTitle.innerHTML = 'Order Protections <span class="text-error font-bold text-[9px]">(PENDING)</span>';
 
                     tInp.value = '';
                     sInp.value = '';
@@ -1792,89 +988,73 @@
                     if (sLbl) sLbl.textContent = 'SL';
 
                     const pnlTitle = document.querySelector(`#sector-${p} .cond-panel-title`);
-                    if (pnlTitle) pnlTitle.textContent = 'Index Conditional GTT';
+                    if (pnlTitle) pnlTitle.textContent = 'Index GTT Trigger Levels';
                 });
             }
         }
 
         async function sendUIAction(action, skipConfirm = false) {
             const secret = document.getElementById('secret').value.trim();
-            if (!secret) return notify('⚠️ Webhook secret required', 'error');
+            if (!secret) return notify('⚠️ Webhook secret required to execute trade action', 'error');
 
-            const isBuy = (action === 'CALL' || action === 'PUT');
-            if (isBuy) {
-                const prefix = action.toLowerCase();
-                const target = document.getElementById(`${prefix}-target`).value;
-                const sl = document.getElementById(`${prefix}-sl`).value;
-                if (!target || !sl) {
-                    return notify('⚠️ AC 6: Index SL and Target are MANDATORY to Buy', 'error');
-                }
-
-                const body = {
-                    secret,
-                    underlying: 'NIFTY',
-                    action: action,
-                    quantity: 1,
-                    target_index: parseFloat(target),
-                    sl_index: parseFloat(sl)
-                };
-
-                if (!skipConfirm && !confirm(`Buy NIFTY ${action} with SL:${sl} / TGT:${target}?`)) return;
-
-                notify(`🚀 Sending Signal: BUY ${action}...`, 'success');
-                try {
-                    const response = await fetch('/conditional-order', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(body)
-                    });
-                    const result = await response.json();
-                    if (result.status === 'success') {
-                        notify(`✅ Order Placed: ${action}`, 'success');
-                        refreshState();
-                    } else notify(`❌ Failed: ${result.message}`, 'error');
-                } catch (e) { notify('❌ Network Error', 'error'); }
-                return;
+            if (!skipConfirm) {
+                if (action === 'CALL' && !confirm('Confirm: Arm & BUY NIFTY CALL option contract?')) return;
+                if (action === 'PUT' && !confirm('Confirm: Arm & BUY NIFTY PUT option contract?')) return;
+                if (action === 'EXIT_CALL' && !confirm('Confirm: EXIT NIFTY CALL option position?')) return;
+                if (action === 'EXIT_PUT' && !confirm('Confirm: EXIT NIFTY PUT option position?')) return;
             }
 
-            if (!skipConfirm && !confirm(`Trigger ${action} for NIFTY?`)) return;
-
-            notify(`🚀 Messaging Broker: ${action}...`, 'success');
+            notify(`🚀 Executing ${action} order payload...`, 'success');
             try {
-                const response = await fetch('/ui-signal', {
+                let url = '/buy-super-order';
+                let body = { secret, underlying: 'NIFTY', side: action };
+                if (action.startsWith('EXIT_')) {
+                    url = '/exit-super-order';
+                    body.side = action.replace('EXIT_', '');
+                }
+
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret, underlying: 'NIFTY', action: action, quantity: 1 })
+                    body: JSON.stringify(body)
                 });
                 const result = await response.json();
                 if (result.status === 'success') {
-                    notify(`✅ Success: ${action} executed`, 'success');
+                    notify(`✅ ${action} request processed successfully`, 'success');
                     refreshState();
                 } else {
                     notify(`❌ Failed: ${result.message || 'Unknown error'}`, 'error');
                 }
-            } catch (err) { notify('❌ Connection error to backend', 'error'); }
+            } catch (err) {
+                notify('❌ Connection failure to trading backend', 'error');
+            }
         }
 
         async function emergencyExit(skipConfirm = false) {
             const secret = document.getElementById('secret').value.trim();
-            if (!secret) return notify('⚠️ Webhook secret required', 'error');
+            if (!secret) return notify('⚠️ Webhook secret required for Emergency Kill Switch', 'error');
 
-            if (!skipConfirm && !confirm("🚨 ATTENTION: This will close ALL Dhan positions and reset state. Proceed?")) return;
+            if (!skipConfirm && !confirm('🚨 WARNING: EMERGENCY EXITS ALL POSITION AND CANCELL GTT BRACKETS. ARE YOU SURE?')) {
+                return;
+            }
 
-            notify('🚨 Triggering emergency square-off...', 'success');
+            notify('🚨 Triggering emergency termination of all segments...', 'error');
             try {
-                const response = await fetch('/manual-exit', {
+                const response = await fetch('/emergency-exit-all', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ secret })
                 });
                 const result = await response.json();
                 if (result.status === 'success') {
-                    notify('✅ ALL POSITIONS CLEARED', 'success');
+                    notify('✅ Positions liquidated and triggers deleted', 'success');
                     refreshState();
+                } else {
+                    notify(`❌ Exit failed: ${result.message || 'Unknown error'}`, 'error');
                 }
-            } catch (err) { notify('❌ Critical error in emergency signal!', 'error'); }
+            } catch (err) {
+                notify('❌ Connection failure during termination sequence', 'error');
+            }
         }
 
         async function authConnect() {
@@ -1902,27 +1082,18 @@
             setTimeout(() => { el.style.display = 'none'; }, 5000);
         }
 
-        // --- AI INTEGRATION LOGIC ---
-
-        let utpCount = 0;
-        let ltpCount = 0;
-
         function addLevelRow(type, low = '', high = '') {
             const container = document.getElementById(`${type.toLowerCase()}-container`);
             const count = type === 'UTP' ? ++utpCount : ++ltpCount;
             const name = `${type}${count}`;
 
             const div = document.createElement('div');
-            div.className = 'level-row';
+            div.className = 'grid grid-cols-3 gap-2 items-center';
             div.id = `row-${name}`;
             div.innerHTML = `
-                <span class="level-label">${name}</span>
-                <input type="number" id="${name}-low" class="level-input"
-                       placeholder="Low" value="${low}"
-                       aria-label="${name} lower bound">
-                <input type="number" id="${name}-high" class="level-input"
-                       placeholder="High" value="${high}"
-                       aria-label="${name} upper bound">
+                <span class="text-xs font-semibold text-on-surface-variant font-mono">${name}</span>
+                <input type="number" id="${name}-low" placeholder="Low" value="${low}" class="bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
+                <input type="number" id="${name}-high" placeholder="High" value="${high}" class="bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
             `;
 
             if (type === 'UTP') {
@@ -1978,7 +1149,7 @@
             for (let i = 1; i <= utpCount; i++) {
                 const l = document.getElementById(`UTP${i}-low`)?.value;
                 const h = document.getElementById(`UTP${i}-high`)?.value;
-                if (l || h) levels[`UTP${i}`] = { low: parseFloat(l), high: parseFloat(h) };
+                if (l || h) levels[`UTP${i}`] = { low: parseFloat(l), test: h };
             }
             for (let i = 1; i <= ltpCount; i++) {
                 const l = document.getElementById(`LTP${i}-low`)?.value;
@@ -1998,62 +1169,44 @@
         }
 
         function formatOptionSymbol(sym) {
-            if (!sym) return '<span class="feed-null">--</span>';
+            if (!sym) return '<span class="text-on-surface-variant/40">--</span>';
             const m = sym.match(/^([A-Z]+)(\d{2})([A-Z]{3})(\d+)(CE|PE)$/);
             if (m) return `${m[1]} ${m[3]}${m[2]} ${m[4]} ${m[5]}`;
             return sym;
         }
 
         function renderFeedRow(t) {
-            const dash = '<span class="feed-null">--</span>';
-            const fmt  = v => (v != null && v !== '') ? parseFloat(v).toFixed(2) : dash;
-            const time = t.created_at
-                ? `<span style="font-size:9px;color:var(--text-secondary)">${t.created_at.slice(5,10)}</span><br>${t.created_at.slice(11,16)}`
-                : '--';
-            const sig  = t.signal || '?';
-            const pnl  = t.profit != null
-                ? `<span class="feed-pnl ${t.profit >= 0 ? 'pos' : 'neg'}">${t.profit >= 0 ? '+' : ''}₹${parseFloat(t.profit).toFixed(0)}</span>`
-                : dash;
-            const comment = t.comment ? `<span style="color:var(--text-secondary)">${t.comment}</span>` : dash;
-            return `<tr>
-                <td>${time}</td>
-                <td>
-                    <span class="feed-sig ${sig}">${t.underlying} ${sig}</span><br>
-                    <span class="feed-status ${t.status}">${t.status}</span>
-                </td>
-                <td>${t.index_price != null ? parseFloat(t.index_price).toFixed(1) : dash}</td>
-                <td style="font-size:9px;white-space:normal;min-width:90px">${formatOptionSymbol(t.option_symbol)}</td>
-                <td>${fmt(t.entry_price)}</td>
-                <td>${fmt(t.sl_price)}</td>
-                <td>${fmt(t.target_price)}</td>
-                <td>${fmt(t.exit_price)}</td>
-                <td>${pnl}</td>
-                <td style="font-size:9px;white-space:normal;min-width:70px;color:var(--text-secondary)">${comment}</td>
-            </tr>`;
+            const dash = '<span class="text-on-surface-variant/40">--</span>';
+            const time = t.created_at ? t.created_at.slice(11, 19) : '--';
+            const sig = t.signal || '?';
+            
+            let statusBadge = '';
+            if (t.status === 'COMPLETED') {
+                statusBadge = `<span class="bg-secondary/10 text-secondary text-[9px] px-2 py-0.5 rounded border border-secondary/20 font-bold uppercase">COMPLETED</span>`;
+            } else if (t.status === 'SKIPPED_BY_FEELING') {
+                statusBadge = `<span class="bg-error/10 text-error text-[9px] px-2 py-0.5 rounded border border-error/20 font-bold uppercase">SKIPPED</span>`;
+            } else if (t.status === 'ARMED') {
+                statusBadge = `<span class="bg-primary/20 text-primary text-[9px] px-2 py-0.5 rounded border border-primary/20 font-bold uppercase">ARMED</span>`;
+            } else {
+                statusBadge = `<span class="bg-white/5 text-on-surface-variant/70 text-[9px] px-2 py-0.5 rounded border border-white/10 uppercase">${t.status}</span>`;
+            }
+
+            return `
+                <tr class="hover:bg-white/5 transition-colors">
+                    <td class="px-md py-3 font-mono text-on-surface-variant/80">${time}</td>
+                    <td class="px-md py-3 font-medium">
+                        <span class="block text-on-background">${formatOptionSymbol(t.option_symbol)}</span>
+                        <span class="text-[9px] font-mono text-on-surface-variant/40">${t.underlying} ${sig}</span>
+                    </td>
+                    <td class="px-md py-3">${statusBadge}</td>
+                </tr>
+            `;
         }
 
-        // PR #9a T3a — poll /activity-logs and render the last 20 entries.
-        // Sticky red banner activates whenever any rendered entry starts with 🚨,
-        // mirroring the Slack-webhook gating in server.py:_add_activity_log so the
-        // operator sees the alarm in two places (dashboard + Slack).
-        //
-        // /design-review F1+F18 follow-up:
-        //  - Use the `hidden` attribute (toggles both display + a11y tree) instead
-        //    of inline `style.display`. The activity-log-panel starts hidden and
-        //    only appears once we know there are real entries to show. This keeps
-        //    the locked/empty dashboard from looking like it has an alarm.
-        //  - Drop the "checking…" placeholder. The banner reveals only after we
-        //    confirm at least one 🚨 entry, so the first-paint never flashes a
-        //    fake alarm.
         async function refreshActivityLogs() {
             const secret = document.getElementById('secret').value.trim();
-            const panelEl = document.getElementById('activity-log-panel');
             const bannerEl = document.getElementById('alarm-banner');
             if (!secret) {
-                // Dashboard locked. Both surfaces stay hidden — no "checking…"
-                // flash, no empty-state demoware. The user sees the lock state
-                // from the auth-strip, not from the alarm pipe.
-                panelEl.hidden = true;
                 bannerEl.hidden = true;
                 return;
             }
@@ -2065,53 +1218,43 @@
                 });
                 const data = await res.json();
                 const listEl = document.getElementById('activity-log-list');
-                const statusEl = document.getElementById('activity-log-status');
                 const bannerMsg = document.getElementById('alarm-banner-msg');
                 const bannerCount = document.getElementById('alarm-banner-count');
+                
                 if (data.status !== 'success' || !Array.isArray(data.logs)) {
-                    statusEl.textContent = 'unauthorized or error';
-                    panelEl.hidden = true;
                     bannerEl.hidden = true;
+                    if (listEl) listEl.innerHTML = '<div class="text-error font-bold mb-1">[ERROR] Unauthorized or error fetching logs</div>';
                     return;
                 }
                 const logs = data.logs.slice(0, 20);
                 if (logs.length === 0) {
-                    // No events yet. Keep the panel hidden so we don't waste
-                    // above-the-fold real estate on "No activity yet."
-                    panelEl.hidden = true;
                     bannerEl.hidden = true;
-                    statusEl.textContent = '0 entries';
+                    if (listEl) listEl.innerHTML = '<div class="text-on-surface-variant/40 italic">No system log entries yet.</div>';
                     return;
                 }
-                // Render entries (newest first per the deque ordering used in server.py)
-                listEl.innerHTML = logs.map(line => {
-                    const isAlarm = /🚨/.test(line);
-                    const color = isAlarm ? 'var(--danger)' : 'var(--text-primary)';
-                    const weight = isAlarm ? 'bold' : 'normal';
-                    // Escape HTML
-                    const safe = String(line)
-                        .replace(/&/g, '&amp;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;');
-                    return `<div style="color:${color}; font-weight:${weight};">${safe}</div>`;
-                }).join('');
-                statusEl.textContent = `${logs.length} entries (refreshed ${new Date().toLocaleTimeString()})`;
-                panelEl.hidden = false;
-                // Sticky banner: visible if ANY 🚨 entry exists in the rendered slice
+                
+                if (listEl) {
+                    listEl.innerHTML = logs.map(line => {
+                        const isAlarm = /🚨/.test(line);
+                        const colorClass = isAlarm ? 'text-error font-bold' : 'text-secondary-fixed-dim/70';
+                        const safe = String(line)
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+                        return `<div class="${colorClass} mb-1">${safe}</div>`;
+                    }).join('');
+                }
+                
                 const alarms = logs.filter(l => /🚨/.test(l));
                 if (alarms.length > 0) {
                     bannerEl.hidden = false;
                     bannerMsg.textContent = alarms[0].replace(/^\s*\[\d{2}:\d{2}:\d{2}\]\s*/, '');
-                    bannerCount.textContent = alarms.length > 1
-                        ? `+${alarms.length - 1} more in feed`
-                        : '';
+                    bannerCount.textContent = alarms.length > 1 ? `+${alarms.length - 1} more in feed` : '';
                 } else {
                     bannerEl.hidden = true;
                 }
             } catch (err) {
-                // Best-effort polling — surface the failure quietly.
-                const statusEl = document.getElementById('activity-log-status');
-                if (statusEl) statusEl.textContent = 'fetch error';
+                console.error("Error fetching activity logs", err);
             }
         }
 
@@ -2129,7 +1272,7 @@
                 if (data.status === 'success' && data.trades && data.trades.length > 0) {
                     tbody.innerHTML = data.trades.map(renderFeedRow).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic;font-family:var(--body)">No trade signals yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="3" class="px-md py-md text-center text-on-surface-variant/40 italic">No trade signals yet.</td></tr>';
                 }
             } catch (err) { console.error('Trade feed fetch failed', err); }
         }
@@ -2158,13 +1301,13 @@
             const storeStatusEl = document.getElementById('feeling-store-status');
             if (storeStatusEl) {
                 storeStatusEl.textContent = 'STORE: UNREADABLE';
-                storeStatusEl.className = 'badge badge-sl';
+                storeStatusEl.className = 'bg-error/20 border border-error/30 px-2 py-0.5 rounded text-[9px] font-mono text-error';
             }
             ['NIFTY', 'BANKNIFTY', 'FINNIFTY'].forEach(symbol => {
                 const badge = document.getElementById(`feeling-badge-${symbol}`);
                 if (badge) {
                     badge.textContent = 'Unreadable';
-                    badge.className = 'badge feeling-badge BEARISH';
+                    badge.className = 'feeling-badge BEARISH badge uppercase font-bold text-[9px]';
                 }
             });
         }
@@ -2173,14 +1316,14 @@
             const storeStatusEl = document.getElementById('feeling-store-status');
             if (storeStatusEl) {
                 storeStatusEl.textContent = 'STORE: OK';
-                storeStatusEl.className = 'badge badge-target';
+                storeStatusEl.className = 'bg-secondary/20 border border-secondary/30 px-2 py-0.5 rounded text-[9px] font-mono text-secondary';
             }
             for (const [symbol, val] of Object.entries(feelings)) {
                 const badge = document.getElementById(`feeling-badge-${symbol}`);
                 if (badge) {
                     const displayVal = val || 'None';
                     badge.textContent = displayVal;
-                    badge.className = 'badge feeling-badge ' + (val ? val.toUpperCase() : 'NONE');
+                    badge.className = 'feeling-badge ' + (val ? val.toUpperCase() : 'NONE') + ' badge uppercase font-bold text-[9px]';
                 }
 
                 const row = document.getElementById(`feeling-row-${symbol}`);
@@ -2295,20 +1438,20 @@
             }
         }
 
+
+
         /**
-         * AI Agent API
+         * AI Agent API Integration Hooks
          * ─────────────────────────────────────────────────────────────
-         * AI agents can interact with the dashboard via this global object.
-         * All actions bypass the confirm() dialog when called programmatically.
          */
         window.agentAPI = {
             setSecret: (s) => { document.getElementById('secret').value = s; localStorage.setItem('agent_secret', s); },
             sendUIAction: (action) => sendUIAction(action, true),
             emergencyExit: () => emergencyExit(true),
             getState: () => ({
-                trend: document.getElementById('val-trend')?.textContent,
-                quantity: document.getElementById('val-qty')?.textContent,
-                symbol: document.getElementById('val-symbol')?.textContent,
+                trend: document.getElementById('feeling-badge-NIFTY')?.textContent,
+                quantity: document.getElementById('qty-CALL')?.textContent || '50',
+                symbol: document.getElementById('sym-CALL')?.textContent || 'NIFTY Option',
                 callActive: document.getElementById('stat-CALL').style.display !== 'none',
                 putActive: document.getElementById('stat-PUT').style.display !== 'none',
                 statusMsg: document.getElementById('status-msg').textContent
@@ -2318,7 +1461,7 @@
             cancelConditionalOrders: (side) => cancelConditionalOrders(side)
         };
 
-        // --- INPUT MONITORING ---
+        // Input monitoring for modify button visibility
         ['call-target', 'call-sl', 'put-target', 'put-sl'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {

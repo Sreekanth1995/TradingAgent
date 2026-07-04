@@ -196,8 +196,15 @@ class MockDhanClient:
                 "unrealizedProfit": 0.0
             })
         elif transaction_type == "SELL":
-            # Remove positions matching symbol
-            self.mock_positions = [p for p in self.mock_positions if p['tradingSymbol'] != symbol]
+            # Simulate exit: find the open position and set netQty to 0, calculate PnL
+            for pos in self.mock_positions:
+                if pos['tradingSymbol'] == symbol and int(pos.get('netQty', 0)) > 0:
+                    exit_price = self.get_ltp(pos['securityId']) or pos['averagePrice']
+                    pnl = round((exit_price - pos['averagePrice']) * pos['netQty'], 2)
+                    pos['netQty'] = 0
+                    pos['realizedProfit'] = float(pnl)
+                    pos['unrealizedProfit'] = 0.0
+                    break
             
         mock_order_id = f"MOCK_{random.randint(100000, 999999)}"
         return {"success": True, "order_id": mock_order_id, "error": None}
