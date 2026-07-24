@@ -1408,12 +1408,6 @@ class DhanClient:
         # Using NSE_FNO for index IDs causes Dhan DH-905 Input_Exception.
         condition_exchange_seg = IDX_SEGMENT if is_index_id(actual_trigger_id) else exchange_seg
 
-        # Dhan GTT alert API expects MARGIN (for FNO options) or MIS/CNC (for cash/equity).
-        # It does NOT support the raw string "INTRADAY" — passing "INTRADAY" triggers errorCode DH-905.
-        gtt_product_type = product_type
-        if product_type == "INTRADAY":
-            gtt_product_type = "MARGIN"
-
         dhan_operator = operator
         if operator == "ABOVE":
             dhan_operator = "GREATER_THAN"
@@ -1435,7 +1429,7 @@ class DhanClient:
             "orders": [{
                 "transactionType": transaction_type,
                 "exchangeSegment": exchange_seg,
-                "productType": gtt_product_type,
+                "productType": product_type,
                 "orderType": "MARKET",
                 "securityId": str(sec_id),
                 "quantity": int(quantity),
