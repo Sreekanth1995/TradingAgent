@@ -1414,6 +1414,12 @@ class DhanClient:
         if product_type == "INTRADAY":
             gtt_product_type = "MARGIN"
 
+        dhan_operator = operator
+        if operator == "ABOVE":
+            dhan_operator = "GREATER_THAN"
+        elif operator == "BELOW":
+            dhan_operator = "LESS_THAN"
+
         payload = {
             "dhanClientId": self.client_id,
             "userNote": user_note if user_note else "GTT Trigger",
@@ -1421,7 +1427,7 @@ class DhanClient:
                 "comparisonType": "LTP_WITH_VALUE",
                 "exchangeSegment": condition_exchange_seg,
                 "securityId": str(actual_trigger_id),
-                "operator": operator,
+                "operator": dhan_operator,
                 "comparingValue": float(comparing_value),
                 "expDate": exp_date,
                 "frequency": "ONCE"
