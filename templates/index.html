@@ -4,69 +4,13 @@
 <head>
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <title>Antigravity Trader | macOS Terminal</title>
+    <title>Antigravity Trader | Terminal</title>
     
     <!-- Tailwind CSS & Google Fonts -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     
     <style>
-        :root {
-            --mac-bg: #031427;
-            --mac-sidebar: rgba(22, 38, 58, 0.7);
-            --mac-card: rgba(38, 54, 74, 0.45);
-            --mac-border: rgba(255, 255, 255, 0.1);
-        }
-
-        body {
-            background-color: var(--mac-bg);
-            color: #d3e4fe;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overflow-hidden: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        .macos-sidebar {
-            background: var(--mac-sidebar);
-            backdrop-filter: blur(40px) saturate(150%);
-            -webkit-backdrop-filter: blur(40px) saturate(150%);
-        }
-
-        .macos-glass {
-            background: var(--mac-card);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border: 1px solid var(--mac-border);
-            box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
-        }
-
-        .traffic-light {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .traffic-light-red { background: #FF5F56; }
-        .traffic-light-yellow { background: #FFBD2E; }
-        .traffic-light-green { background: #27C93F; }
-
-        .sidebar-item-active {
-            background: rgba(219, 184, 255, 0.15);
-            color: #dbb8ff;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-        }
-
         @keyframes ripple {
             0% { transform: scale(1); opacity: 0.8; }
             100% { transform: scale(2.5); opacity: 0; }
@@ -83,13 +27,21 @@
             border-radius: 50%;
             animation: ripple 1.5s infinite;
         }
-
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+        .glass-panel {
+            background: rgba(20, 20, 28, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-
-        .mac-heading {
-            letter-spacing: -0.022em;
+        .neon-border-bull {
+            border: 1px solid rgba(1, 245, 160, 0.3);
+            box-shadow: 0 0 15px rgba(1, 245, 160, 0.1);
+        }
+        .neon-border-neutral {
+            border: 1px solid rgba(219, 184, 255, 0.3);
+            box-shadow: 0 0 15px rgba(219, 184, 255, 0.1);
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
         }
         
         /* Feeling badge legacy colors for compatibility */
@@ -187,10 +139,10 @@
                         "tertiary": "#ffb1c4"
                     },
                     "borderRadius": {
-                        "DEFAULT": "6px",
-                        "lg": "10px",
-                        "xl": "14px",
-                        "full": "9999px"
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
                     },
                     "spacing": {
                         "sm": "8px",
@@ -198,9 +150,9 @@
                         "container-max": "1440px",
                         "xs": "4px",
                         "md": "16px",
-                        "lg": "32px",
+                        "lg": "24px",
                         "xl": "48px",
-                        "gutter": "24px"
+                        "gutter": "16px"
                     },
                     "fontFamily": {
                         "display-lg": ["Space Grotesk"],
@@ -217,475 +169,432 @@
     </script>
 </head>
 
-<body class="flex h-screen overflow-hidden select-none bg-background text-on-background font-body-md min-h-screen overflow-x-hidden selection:bg-primary selection:text-on-primary">
-    <!-- LEFT SIDEBAR -->
-    <aside class="macos-sidebar w-64 flex flex-col border-r border-white/5 transition-all duration-300">
-        <!-- Window Controls (Traffic Lights) -->
-        <div class="h-12 flex items-center px-5 gap-2">
-            <span class="traffic-light traffic-light-red"></span>
-            <span class="traffic-light traffic-light-yellow"></span>
-            <span class="traffic-light traffic-light-green"></span>
-        </div>
-        <div class="px-5 mb-8">
-            <h1 class="text-xs font-bold text-on-surface-variant/50 uppercase tracking-widest mac-heading">System Node</h1>
-            <div class="flex items-center gap-2 mt-2">
-                <div class="w-2 h-2 bg-secondary rounded-full shadow-[0_0_8px_rgba(1,245,160,0.5)] bg-secondary-container pulse-indicator"></div>
-                <span class="text-sm font-medium text-on-surface mac-heading">NODE_01 CONNECTED</span>
-            </div>
-        </div>
-        <nav class="flex-1 px-3 space-y-0.5">
-            <a class="flex items-center gap-3 px-3 py-2 rounded-lg sidebar-item-active transition-colors" href="#">
-                <span class="material-symbols-outlined text-[20px]">terminal</span>
-                <span class="text-sm font-medium">Command</span>
-            </a>
-            <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant/80 hover:bg-white/5 transition-colors" href="#">
-                <span class="material-symbols-outlined text-[20px]">psychology</span>
-                <span class="text-sm font-medium">Strategy</span>
-            </a>
-            <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant/80 hover:bg-white/5 transition-colors" href="#">
-                <span class="material-symbols-outlined text-[20px]">sensors</span>
-                <span class="text-sm font-medium">Signals</span>
-            </a>
-            <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant/80 hover:bg-white/5 transition-colors" href="#">
-                <span class="material-symbols-outlined text-[20px]">rocket_launch</span>
-                <span class="text-sm font-medium">Execution</span>
-            </a>
-            <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant/80 hover:bg-white/5 transition-colors" href="#">
-                <span class="material-symbols-outlined text-[20px]">history</span>
-                <span class="text-sm font-medium">History</span>
-            </a>
-            <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant/80 hover:bg-white/5 transition-colors" href="#">
-                <span class="material-symbols-outlined text-[20px]">analytics</span>
-                <span class="text-sm font-medium">Status</span>
-            </a>
-        </nav>
-        <div class="p-4 mt-auto space-y-4">
-            <button onclick="agentAPI.emergencyExit()" class="w-full py-3 bg-error text-on-error font-bold rounded-lg shadow-xl active:opacity-80 transition-all mac-heading text-sm uppercase">
-                Emergency Exit
-            </button>
-            <div class="pt-4 border-t border-white/5 space-y-1">
-                <a class="flex items-center gap-3 px-3 py-2 text-sm text-on-surface-variant/60 hover:text-on-surface" href="#">
-                    <span class="material-symbols-outlined text-[18px]">help</span>
-                    <span>Support</span>
-                </a>
-                <a class="flex items-center gap-3 px-3 py-2 text-sm text-on-surface-variant/60 hover:text-on-surface" href="#">
-                    <span class="material-symbols-outlined text-[18px]">receipt_long</span>
-                    <span>Logs</span>
-                </a>
-            </div>
-        </div>
-    </aside>
+<body class="bg-background text-on-background font-body-md min-h-screen overflow-x-hidden selection:bg-primary selection:text-on-primary">
 
-    <!-- MAIN CONTENT AREA -->
-    <main class="flex-1 flex flex-col relative overflow-hidden bg-surface/20">
-        <!-- TOP BAR (Unified Titlebar) -->
-        <header class="h-12 border-b border-white/5 flex justify-between items-center px-6 shrink-0 z-50">
-            <div class="flex items-center gap-8">
-                <div class="text-lg font-bold tracking-tight text-on-surface mac-heading">ANTIGRAVITY</div>
-                <!-- CENTRALIZED KPIs -->
-                <div class="flex items-center gap-6">
-                    <div class="h-4 w-px bg-white/10"></div>
-                    <div class="flex items-center gap-4">
-                        <div class="flex flex-col">
-                            <span class="text-[10px] text-on-surface-variant/50 font-bold uppercase tracking-wider">Equity</span>
-                            <span id="kpi-equity" class="text-xs font-semibold font-numeric-data">₹100,000.00</span>
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="text-[10px] text-on-surface-variant/50 font-bold uppercase tracking-wider">Margin</span>
-                            <span id="kpi-margin" class="text-xs font-semibold font-numeric-data">₹0.00</span>
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="text-[10px] text-on-surface-variant/50 font-bold uppercase tracking-wider">PNL</span>
-                            <div class="flex items-baseline gap-1.5">
-                                <span id="kpi-pnl" class="text-xs font-bold text-secondary font-numeric-data">+₹0.00</span>
-                                <span id="kpi-pnl-pct" class="text-[9px] px-1 rounded font-numeric-data bg-secondary/10 text-secondary">+0.00%</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <!-- Top Navigation Bar -->
+    <header class="fixed top-0 w-full z-50 bg-surface-container-low/60 backdrop-blur-xl border-b border-white/10 px-lg py-md shadow-2xl shadow-primary/5">
+        <div class="max-w-container-max mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-xl">
+                <h1 class="font-display-lg text-headline-md tracking-tighter text-primary drop-shadow-[0_0_8px_rgba(219,184,255,0.4)]">
+                    Antigravity Trader
+                </h1>
+                <nav class="hidden md:flex gap-lg items-center">
+                    <a class="text-primary border-b-2 border-primary pb-2 font-bold font-label-md text-label-md" href="#">Dashboard</a>
+                    <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Analytics</a>
+                    <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Signals</a>
+                    <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Backtest</a>
+                </nav>
             </div>
             
-            <div class="flex items-center gap-5">
-                <!-- Range Tracker summary -->
-                <div class="flex gap-3" id="range-tracker-summary">
-                    <span id="range-NIFTY" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-mono">NIFTY: --</span>
-                    <span id="range-BANKNIFTY" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-mono">BNIFTY: --</span>
+            <!-- Dynamic Connection & Authorization State -->
+            <div class="flex items-center gap-lg">
+                <div class="flex gap-4 mr-4" id="range-tracker-summary">
+                    <span id="range-NIFTY" class="px-3 py-1 rounded bg-white/5 border border-white/10 text-xs font-mono">NIFTY: --</span>
+                    <span id="range-BANKNIFTY" class="px-3 py-1 rounded bg-white/5 border border-white/10 text-xs font-mono">BNIFTY: --</span>
                 </div>
                 
-                <div class="h-6 w-px bg-white/10"></div>
-                
-                <!-- WS Status & Connect button -->
-                <div class="flex items-center gap-4">
-                    <div class="flex flex-col items-end border-r border-white/10 pr-4">
-                        <div class="flex items-center gap-1.5">
-                            <div class="w-1.5 h-1.5 rounded-full bg-secondary-container pulse-indicator"></div>
-                            <span class="font-label-md text-[10px] text-secondary tracking-widest uppercase">WS: Connected</span>
-                        </div>
-                        <span class="text-[9px] text-on-surface-variant/50 font-numeric-data leading-none mt-0.5">System Node 01</span>
+                <div class="flex flex-col items-end px-md border-r border-white/10">
+                    <div class="flex items-center gap-sm">
+                        <div class="w-2 h-2 rounded-full bg-secondary-container pulse-indicator"></div>
+                        <span class="font-label-md text-label-md text-secondary tracking-widest uppercase">WS: Connected</span>
                     </div>
-                    
-                    <button id="btn-connect-dhan" onclick="authConnect()" class="px-4 py-1.5 bg-primary-container text-on-primary-container font-label-md text-xs rounded-full hover:shadow-[0_0_15px_rgba(121,40,202,0.5)] transition-all active:scale-95">
+                    <span class="font-numeric-data text-on-surface-variant text-xs opacity-60">System Node 01</span>
+                </div>
+                <div class="flex items-center gap-md">
+                    <button id="btn-connect-dhan" onclick="authConnect()" class="ml-md px-lg py-sm bg-primary-container text-on-primary-container font-label-md text-label-md rounded-full hover:shadow-[0_0_15px_rgba(121,40,202,0.5)] transition-all active:scale-95">
                         Connect Dhan
                     </button>
                 </div>
             </div>
-        </header>
+        </div>
+    </header>
 
-        <!-- DASHBOARD GRID -->
-        <div class="flex-1 overflow-y-auto custom-scrollbar p-gutter grid grid-cols-12 gap-gutter">
-            
-            <!-- Auth strip (Dashboard lock) -->
-            <section class="col-span-12 macos-glass p-md rounded-xl flex justify-between items-center" aria-labelledby="auth-strip-label">
-                <div class="flex flex-col">
-                    <span id="auth-strip-label" class="font-label-md text-xs text-primary uppercase tracking-[0.2em] mac-heading">Dashboard Security</span>
-                    <span class="text-xs text-on-surface-variant/60">Unlock broker operations with your system webhook secret.</span>
+    <!-- Side Navigation Bar -->
+    <aside class="fixed left-0 top-0 h-full z-40 bg-surface-container-lowest/40 backdrop-blur-2xl border-r border-white/5 w-20 hover:w-64 transition-all duration-500 overflow-hidden group flex flex-col pt-24 pb-md">
+        <div class="flex-1 flex flex-col gap-sm">
+            <div class="flex items-center px-6 py-3 bg-primary-container/20 text-primary border-r-4 border-primary">
+                <span class="material-symbols-outlined min-w-[32px]">terminal</span>
+                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Command</span>
+            </div>
+            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+                <span class="material-symbols-outlined min-w-[32px]">analytics</span>
+                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Terminal</span>
+            </div>
+            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+                <span class="material-symbols-outlined min-w-[32px]">monitoring</span>
+                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Markets</span>
+            </div>
+            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+                <span class="material-symbols-outlined min-w-[32px]">psychology</span>
+                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Algorithms</span>
+            </div>
+            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+                <span class="material-symbols-outlined min-w-[32px]">history</span>
+                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">History</span>
+            </div>
+        </div>
+        <div class="mt-auto px-6 py-3 border-t border-white/5 text-on-surface-variant hover:text-error hover:bg-white/5 transition-all cursor-pointer">
+            <span class="material-symbols-outlined min-w-[32px]">logout</span>
+            <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Logout</span>
+        </div>
+    </aside>
+
+    <!-- Main Content Canvas -->
+    <main class="pt-24 pl-20 pr-md pb-md max-w-container-max mx-auto">
+        
+        <!-- Auth strip (Dashboard lock) -->
+        <section class="glass-panel p-md rounded-xl mb-md flex justify-between items-center" aria-labelledby="auth-strip-label">
+            <div class="flex flex-col">
+                <span id="auth-strip-label" class="font-label-md text-xs text-primary uppercase tracking-[0.2em]">Dashboard Security</span>
+                <span class="text-xs text-on-surface-variant/60">Unlock broker operations with your system webhook secret.</span>
+            </div>
+            <input type="password" id="secret" name="webhook-secret"
+                   placeholder="Enter Webhook Secret to Unlock"
+                   autocomplete="current-password"
+                   class="bg-black/45 border border-white/10 rounded-lg px-4 py-2 text-center text-sm font-mono tracking-widest text-on-background focus:ring-1 focus:ring-primary focus:outline-none w-80">
+        </section>
+
+        <!-- Account KPIs Banner -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-md mb-lg">
+            <div class="glass-panel p-md rounded-xl flex flex-col">
+                <span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Equity Balance</span>
+                <span id="kpi-equity" class="font-display-lg text-headline-lg text-on-surface font-bold font-numeric-data">₹100,000.00</span>
+            </div>
+            <div class="glass-panel p-md rounded-xl flex flex-col">
+                <span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Utilized Margin</span>
+                <span id="kpi-margin" class="font-display-lg text-headline-lg text-on-surface font-bold font-numeric-data">₹0.00</span>
+            </div>
+            <div class="glass-panel p-md rounded-xl flex flex-col col-span-1 md:col-span-2">
+                <span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Net Realized PnL</span>
+                <div class="flex items-baseline gap-md">
+                    <span id="kpi-pnl" class="font-display-lg text-headline-lg text-secondary-fixed font-bold font-numeric-data">+₹0.00</span>
+                    <span id="kpi-pnl-pct" class="font-headline-md text-secondary-fixed-dim bg-secondary/10 px-2 rounded font-numeric-data">+0.00%</span>
                 </div>
-                <input type="password" id="secret" name="webhook-secret"
-                       placeholder="Enter Webhook Secret to Unlock"
-                       autocomplete="current-password"
-                       class="bg-black/45 border border-white/10 rounded-lg px-4 py-2 text-center text-sm font-mono tracking-widest text-on-background focus:ring-1 focus:ring-primary focus:outline-none w-80">
+            </div>
+        </section>
+
+        <!-- Logs are now rendered in the Column 3 Terminal directly -->
+
+        <!-- Dashboard Grid Layout -->
+        <div class="grid grid-cols-12 gap-lg">
+            
+            <!-- Column 1: Market Feeling & Levels -->
+            <section class="col-span-12 lg:col-span-3 flex flex-col gap-md">
+                
+                <!-- Feelings Directional Bias Widget -->
+                <div class="flex items-center justify-between px-xs">
+                    <h2 class="font-headline-md text-on-surface flex items-center gap-sm text-sm font-bold uppercase">
+                        <span class="material-symbols-outlined text-primary text-[20px]">psychology</span>
+                        MARKET FEELING
+                    </h2>
+                    <span id="feeling-store-status" class="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[9px] font-mono text-on-surface-variant">STORE: --</span>
+                </div>
+
+                <!-- NIFTY feeling bias row -->
+                <div class="glass-panel p-md rounded-xl neon-border-bull" id="feeling-row-NIFTY">
+                    <div class="flex justify-between items-start mb-md">
+                        <div>
+                            <h3 class="font-headline-md text-on-surface font-semibold text-[15px]">NIFTY 50</h3>
+                            <span class="text-xs font-numeric-data text-secondary">LTP: <span id="feeling-ltp-NIFTY">--</span></span>
+                        </div>
+                        <span id="feeling-badge-NIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px]">None</span>
+                    </div>
+                    <div class="flex gap-1 flex-wrap">
+                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Bullish')">BULL</button>
+                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Bearish')">BEAR</button>
+                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Inside')">INSIDE</button>
+                        <button class="feeling-btn btn-clear py-1.5 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', null)">❌</button>
+                    </div>
+                </div>
+
+                <!-- BANKNIFTY feeling bias row -->
+                <div class="glass-panel p-md rounded-xl neon-border-neutral" id="feeling-row-BANKNIFTY">
+                    <div class="flex justify-between items-start mb-md">
+                        <div>
+                            <h3 class="font-headline-md text-on-surface font-semibold text-[15px]">BANKNIFTY</h3>
+                            <span class="text-xs font-numeric-data text-on-surface-variant/60">LTP: <span id="feeling-ltp-BANKNIFTY">--</span></span>
+                        </div>
+                        <span id="feeling-badge-BANKNIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px]">None</span>
+                    </div>
+                    <div class="flex gap-1 flex-wrap">
+                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Bullish')">BULL</button>
+                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Bearish')">BEAR</button>
+                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Inside')">INSIDE</button>
+                        <button class="feeling-btn btn-clear py-1.5 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', null)">❌</button>
+                    </div>
+                </div>
+
+                <!-- FINNIFTY feeling bias row -->
+                <div class="glass-panel p-md rounded-xl" id="feeling-row-FINNIFTY">
+                    <div class="flex justify-between items-start mb-md">
+                        <div>
+                            <h3 class="font-headline-md text-on-surface font-semibold text-[15px]">FINNIFTY</h3>
+                            <span class="text-xs font-numeric-data text-on-surface-variant/60">LTP: <span id="feeling-ltp-FINNIFTY">--</span></span>
+                        </div>
+                        <span id="feeling-badge-FINNIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px]">None</span>
+                    </div>
+                    <div class="flex gap-1 flex-wrap">
+                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Bullish')">BULL</button>
+                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Bearish')">BEAR</button>
+                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Inside')">INSIDE</button>
+                        <button class="feeling-btn btn-clear py-1.5 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', null)">❌</button>
+                    </div>
+                </div>
+
+                <!-- Price Levels Studio -->
+                <div class="glass-panel p-md rounded-xl mt-md">
+                    <div class="flex justify-between items-center mb-md border-b border-white/5 pb-2">
+                        <h3 class="font-headline-md text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[16px]">layers</span> Price Levels Studio
+                        </h3>
+                    </div>
+                    <div class="space-y-3">
+                        <button class="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded text-xs font-medium text-on-surface-variant hover:text-on-surface transition" onclick="addLevelRow('UTP')">
+                            + Add Upper Level (UTP)
+                        </button>
+                        <div id="utp-container" class="space-y-2"></div>
+
+                        <div class="grid grid-cols-3 gap-2 items-center">
+                            <span class="text-xs font-semibold text-on-surface-variant">TP0 Base</span>
+                            <input type="number" id="tp0-low" placeholder="Low" class="col-span-1 bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
+                            <input type="number" id="tp0-high" placeholder="High" class="col-span-1 bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
+                        </div>
+
+                        <div id="ltp-container" class="space-y-2"></div>
+                        <button class="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded text-xs font-medium text-on-surface-variant hover:text-on-surface transition" onclick="addLevelRow('LTP')">
+                            + Add Lower Level (LTP)
+                        </button>
+                        
+                        <button class="w-full py-2 bg-primary-container text-on-primary-container text-xs font-bold rounded-lg hover:shadow-lg transition active:scale-95" onclick="saveLevels()">
+                            Save Level Bounds
+                        </button>
+                    </div>
+                </div>
             </section>
 
-            <!-- LEFT COLUMN (Main controls and indicators) -->
-            <div class="col-span-12 xl:col-span-8 space-y-gutter">
+            <!-- Column 2: Trade Controls & Active Positions -->
+            <section class="col-span-12 lg:col-span-5 flex flex-col gap-lg">
                 
-                <!-- Market Sentiment (Feelings) -->
-                <section class="macos-glass rounded-xl p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-sm font-semibold flex items-center gap-2 mac-heading">
-                            <span class="material-symbols-outlined text-primary text-[18px]">psychology</span>
-                            Market Sentiment Index
-                        </h2>
-                        <span id="feeling-store-status" class="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[9px] font-mono text-on-surface-variant">STORE: --</span>
-                    </div>
-                    <div class="grid grid-cols-3 gap-4">
-                        <!-- NIFTY -->
-                        <div class="bg-white/[0.03] p-5 rounded-lg border border-white/5 relative overflow-hidden group" id="feeling-row-NIFTY">
-                            <div class="flex justify-between items-start mb-2">
-                                <div>
-                                    <span class="text-[11px] font-bold text-on-surface-variant/60 uppercase">Nifty 50</span>
-                                    <span class="text-[9px] font-mono text-secondary block mt-0.5">LTP: <span id="feeling-ltp-NIFTY">--</span></span>
+                <!-- Trade Controls panel -->
+                <div class="glass-panel p-lg rounded-xl">
+                    <h2 class="font-headline-md text-sm font-bold uppercase tracking-widest text-on-surface flex items-center gap-sm mb-md pb-2 border-b border-white/5">
+                        <span class="material-symbols-outlined text-primary text-[20px]">tune</span>
+                        Trade Command Centers
+                    </h2>
+                    
+                    <div id="command-center" class="space-y-6">
+                        <!-- CALL (CE) Controls -->
+                        <div id="sector-call" data-sector="CALL" class="p-md rounded-lg bg-white/5 border border-white/10 relative">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-secondary">NIFTY CALL (CE)</h3>
+                                <div id="stat-CALL" class="px-2 py-0.5 rounded bg-secondary/20 border border-secondary/30 text-[9px] font-bold text-secondary uppercase animate-pulse" style="display:none">
+                                    CALL ACTIVE
                                 </div>
-                                <span id="feeling-badge-NIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px] px-1.5 py-0.5 rounded">None</span>
                             </div>
-                            <div class="flex gap-1 flex-wrap mt-3">
-                                <button class="feeling-btn btn-bullish flex-1 py-1 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Bullish')">BULL</button>
-                                <button class="feeling-btn btn-bearish flex-1 py-1 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Bearish')">BEAR</button>
-                                <button class="feeling-btn btn-inside flex-1 py-1 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Inside')">INSIDE</button>
-                                <button class="feeling-btn btn-clear py-1 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', null)">❌</button>
-                            </div>
-                        </div>
-                        <!-- BANKNIFTY -->
-                        <div class="bg-white/[0.03] p-5 rounded-lg border border-white/5 relative overflow-hidden group" id="feeling-row-BANKNIFTY">
-                            <div class="flex justify-between items-start mb-2">
-                                <div>
-                                    <span class="text-[11px] font-bold text-on-surface-variant/60 uppercase">Banknifty</span>
-                                    <span class="text-[9px] font-mono text-on-surface-variant/60 block mt-0.5">LTP: <span id="feeling-ltp-BANKNIFTY">--</span></span>
-                                </div>
-                                <span id="feeling-badge-BANKNIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px] px-1.5 py-0.5 rounded">None</span>
-                            </div>
-                            <div class="flex gap-1 flex-wrap mt-3">
-                                <button class="feeling-btn btn-bullish flex-1 py-1 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Bullish')">BULL</button>
-                                <button class="feeling-btn btn-bearish flex-1 py-1 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Bearish')">BEAR</button>
-                                <button class="feeling-btn btn-inside flex-1 py-1 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Inside')">INSIDE</button>
-                                <button class="feeling-btn btn-clear py-1 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', null)">❌</button>
-                            </div>
-                        </div>
-                        <!-- FINNIFTY -->
-                        <div class="bg-white/[0.03] p-5 rounded-lg border border-white/5 relative overflow-hidden group" id="feeling-row-FINNIFTY">
-                            <div class="flex justify-between items-start mb-2">
-                                <div>
-                                    <span class="text-[11px] font-bold text-on-surface-variant/60 uppercase">Finnifty</span>
-                                    <span class="text-[9px] font-mono text-on-surface-variant/60 block mt-0.5">LTP: <span id="feeling-ltp-FINNIFTY">--</span></span>
-                                </div>
-                                <span id="feeling-badge-FINNIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px] px-1.5 py-0.5 rounded">None</span>
-                            </div>
-                            <div class="flex gap-1 flex-wrap mt-3">
-                                <button class="feeling-btn btn-bullish flex-1 py-1 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Bullish')">BULL</button>
-                                <button class="feeling-btn btn-bearish flex-1 py-1 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Bearish')">BEAR</button>
-                                <button class="feeling-btn btn-inside flex-1 py-1 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Inside')">INSIDE</button>
-                                <button class="feeling-btn btn-clear py-1 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', null)">❌</button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <div class="grid grid-cols-12 gap-gutter">
-                    <!-- Price Levels Studio -->
-                    <section class="col-span-12 md:col-span-5 macos-glass rounded-xl p-6">
-                        <h3 class="text-sm font-semibold mac-heading mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-[18px]">layers</span> Price Levels Studio
-                        </h3>
-                        <div class="space-y-3">
-                            <button class="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded text-xs font-medium text-on-surface-variant hover:text-on-surface transition" onclick="addLevelRow('UTP')">
-                                + Add Upper Level (UTP)
-                            </button>
-                            <div id="utp-container" class="space-y-2 max-h-[80px] overflow-y-auto custom-scrollbar"></div>
-
-                            <div class="grid grid-cols-3 gap-2 items-center">
-                                <span class="text-xs font-semibold text-on-surface-variant">TP0 Base</span>
-                                <input type="number" id="tp0-low" placeholder="Low" class="col-span-1 bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
-                                <input type="number" id="tp0-high" placeholder="High" class="col-span-1 bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
-                            </div>
-
-                            <div id="ltp-container" class="space-y-2 max-h-[80px] overflow-y-auto custom-scrollbar"></div>
-                            <button class="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded text-xs font-medium text-on-surface-variant hover:text-on-surface transition" onclick="addLevelRow('LTP')">
-                                + Add Lower Level (LTP)
-                            </button>
                             
-                            <button class="w-full py-2 bg-primary-container text-on-primary-container text-xs font-bold rounded-lg hover:shadow-lg transition active:scale-95" onclick="saveLevels()">
-                                Save Level Bounds
-                            </button>
-                        </div>
-                    </section>
-
-                    <!-- Trade Command Centers -->
-                    <section class="col-span-12 md:col-span-7 macos-glass rounded-xl p-6">
-                        <h2 class="text-sm font-semibold mac-heading mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary text-[18px]">tune</span>
-                            Trade Command Centers
-                        </h2>
-                        
-                        <div id="command-center" class="grid grid-cols-2 gap-4">
-                            <!-- CALL (CE) Controls -->
-                            <div id="sector-call" data-sector="CALL" class="p-4 rounded-lg bg-white/[0.02] border border-white/5 relative">
-                                <div class="flex justify-between items-center mb-3">
-                                    <h3 class="text-xs font-bold uppercase tracking-wider text-secondary">NIFTY CALL (CE)</h3>
-                                    <div id="stat-CALL" class="px-2 py-0.5 rounded bg-secondary/20 border border-secondary/30 text-[9px] font-bold text-secondary uppercase animate-pulse" style="display:none">
-                                        CALL ACTIVE
-                                    </div>
-                                </div>
+                            <div class="flex gap-2">
+                                <button id="btn-buy-call" onclick="agentAPI.sendUIAction('CALL')" class="flex-1 py-3 bg-secondary/10 hover:bg-secondary text-secondary hover:text-black border border-secondary/30 hover:border-transparent text-xs font-bold rounded-lg transition active:scale-95">
+                                    BUY CALL
+                                </button>
                                 
-                                <div class="flex gap-2">
-                                    <button id="btn-buy-call" onclick="agentAPI.sendUIAction('CALL')" class="flex-1 py-2.5 bg-secondary/10 hover:bg-secondary text-secondary hover:text-black border border-secondary/30 hover:border-transparent text-xs font-bold rounded-lg transition active:scale-95">
-                                        BUY CALL
-                                    </button>
-                                    <button id="btn-exit-call" onclick="agentAPI.sendUIAction('EXIT_CALL')" class="px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold rounded-lg transition active:scale-95">
-                                        EXIT
-                                    </button>
-                                </div>
+                                <button id="btn-exit-call" onclick="agentAPI.sendUIAction('EXIT_CALL')" class="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold rounded-lg transition active:scale-95">
+                                    EXIT
+                                </button>
+                            </div>
 
-                                <!-- In-Card Active PnL Overlay -->
-                                <div id="pnl-CALL" class="mt-3 p-3 bg-black/45 border border-white/5 rounded-lg text-center" style="display:none">
-                                    <div class="text-[9px] text-on-surface-variant/40 uppercase tracking-widest mb-1">CALL P&L</div>
-                                    <div id="pnl-amt-CALL" class="text-xl font-bold font-mono text-secondary">+₹0.00</div>
-                                    <div id="pnl-pct-CALL" class="text-xs font-mono text-on-surface-variant mb-2">+0.00%</div>
-                                    
-                                    <div class="grid grid-cols-4 gap-1 text-left text-[9px] font-mono border-t border-white/5 pt-2">
-                                        <div><span class="block text-on-surface-variant/40">Entry</span><span id="entry-CALL">--</span></div>
-                                        <div><span class="block text-on-surface-variant/40">LTP</span><span id="ltp-CALL">--</span></div>
-                                        <div><span class="block text-on-surface-variant/40">Qty</span><span id="qty-CALL">--</span></div>
-                                        <div class="truncate"><span class="block text-on-surface-variant/40">Sym</span><span id="sym-CALL" class="block truncate">--</span></div>
-                                    </div>
-                                </div>
-
-                                <!-- CALL GTT parameters -->
-                                <div class="mt-4 pt-3 border-t border-white/5">
-                                    <div class="text-[9px] font-bold text-on-surface-variant/60 uppercase tracking-wider mb-2">Index GTT Levels</div>
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
-                                            <span class="text-[9px] font-bold text-secondary font-mono mr-1">TGT</span>
-                                            <input type="number" id="call-target" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
-                                        </div>
-                                        <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
-                                            <span class="text-[9px] font-bold text-error font-mono mr-1">SL</span>
-                                            <input type="number" id="call-sl" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
-                                        </div>
-                                    </div>
-                                    <div class="flex gap-2 mt-2">
-                                        <button id="btn-set-call" onclick="setConditionalOrders('CALL')" class="flex-1 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-[9px] font-bold rounded transition">
-                                            Apply GTT
-                                        </button>
-                                        <button id="btn-modify-call" onclick="setConditionalOrders('CALL', {modify: true})" class="flex-1 py-1.5 bg-primary-container text-on-primary-container text-[9px] font-bold rounded transition" style="display:none">
-                                            Modify GTT
-                                        </button>
-                                    </div>
-                                    <div id="cond-status-call" class="mt-2 text-[9px] font-mono text-center text-on-surface-variant/60"></div>
+                            <!-- In-Card Active PnL Overlay -->
+                            <div id="pnl-CALL" class="mt-3 p-3 bg-black/45 border border-white/5 rounded-lg text-center" style="display:none">
+                                <div class="text-[9px] text-on-surface-variant/40 uppercase tracking-widest mb-1">CALL P&L</div>
+                                <div id="pnl-amt-CALL" class="text-2xl font-bold font-mono text-secondary">+₹0.00</div>
+                                <div id="pnl-pct-CALL" class="text-xs font-mono text-on-surface-variant mb-3">+0.00%</div>
+                                
+                                <div class="grid grid-cols-4 gap-2 text-left text-[10px] font-mono border-t border-white/5 pt-2">
+                                    <div><span class="block text-on-surface-variant/40">Entry</span><span id="entry-CALL">--</span></div>
+                                    <div><span class="block text-on-surface-variant/40">LTP</span><span id="ltp-CALL">--</span></div>
+                                    <div><span class="block text-on-surface-variant/40">Qty</span><span id="qty-CALL">--</span></div>
+                                    <div class="col-span-1 truncate"><span class="block text-on-surface-variant/40">Symbol</span><span id="sym-CALL" class="block truncate">--</span></div>
                                 </div>
                             </div>
 
-                            <!-- PUT (PE) Controls -->
-                            <div id="sector-put" data-sector="PUT" class="p-4 rounded-lg bg-white/[0.02] border border-white/5 relative">
-                                <div class="flex justify-between items-center mb-3">
-                                    <h3 class="text-xs font-bold uppercase tracking-wider text-error">NIFTY PUT (PE)</h3>
-                                    <div id="stat-PUT" class="px-2 py-0.5 rounded bg-error/20 border border-error/30 text-[9px] font-bold text-error uppercase animate-pulse" style="display:none">
-                                        PUT ACTIVE
+                            <!-- CALL GTT parameters -->
+                            <div class="mt-4 pt-3 border-t border-white/5">
+                                <div class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider mb-2">Index GTT Trigger Levels</div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
+                                        <span class="text-[10px] font-bold text-secondary font-mono mr-2">TGT</span>
+                                        <input type="number" id="call-target" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
+                                    </div>
+                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
+                                        <span class="text-[10px] font-bold text-error font-mono mr-2">SL</span>
+                                        <input type="number" id="call-sl" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
                                     </div>
                                 </div>
-                                
-                                <div class="flex gap-2">
-                                    <button id="btn-buy-put" onclick="agentAPI.sendUIAction('PUT')" class="flex-1 py-2.5 bg-error/10 hover:bg-error text-error hover:text-black border border-error/30 hover:border-transparent text-xs font-bold rounded-lg transition active:scale-95">
-                                        BUY PUT
+                                <div class="flex gap-2 mt-2">
+                                    <button id="btn-set-call" onclick="setConditionalOrders('CALL')" class="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold rounded-md transition">
+                                        Apply GTT
                                     </button>
-                                    <button id="btn-exit-put" onclick="agentAPI.sendUIAction('EXIT_PUT')" class="px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold rounded-lg transition active:scale-95">
-                                        EXIT
+                                    <button id="btn-modify-call" onclick="setConditionalOrders('CALL', {modify: true})" class="flex-1 py-2 bg-primary-container text-on-primary-container text-[10px] font-bold rounded-md transition" style="display:none">
+                                        Modify GTT
                                     </button>
                                 </div>
-
-                                <!-- In-Card Active PnL Overlay -->
-                                <div id="pnl-PUT" class="mt-3 p-3 bg-black/45 border border-white/5 rounded-lg text-center" style="display:none">
-                                    <div class="text-[9px] text-on-surface-variant/40 uppercase tracking-widest mb-1">PUT P&L</div>
-                                    <div id="pnl-amt-PUT" class="text-xl font-bold font-mono text-error">+₹0.00</div>
-                                    <div id="pnl-pct-PUT" class="text-xs font-mono text-on-surface-variant mb-2">+0.00%</div>
-                                    
-                                    <div class="grid grid-cols-4 gap-1 text-left text-[9px] font-mono border-t border-white/5 pt-2">
-                                        <div><span class="block text-on-surface-variant/40">Entry</span><span id="entry-PUT">--</span></div>
-                                        <div><span class="block text-on-surface-variant/40">LTP</span><span id="ltp-PUT">--</span></div>
-                                        <div><span class="block text-on-surface-variant/40">Qty</span><span id="qty-PUT">--</span></div>
-                                        <div class="truncate"><span class="block text-on-surface-variant/40">Sym</span><span id="sym-PUT" class="block truncate">--</span></div>
-                                    </div>
-                                </div>
-
-                                <!-- PUT GTT parameters -->
-                                <div class="mt-4 pt-3 border-t border-white/5">
-                                    <div class="text-[9px] font-bold text-on-surface-variant/60 uppercase tracking-wider mb-2">Index GTT Levels</div>
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
-                                            <span class="text-[9px] font-bold text-secondary font-mono mr-1">TGT</span>
-                                            <input type="number" id="put-target" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
-                                        </div>
-                                        <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
-                                            <span class="text-[9px] font-bold text-error font-mono mr-1">SL</span>
-                                            <input type="number" id="put-sl" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
-                                        </div>
-                                    </div>
-                                    <div class="flex gap-2 mt-2">
-                                        <button id="btn-set-put" onclick="setConditionalOrders('PUT')" class="flex-1 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-[9px] font-bold rounded transition">
-                                            Apply GTT
-                                        </button>
-                                        <button id="btn-modify-put" onclick="setConditionalOrders('PUT', {modify: true})" class="flex-1 py-1.5 bg-primary-container text-on-primary-container text-[9px] font-bold rounded transition" style="display:none">
-                                            Modify GTT
-                                        </button>
-                                    </div>
-                                    <div id="cond-status-put" class="mt-2 text-[9px] font-mono text-center text-on-surface-variant/60"></div>
-                                </div>
+                                <div id="cond-status-call" class="mt-2 text-[10px] font-mono text-center text-on-surface-variant/60"></div>
                             </div>
                         </div>
-                    </section>
+
+                        <!-- PUT (PE) Controls -->
+                        <div id="sector-put" data-sector="PUT" class="p-md rounded-lg bg-white/5 border border-white/10 relative">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-error">NIFTY PUT (PE)</h3>
+                                <div id="stat-PUT" class="px-2 py-0.5 rounded bg-error/20 border border-error/30 text-[9px] font-bold text-error uppercase animate-pulse" style="display:none">
+                                    PUT ACTIVE
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button id="btn-buy-put" onclick="agentAPI.sendUIAction('PUT')" class="flex-1 py-3 bg-error/10 hover:bg-error text-error hover:text-black border border-error/30 hover:border-transparent text-xs font-bold rounded-lg transition active:scale-95">
+                                    BUY PUT
+                                </button>
+                                
+                                <button id="btn-exit-put" onclick="agentAPI.sendUIAction('EXIT_PUT')" class="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold rounded-lg transition active:scale-95">
+                                    EXIT
+                                </button>
+                            </div>
+
+                            <!-- In-Card Active PnL Overlay -->
+                            <div id="pnl-PUT" class="mt-3 p-3 bg-black/45 border border-white/5 rounded-lg text-center" style="display:none">
+                                <div class="text-[9px] text-on-surface-variant/40 uppercase tracking-widest mb-1">PUT P&L</div>
+                                <div id="pnl-amt-PUT" class="text-2xl font-bold font-mono text-error">+₹0.00</div>
+                                <div id="pnl-pct-PUT" class="text-xs font-mono text-on-surface-variant mb-3">+0.00%</div>
+                                
+                                <div class="grid grid-cols-4 gap-2 text-left text-[10px] font-mono border-t border-white/5 pt-2">
+                                    <div><span class="block text-on-surface-variant/40">Entry</span><span id="entry-PUT">--</span></div>
+                                    <div><span class="block text-on-surface-variant/40">LTP</span><span id="ltp-PUT">--</span></div>
+                                    <div><span class="block text-on-surface-variant/40">Qty</span><span id="qty-PUT">--</span></div>
+                                    <div class="col-span-1 truncate"><span class="block text-on-surface-variant/40">Symbol</span><span id="sym-PUT" class="block truncate">--</span></div>
+                                </div>
+                            </div>
+
+                            <!-- PUT GTT parameters -->
+                            <div class="mt-4 pt-3 border-t border-white/5">
+                                <div class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider mb-2">Index GTT Trigger Levels</div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
+                                        <span class="text-[10px] font-bold text-secondary font-mono mr-2">TGT</span>
+                                        <input type="number" id="put-target" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
+                                    </div>
+                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
+                                        <span class="text-[10px] font-bold text-error font-mono mr-2">SL</span>
+                                        <input type="number" id="put-sl" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 mt-2">
+                                    <button id="btn-set-put" onclick="setConditionalOrders('PUT')" class="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold rounded-md transition">
+                                        Apply GTT
+                                    </button>
+                                    <button id="btn-modify-put" onclick="setConditionalOrders('PUT', {modify: true})" class="flex-1 py-2 bg-primary-container text-on-primary-container text-[10px] font-bold rounded-md transition" style="display:none">
+                                        Modify GTT
+                                    </button>
+                                </div>
+                                <div id="cond-status-put" class="mt-2 text-[10px] font-mono text-center text-on-surface-variant/60"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                        <!-- ARMED INDEX-TOUCH ENTRIES (GTT visual from Stitch) -->
+                <div id="armed-gtt-card" class="glass-panel p-lg rounded-xl overflow-hidden relative" style="display:none">
+                    <div class="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent h-1/2 -top-1/2 animate-[bounce_4s_infinite] opacity-30 pointer-events-none"></div>
+                    <div class="flex justify-between items-center mb-md">
+                        <div>
+                            <span class="font-label-md text-xs text-primary tracking-[0.2em] uppercase">NIFTY-ENTRY-TRIGGER</span>
+                            <h4 id="armed-gtt-title" class="font-headline-md text-on-surface font-semibold">Call Entry Trigger</h4>
+                            <div class="flex flex-col gap-0.5 mt-1">
+                                <p id="armed-gtt-subtitle" class="text-xs text-on-surface-variant/60">Target: --</p>
+                                <p id="armed-gtt-sl-display" class="text-xs text-on-surface-variant/60">Stop Loss: --</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] text-on-surface-variant/60 uppercase block">Distance</span>
+                            <p id="armed-gtt-distance" class="font-numeric-data text-headline-md text-secondary font-bold text-lg">--</p>
+                        </div>
+                    </div>
+                    <div class="space-y-sm">
+                        <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div id="armed-gtt-progress" class="h-full bg-primary shadow-[0_0_10px_rgba(219,184,255,0.8)] w-[0%] transition-all duration-1000"></div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Armed GTT & Active Brackets Bento -->
-                <section class="grid grid-cols-2 gap-gutter">
-                    <!-- GTT Entry -->
-                    <div id="armed-gtt-card" class="macos-glass rounded-xl p-6 border-primary/20 relative overflow-hidden" style="display:none">
-                        <div class="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent h-1/2 -top-1/2 animate-[bounce_4s_infinite] opacity-30 pointer-events-none"></div>
-                        <div class="flex items-center justify-between mb-5">
-                            <div class="flex items-center gap-2">
-                                <div class="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                                <h3 class="text-sm font-semibold mac-heading" id="armed-gtt-title">Armed GTT Entry</h3>
-                            </div>
-                            <span class="material-symbols-outlined text-on-surface-variant/40 text-[20px] cursor-pointer">more_horiz</span>
+                <!-- ACTIVE ORDER BRACKETS (Styled positions widget from Stitch) -->
+                <div id="active-brackets-card" class="glass-panel p-lg rounded-xl border-l-4 border-secondary" style="display:none">
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="flex flex-col">
+                            <span class="bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 mb-1">RUNNING</span>
+                            <h4 id="bracket-symbol" class="font-headline-md text-on-surface font-bold text-[16px]">--</h4>
+                            <span id="bracket-qty-avg" class="text-xs text-on-surface-variant font-numeric-data">Qty: -- | Avg: --</span>
                         </div>
-                        <div class="space-y-4">
-                            <div class="flex justify-between text-xs border-b border-white/5 pb-2">
-                                <span class="text-on-surface-variant/60">Instrument</span>
-                                <span class="font-bold" id="armed-gtt-instrument">NIFTY Option</span>
-                            </div>
-                            <div class="flex justify-between text-xs border-b border-white/5 pb-2">
-                                <span class="text-on-surface-variant/60">Trigger</span>
-                                <span class="text-secondary font-semibold" id="armed-gtt-subtitle">ABOVE --</span>
-                            </div>
-                            <div class="flex justify-between text-xs border-b border-white/5 pb-2">
-                                <span class="text-on-surface-variant/60">Stop Loss</span>
-                                <span class="text-tertiary font-semibold" id="armed-gtt-sl-display">--</span>
-                            </div>
-                            <div class="bg-primary/5 border border-primary/10 p-4 rounded-lg flex items-center justify-between">
-                                <div>
-                                    <div class="text-[10px] text-primary/60 uppercase font-bold">Distance</div>
-                                    <div class="text-lg font-bold mac-heading text-on-surface" id="armed-gtt-distance">-- pts</div>
-                                </div>
-                                <button onclick="agentAPI.cancelConditionalOrders('CALL')" class="px-5 py-2 bg-primary text-surface rounded-lg font-bold text-[11px] hover:opacity-90 transition-all">DISARM</button>
-                            </div>
-                            <div class="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-2">
-                                <div id="armed-gtt-progress" class="h-full bg-primary shadow-[0_0_10px_rgba(219,184,255,0.8)] w-[0%] transition-all duration-1000"></div>
-                            </div>
+                        <div class="text-right flex flex-col items-end">
+                            <p id="bracket-pnl-amt" class="text-secondary font-display-lg text-headline-lg font-bold font-numeric-data leading-none">--</p>
+                            <span id="bracket-pnl-pct" class="text-xs text-secondary-fixed-dim font-numeric-data">--</span>
+                            <span class="text-[10px] text-on-surface-variant/40 font-mono mt-1">LTP: <span id="bracket-ltp" class="text-on-surface font-semibold">--</span></span>
+                        </div>
+                    </div>
+                    
+                    <!-- New Stitch Slider Representation of SL -> Entry -> Target -->
+                    <div id="bracket-slider-container" class="mt-4 flex flex-col gap-2 w-full">
+                        <div class="flex justify-between text-[9px] font-bold text-on-surface-variant/40 uppercase">
+                            <span>SL</span>
+                            <span>Entry</span>
+                            <span>Target</span>
+                        </div>
+                        <div class="relative h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div id="bracket-slider-bar" class="absolute left-0 top-0 h-full bg-secondary w-[0%] shadow-[0_0_8px_rgba(1,245,160,0.3)]"></div>
+                            <div id="bracket-slider-entry" class="absolute left-[0%] top-0 w-px h-full bg-white z-10"></div>
+                        </div>
+                        <div class="flex justify-between text-[10px] font-mono text-on-surface-variant/60 font-numeric-data">
+                            <span id="bracket-slider-sl-val">--</span>
+                            <span id="bracket-slider-entry-val" class="text-on-surface font-semibold">--</span>
+                            <span id="bracket-slider-tgt-val">--</span>
                         </div>
                     </div>
 
-                    <!-- Active Brackets -->
-                    <div id="active-brackets-card" class="macos-glass rounded-xl p-6 border-secondary/20 relative" style="display:none">
-                        <div class="flex items-center justify-between mb-5">
-                            <div class="flex items-center gap-2">
-                                <div class="w-2 h-2 bg-secondary rounded-full animate-pulse"></div>
-                                <h3 class="text-sm font-semibold mac-heading">Active Brackets</h3>
-                            </div>
-                            <span id="bracket-symbol" class="text-xs font-bold text-on-surface-variant font-numeric-data">--</span>
-                        </div>
-                        <div class="space-y-4">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <span class="bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 font-bold uppercase">RUNNING</span>
-                                    <span id="bracket-qty-avg" class="text-[11px] text-on-surface-variant/50 font-medium block mt-1">QTY: --</span>
-                                </div>
-                                <div class="text-right">
-                                    <p id="bracket-pnl-amt" class="text-secondary font-display-lg text-lg font-bold font-numeric-data leading-none">--</p>
-                                    <span id="bracket-pnl-pct" class="text-[10px] text-secondary/60 font-medium font-numeric-data">--</span>
-                                </div>
-                            </div>
-                            
-                            <!-- Slider Bar -->
-                            <div id="bracket-slider-container" class="mt-4 flex flex-col gap-2 w-full">
-                                <div class="flex justify-between text-[9px] font-bold text-on-surface-variant/40 uppercase">
-                                    <span>SL</span>
-                                    <span>Entry</span>
-                                    <span>Target</span>
-                                </div>
-                                <div class="relative h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                    <div id="bracket-slider-bar" class="absolute left-0 top-0 h-full bg-secondary w-[0%] shadow-[0_0_8px_rgba(1,245,160,0.3)]"></div>
-                                    <div id="bracket-slider-entry" class="absolute left-[0%] top-0 w-px h-full bg-white z-10"></div>
-                                </div>
-                                <div class="flex justify-between text-[9px] font-mono text-on-surface-variant/60 font-numeric-data">
-                                    <span id="bracket-slider-sl-val">--</span>
-                                    <span id="bracket-slider-entry-val" class="text-on-surface font-semibold">--</span>
-                                    <span id="bracket-slider-tgt-val">--</span>
-                                </div>
-                            </div>
-
-                            <!-- Footer detail row -->
-                            <div class="flex justify-between items-center text-xs border-t border-white/5 pt-2">
-                                <div class="text-[10px] text-on-surface-variant/40 font-mono">LTP: <span id="bracket-ltp" class="text-on-surface font-semibold">--</span></div>
-                                <div class="flex items-center gap-4">
-                                    <div class="text-[10px] text-on-surface-variant/40">Trailing: <span id="bracket-trailing" class="text-primary font-bold">--</span></div>
-                                    <button onclick="agentAPI.emergencyExit()" class="w-7 h-7 flex items-center justify-center bg-tertiary/10 text-tertiary border border-tertiary/20 rounded-lg hover:bg-tertiary/20 transition-all">
-                                        <span class="material-symbols-outlined text-[16px]">close</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                    <!-- Additional Order Details Footer -->
+                    <div class="mt-4 flex justify-between items-center text-xs border-t border-white/5 pt-2">
+                        <span class="text-on-surface-variant/60 font-label-md">Trailing Jump</span>
+                        <span id="bracket-trailing" class="font-numeric-data text-primary font-semibold">--</span>
                     </div>
-                </section>
-                
-                <!-- Legacy positions list (Hidden but preserved) -->
+                </div>
+
+                <!-- Legacy Positions List Container (Hidden but preserved for state rendering) -->
                 <div id="active-positions-container" style="display:none">
                     <div id="active-positions-list"></div>
                 </div>
+            </section>
 
-            </div>
-
-            <!-- RIGHT COLUMN (Feed, Debug Logs, Closed History) -->
-            <div class="col-span-12 xl:col-span-4 flex flex-col gap-gutter">
+            <!-- Column 3: Feed, Logs & History -->
+            <section class="col-span-12 lg:col-span-4 flex flex-col gap-lg">
                 
                 <!-- Live Trade Feed -->
-                <div class="macos-glass rounded-xl flex flex-col h-[280px] overflow-hidden">
-                    <div class="px-6 py-3 border-b border-white/5 flex justify-between items-center">
-                        <h3 class="text-xs font-semibold mac-heading uppercase tracking-widest text-on-surface flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary text-[18px]">hub</span>
-                            Live Trade Feed
-                        </h3>
-                        <button class="bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 rounded text-[9px] text-on-surface-variant transition" onclick="refreshTradeFeed()">↻ Refresh</button>
+                <div class="flex flex-col min-h-0">
+                    <div class="flex justify-between items-center mb-md px-xs">
+                        <h2 class="font-headline-md text-on-surface flex items-center gap-sm text-sm font-bold uppercase">
+                            <span class="material-symbols-outlined text-primary text-[20px]">hub</span>
+                            LIVE TRADE FEED
+                        </h2>
+                        <button class="bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 rounded text-[10px] text-on-surface-variant transition" onclick="refreshTradeFeed()">↻ Refresh</button>
                     </div>
-                    <div class="flex-1 overflow-y-auto custom-scrollbar">
+                    
+                    <div class="glass-panel rounded-xl overflow-hidden flex flex-col max-h-[300px] overflow-y-auto scrollbar-hide">
                         <table class="w-full text-left border-collapse">
                             <thead class="bg-white/5 border-b border-white/10 sticky top-0">
                                 <tr>
-                                    <th class="px-3 py-2 font-label-md text-[8px] text-on-surface-variant uppercase tracking-widest">Time</th>
-                                    <th class="px-3 py-2 font-label-md text-[8px] text-on-surface-variant uppercase tracking-widest">Instrument</th>
-                                    <th class="px-3 py-2 font-label-md text-[8px] text-on-surface-variant uppercase tracking-widest">Status</th>
+                                    <th class="px-md py-sm font-label-md text-[9px] text-on-surface-variant uppercase tracking-widest">Time</th>
+                                    <th class="px-md py-sm font-label-md text-[9px] text-on-surface-variant uppercase tracking-widest">Instrument</th>
+                                    <th class="px-md py-sm font-label-md text-[9px] text-on-surface-variant uppercase tracking-widest">Status</th>
                                 </tr>
                             </thead>
-                            <tbody id="feed-body" class="divide-y divide-white/5 text-[11px] font-mono">
+                            <tbody id="feed-body" class="divide-y divide-white/5 text-xs">
                                 <tr>
-                                    <td colspan="3" class="px-3 py-4 text-center text-on-surface-variant/40 italic">
+                                    <td colspan="3" class="px-md py-md text-center text-on-surface-variant/40 italic">
                                         No trade signals yet.
                                     </td>
                                 </tr>
@@ -695,54 +604,28 @@
                 </div>
 
                 <!-- System Debug Logs Terminal -->
-                <div class="macos-glass rounded-xl h-[240px] flex flex-col overflow-hidden bg-black/30 border-white/5">
-                    <div class="px-4 py-2 bg-white/5 flex items-center justify-between border-b border-white/5">
-                        <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-[14px] text-primary">terminal</span>
-                            <span class="text-[9px] font-bold font-mono text-primary/80 tracking-widest uppercase">system.log</span>
-                        </div>
-                    </div>
-                    <div class="p-4 font-mono text-[9px] text-primary/60 overflow-y-auto flex-1 custom-scrollbar leading-relaxed space-y-1" id="activity-log-list">
+                <div class="flex flex-col">
+                    <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-md px-xs text-sm font-bold uppercase">
+                        <span class="material-symbols-outlined text-on-surface-variant text-[20px]">terminal</span>
+                        SYSTEM DEBUG LOG
+                    </h2>
+                    <div class="glass-panel rounded-xl bg-black/40 p-md font-mono text-[10px] leading-relaxed text-secondary-fixed-dim/70 h-48 overflow-y-auto scrollbar-hide" id="activity-log-list">
                         <!-- Polled logs are rendered here inside load/tick -->
                     </div>
                 </div>
 
                 <!-- Live Performance History list -->
-                <div class="macos-glass rounded-xl flex flex-col h-[280px] overflow-hidden">
-                    <div class="px-6 py-3 border-b border-white/5">
-                        <h3 class="text-xs font-semibold mac-heading uppercase tracking-widest text-on-surface flex items-center gap-2">
-                            <span class="material-symbols-outlined text-on-surface-variant text-[18px]">history</span>
-                            Trade History
-                        </h3>
-                    </div>
-                    <div class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2" id="history-list">
+                <div class="flex flex-col">
+                    <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-md px-xs text-sm font-bold uppercase">
+                        <span class="material-symbols-outlined text-on-surface-variant text-[20px]">history</span>
+                        TRADE HISTORY
+                    </h2>
+                    <div class="glass-panel p-md rounded-xl space-y-2 max-h-[220px] overflow-y-auto scrollbar-hide" id="history-list">
                         <div class="text-center text-xs text-on-surface-variant/40 italic py-4">No closed trades yet.</div>
                     </div>
                 </div>
-
-            </div>
+            </section>
         </div>
-
-        <!-- FOOTER STATUS BAR (macOS Style) -->
-        <footer class="h-6 bg-white/[0.02] border-t border-white/5 flex items-center justify-between px-6 shrink-0 z-50">
-            <div class="flex items-center gap-6">
-                <div class="flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-[14px] text-secondary">wifi</span>
-                    <span class="text-[9px] font-bold text-on-surface-variant/50 uppercase">Latency: 4ms</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-[14px] text-primary">memory</span>
-                    <span class="text-[9px] font-bold text-on-surface-variant/50 uppercase">CPU: 12%</span>
-                </div>
-            </div>
-            <div class="flex items-center gap-4">
-                <span class="text-[9px] font-bold text-on-surface-variant/40 uppercase">System Secure</span>
-                <div class="flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 bg-secondary rounded-full animate-pulse"></span>
-                    <span class="text-[9px] text-secondary font-bold uppercase tracking-wider">LIVE</span>
-                </div>
-            </div>
-        </footer>
     </main>
 
     <!-- Floating Action Button for Emergency exit -->
@@ -886,11 +769,11 @@
                 
                 const pnlValEl = document.getElementById('kpi-pnl');
                 pnlValEl.textContent = `${sign}${fmt(f.net_pnl)}`;
-                pnlValEl.className = `text-xs font-bold font-numeric-data ${pnlColorClass}`;
+                pnlValEl.className = `font-display-lg text-headline-lg font-bold font-numeric-data ${pnlColorClass}`;
                 
                 const pnlPctEl = document.getElementById('kpi-pnl-pct');
                 pnlPctEl.textContent = `${sign}${f.net_pnl_pct.toFixed(2)}%`;
-                pnlPctEl.className = `text-[9px] px-1 rounded font-numeric-data ${pctColorClass} ${pnlBgClass}`;
+                pnlPctEl.className = `font-headline-md px-2 rounded font-numeric-data ${pctColorClass} ${pnlBgClass}`;
             }
 
             // Sync index price LTPs dynamically under feelings section
@@ -933,11 +816,11 @@
                         const sign = isProfit ? '+' : '';
                         const amtEl = document.getElementById(`pnl-amt-${s}`);
                         amtEl.textContent = `${sign}₹${sector.pnl_abs}`;
-                        amtEl.style.color = isProfit ? 'var(--secondary)' : 'var(--error)';
+                        amtEl.style.color = isProfit ? 'var(--success)' : 'var(--danger)';
                         
                         const pctEl = document.getElementById(`pnl-pct-${s}`);
                         pctEl.textContent = `${sign}${sector.pnl_pct}%`;
-                        pctEl.style.color = isProfit ? 'var(--secondary)' : 'var(--error)';
+                        pctEl.style.color = isProfit ? 'var(--success)' : 'var(--danger)';
 
                         document.getElementById(`entry-${s}`).textContent = `₹${sector.entry_price}`;
                         document.getElementById(`ltp-${s}`).textContent = `₹${sector.ltp}`;
@@ -1003,17 +886,17 @@
                 const amtEl = document.getElementById('bracket-pnl-amt');
                 amtEl.textContent = pnlText;
                 if (isProfit) {
-                    amtEl.className = 'text-secondary font-display-lg text-lg font-bold font-numeric-data leading-none';
+                    amtEl.className = 'text-secondary font-display-lg text-headline-lg font-bold font-numeric-data leading-none';
                 } else {
-                    amtEl.className = 'text-error font-display-lg text-lg font-bold font-numeric-data leading-none';
+                    amtEl.className = 'text-error font-display-lg text-headline-lg font-bold font-numeric-data leading-none';
                 }
                 
                 const pctEl = document.getElementById('bracket-pnl-pct');
                 pctEl.textContent = `${pnlPctText}`;
                 if (isProfit) {
-                    pctEl.className = 'text-[10px] text-secondary font-medium';
+                    pctEl.className = 'text-xs text-secondary font-numeric-data';
                 } else {
-                    pctEl.className = 'text-[10px] text-error font-medium';
+                    pctEl.className = 'text-xs text-error font-numeric-data';
                 }
                 
                 // Update new Stitch dynamic slider bar
@@ -1055,7 +938,7 @@
                 const el = document.getElementById(`range-${symbol}`);
                 if (el) {
                     el.textContent = `${symbol}: ${pos}`;
-                    el.className = 'px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-mono ' + 
+                    el.className = 'px-3 py-1 rounded bg-white/5 border border-white/10 text-xs font-mono ' + 
                                   (pos === 'ABOVE' ? 'text-secondary border-secondary/30' : 
                                    pos === 'BELOW' ? 'text-error border-error/30' : 'text-primary border-primary/30');
                 }
@@ -1339,19 +1222,21 @@
 
             return `
                 <tr class="hover:bg-white/5 transition-colors">
-                    <td class="px-3 py-2 font-mono text-on-surface-variant/80">${time}</td>
-                    <td class="px-3 py-2 font-medium">
+                    <td class="px-md py-3 font-mono text-on-surface-variant/80">${time}</td>
+                    <td class="px-md py-3 font-medium">
                         <span class="block text-on-background">${formatOptionSymbol(t.option_symbol)}</span>
                         <span class="text-[9px] font-mono text-on-surface-variant/40">${t.underlying} ${sig}</span>
                     </td>
-                    <td class="px-3 py-2">${statusBadge}</td>
+                    <td class="px-md py-3">${statusBadge}</td>
                 </tr>
             `;
         }
 
         async function refreshActivityLogs() {
             const secret = document.getElementById('secret').value.trim();
-            if (!secret) return;
+            if (!secret) {
+                return;
+            }
             try {
                 const res = await fetch('/activity-logs', {
                     method: 'POST',
@@ -1374,7 +1259,7 @@
                 if (listEl) {
                     listEl.innerHTML = logs.map(line => {
                         const isAlarm = /🚨/.test(line);
-                        const colorClass = isAlarm ? 'text-error font-bold' : 'text-primary/60';
+                        const colorClass = isAlarm ? 'text-error font-bold' : 'text-secondary-fixed-dim/70';
                         const safe = String(line)
                             .replace(/&/g, '&amp;')
                             .replace(/</g, '&lt;')
@@ -1401,7 +1286,7 @@
                 if (data.status === 'success' && data.trades && data.trades.length > 0) {
                     tbody.innerHTML = data.trades.map(renderFeedRow).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="3" class="px-3 py-4 text-center text-on-surface-variant/40 italic">No trade signals yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="3" class="px-md py-md text-center text-on-surface-variant/40 italic">No trade signals yet.</td></tr>';
                 }
             } catch (err) { console.error('Trade feed fetch failed', err); }
         }
@@ -1452,7 +1337,7 @@
                 if (badge) {
                     const displayVal = val || 'None';
                     badge.textContent = displayVal;
-                    badge.className = 'feeling-badge ' + (val ? val.toUpperCase() : 'NONE') + ' badge uppercase font-bold text-[9px] px-1.5 py-0.5 rounded';
+                    badge.className = 'feeling-badge ' + (val ? val.toUpperCase() : 'NONE') + ' badge uppercase font-bold text-[9px]';
                 }
 
                 const row = document.getElementById(`feeling-row-${symbol}`);
