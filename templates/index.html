@@ -171,18 +171,6 @@
 
 <body class="bg-background text-on-background font-body-md min-h-screen overflow-x-hidden selection:bg-primary selection:text-on-primary">
 
-    <!-- 🚨 ALARM BANNER (Sticky red bar, hidden by default until JS confirms an alarm) -->
-    <div id="alarm-banner" role="alert" aria-live="assertive" hidden
-         style="position:sticky; top:0; z-index:9999;
-                background:#ffb4ab; color:#690005; padding:10px 18px;
-                font-family:'Space Grotesk', sans-serif;
-                font-size:14px; line-height:1.4;
-                border-bottom:2px solid #dbb8ff;
-                box-shadow:0 4px 12px rgba(255,180,171,0.3);">
-        <strong>🚨 ALARM</strong> &mdash; <span id="alarm-banner-msg"></span>
-        <span style="float:right; opacity:0.7; font-size:12px;" id="alarm-banner-count"></span>
-    </div>
-
     <!-- Top Navigation Bar -->
     <header class="fixed top-0 w-full z-50 bg-surface-container-low/60 backdrop-blur-xl border-b border-white/10 px-lg py-md shadow-2xl shadow-primary/5">
         <div class="max-w-container-max mx-auto flex justify-between items-center">
@@ -1205,9 +1193,7 @@
 
         async function refreshActivityLogs() {
             const secret = document.getElementById('secret').value.trim();
-            const bannerEl = document.getElementById('alarm-banner');
             if (!secret) {
-                bannerEl.hidden = true;
                 return;
             }
             try {
@@ -1218,17 +1204,13 @@
                 });
                 const data = await res.json();
                 const listEl = document.getElementById('activity-log-list');
-                const bannerMsg = document.getElementById('alarm-banner-msg');
-                const bannerCount = document.getElementById('alarm-banner-count');
                 
                 if (data.status !== 'success' || !Array.isArray(data.logs)) {
-                    bannerEl.hidden = true;
                     if (listEl) listEl.innerHTML = '<div class="text-error font-bold mb-1">[ERROR] Unauthorized or error fetching logs</div>';
                     return;
                 }
                 const logs = data.logs.slice(0, 20);
                 if (logs.length === 0) {
-                    bannerEl.hidden = true;
                     if (listEl) listEl.innerHTML = '<div class="text-on-surface-variant/40 italic">No system log entries yet.</div>';
                     return;
                 }
@@ -1243,15 +1225,6 @@
                             .replace(/>/g, '&gt;');
                         return `<div class="${colorClass} mb-1">${safe}</div>`;
                     }).join('');
-                }
-                
-                const alarms = logs.filter(l => /🚨/.test(l));
-                if (alarms.length > 0) {
-                    bannerEl.hidden = false;
-                    bannerMsg.textContent = alarms[0].replace(/^\s*\[\d{2}:\d{2}:\d{2}\]\s*/, '');
-                    bannerCount.textContent = alarms.length > 1 ? `+${alarms.length - 1} more in feed` : '';
-                } else {
-                    bannerEl.hidden = true;
                 }
             } catch (err) {
                 console.error("Error fetching activity logs", err);
