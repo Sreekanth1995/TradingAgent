@@ -1389,8 +1389,9 @@ class DhanClient:
             return {"success": False, "alert_id": None, "error": "Missing credentials"}
 
         import pytz
+        from datetime import timedelta
         IST = pytz.timezone('Asia/Kolkata')
-        exp_date = datetime.now(IST).strftime('%Y-%m-%d')
+        exp_date = (datetime.now(IST) + timedelta(days=365)).strftime('%Y-%m-%d')
 
         url = "https://api.dhan.co/v2/alerts/orders"
         headers = {
@@ -1407,6 +1408,12 @@ class DhanClient:
         # Using NSE_FNO for index IDs causes Dhan DH-905 Input_Exception.
         condition_exchange_seg = IDX_SEGMENT if is_index_id(actual_trigger_id) else exchange_seg
 
+        # Dhan GTT alert API expects MARGIN (for FNO options) or MIS/CNC (for cash/equity).
+        # It does NOT support the raw string "INTRADAY" — passing "INTRADAY" triggers errorCode DH-905.
+        gtt_product_type = product_type
+        if product_type == "INTRADAY":
+            gtt_product_type = "MARGIN"
+
         payload = {
             "dhanClientId": self.client_id,
             "userNote": user_note if user_note else "GTT Trigger",
@@ -1415,20 +1422,21 @@ class DhanClient:
                 "exchangeSegment": condition_exchange_seg,
                 "securityId": str(actual_trigger_id),
                 "operator": operator,
-                "comparingValue": str(comparing_value),
+                "comparingValue": float(comparing_value),
+                "expDate": exp_date,
                 "frequency": "ONCE"
             },
             "orders": [{
                 "transactionType": transaction_type,
                 "exchangeSegment": exchange_seg,
-                "productType": product_type,
+                "productType": gtt_product_type,
                 "orderType": "MARKET",
                 "securityId": str(sec_id),
-                "quantity": str(quantity),
+                "quantity": int(quantity),
                 "validity": "DAY",
-                "price": "0",
-                "disclosedQuantity": "0",
-                "triggerPrice": "0",
+                "price": 0,
+                "disclosedQuantity": 0,
+                "triggerPrice": 0,
                 "afterMarketOrder": False,
                 "amo": False
             }]
