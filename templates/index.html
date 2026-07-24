@@ -501,66 +501,78 @@
                     </div>
                 </div>
                         <!-- ARMED INDEX-TOUCH ENTRIES (GTT visual from Stitch) -->
-                <div id="armed-gtt-card" class="glass-panel p-lg rounded-xl overflow-hidden relative" style="display:none">
-                    <div class="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent h-1/2 -top-1/2 animate-[bounce_4s_infinite] opacity-30 pointer-events-none"></div>
-                    <div class="flex justify-between items-center mb-md">
-                        <div>
-                            <span class="font-label-md text-xs text-primary tracking-[0.2em] uppercase">NIFTY-ENTRY-TRIGGER</span>
-                            <h4 id="armed-gtt-title" class="font-headline-md text-on-surface font-semibold">Call Entry Trigger</h4>
-                            <div class="flex flex-col gap-0.5 mt-1">
-                                <p id="armed-gtt-subtitle" class="text-xs text-on-surface-variant/60">Target: --</p>
-                                <p id="armed-gtt-sl-display" class="text-xs text-on-surface-variant/60">Stop Loss: --</p>
+                <div id="armed-gtt-card" style="display:none" class="flex flex-col gap-md mb-lg">
+                    <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-sm px-xs font-bold uppercase tracking-wider text-xs">
+                        <span class="material-symbols-outlined text-primary text-[18px]">target</span>
+                        ARMED INDEX-TOUCH ENTRIES (GTT)
+                    </h2>
+                    <div class="glass-panel p-lg rounded-xl overflow-hidden relative">
+                        <div class="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent h-1/2 -top-1/2 animate-[bounce_4s_infinite] opacity-30 pointer-events-none"></div>
+                        <div class="flex justify-between items-center mb-md">
+                            <div>
+                                <span class="font-label-md text-xs text-primary tracking-[0.2em] uppercase">NIFTY-ENTRY-TRIGGER</span>
+                                <h4 id="armed-gtt-title" class="font-headline-md text-on-surface font-semibold">Call Entry Trigger</h4>
+                                <div class="flex flex-col gap-0.5 mt-1">
+                                    <p id="armed-gtt-subtitle" class="text-xs text-on-surface-variant/60">Target: --</p>
+                                    <p id="armed-gtt-sl-display" class="text-xs text-on-surface-variant/60">Stop Loss: --</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] text-on-surface-variant/60 uppercase block">Distance</span>
+                                <p id="armed-gtt-distance" class="font-numeric-data text-headline-md text-secondary font-bold text-lg">--</p>
                             </div>
                         </div>
-                        <div class="text-right">
-                            <span class="text-[10px] text-on-surface-variant/60 uppercase block">Distance</span>
-                            <p id="armed-gtt-distance" class="font-numeric-data text-headline-md text-secondary font-bold text-lg">--</p>
-                        </div>
-                    </div>
-                    <div class="space-y-sm">
-                        <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                            <div id="armed-gtt-progress" class="h-full bg-primary shadow-[0_0_10px_rgba(219,184,255,0.8)] w-[0%] transition-all duration-1000"></div>
+                        <div class="space-y-sm">
+                            <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                <div id="armed-gtt-progress" class="h-full bg-primary shadow-[0_0_10px_rgba(219,184,255,0.8)] w-[0%] transition-all duration-1000"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- ACTIVE ORDER BRACKETS (Styled positions widget from Stitch) -->
-                <div id="active-brackets-card" class="glass-panel p-lg rounded-xl border-l-4 border-secondary" style="display:none">
-                    <div class="flex justify-between items-start mb-6">
-                        <div class="flex flex-col">
-                            <span class="bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 mb-1">RUNNING</span>
-                            <h4 id="bracket-symbol" class="font-headline-md text-on-surface font-bold text-[16px]">--</h4>
-                            <span id="bracket-qty-avg" class="text-xs text-on-surface-variant font-numeric-data">Qty: -- | Avg: --</span>
+                <div id="active-brackets-card" style="display:none" class="flex flex-col gap-md">
+                    <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-sm px-xs font-bold uppercase tracking-wider text-xs">
+                        <span class="material-symbols-outlined text-secondary text-[18px]">monitor_heart</span>
+                        CONDITIONAL ORDER BRACKETS
+                    </h2>
+                    <div class="glass-panel p-lg rounded-xl border-l-4 border-secondary">
+                        <div class="flex justify-between items-start mb-6">
+                            <div class="flex flex-col">
+                                <span class="bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 mb-1">RUNNING</span>
+                                <h4 id="bracket-symbol" class="font-headline-md text-on-surface font-bold text-[16px]">--</h4>
+                                <span id="bracket-qty-avg" class="text-xs text-on-surface-variant font-numeric-data">Qty: -- | Avg: --</span>
+                            </div>
+                            <div class="text-right flex flex-col items-end">
+                                <p id="bracket-pnl-amt" class="text-secondary font-display-lg text-headline-lg font-bold font-numeric-data leading-none">--</p>
+                                <span id="bracket-pnl-pct" class="text-xs text-secondary-fixed-dim font-numeric-data">--</span>
+                                <span class="text-[10px] text-on-surface-variant/40 font-mono mt-1">LTP: <span id="bracket-ltp" class="text-on-surface font-semibold">--</span></span>
+                            </div>
                         </div>
-                        <div class="text-right flex flex-col items-end">
-                            <p id="bracket-pnl-amt" class="text-secondary font-display-lg text-headline-lg font-bold font-numeric-data leading-none">--</p>
-                            <span id="bracket-pnl-pct" class="text-xs text-secondary-fixed-dim font-numeric-data">--</span>
-                            <span class="text-[10px] text-on-surface-variant/40 font-mono mt-1">LTP: <span id="bracket-ltp" class="text-on-surface font-semibold">--</span></span>
+                        
+                        <!-- New Stitch Slider Representation of SL -> Entry -> Target -->
+                        <div id="bracket-slider-container" class="mt-4 flex flex-col gap-2 w-full">
+                            <div class="flex justify-between text-[9px] font-bold text-on-surface-variant/40 uppercase">
+                                <span>SL</span>
+                                <span>Entry</span>
+                                <span>Target</span>
+                            </div>
+                            <div class="relative h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                <div id="bracket-slider-bar" class="absolute left-0 top-0 h-full bg-secondary w-[0%] shadow-[0_0_8px_rgba(1,245,160,0.3)]"></div>
+                                <div id="bracket-slider-entry" class="absolute left-[0%] top-0 w-px h-full bg-white z-10"></div>
+                            </div>
+                            <div class="flex justify-between text-[10px] font-mono text-on-surface-variant/60 font-numeric-data">
+                                <span id="bracket-slider-sl-val">--</span>
+                                <span id="bracket-slider-entry-val" class="text-on-surface font-semibold">--</span>
+                                <span id="bracket-slider-tgt-val">--</span>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <!-- New Stitch Slider Representation of SL -> Entry -> Target -->
-                    <div id="bracket-slider-container" class="mt-4 flex flex-col gap-2 w-full">
-                        <div class="flex justify-between text-[9px] font-bold text-on-surface-variant/40 uppercase">
-                            <span>SL</span>
-                            <span>Entry</span>
-                            <span>Target</span>
-                        </div>
-                        <div class="relative h-1.5 bg-white/5 rounded-full overflow-hidden">
-                            <div id="bracket-slider-bar" class="absolute left-0 top-0 h-full bg-secondary w-[0%] shadow-[0_0_8px_rgba(1,245,160,0.3)]"></div>
-                            <div id="bracket-slider-entry" class="absolute left-[0%] top-0 w-px h-full bg-white z-10"></div>
-                        </div>
-                        <div class="flex justify-between text-[10px] font-mono text-on-surface-variant/60 font-numeric-data">
-                            <span id="bracket-slider-sl-val">--</span>
-                            <span id="bracket-slider-entry-val" class="text-on-surface font-semibold">--</span>
-                            <span id="bracket-slider-tgt-val">--</span>
-                        </div>
-                    </div>
 
-                    <!-- Additional Order Details Footer -->
-                    <div class="mt-4 flex justify-between items-center text-xs border-t border-white/5 pt-2">
-                        <span class="text-on-surface-variant/60 font-label-md">Trailing Jump</span>
-                        <span id="bracket-trailing" class="font-numeric-data text-primary font-semibold">--</span>
+                        <!-- Additional Order Details Footer -->
+                        <div class="mt-4 flex justify-between items-center text-xs border-t border-white/5 pt-2">
+                            <span class="text-on-surface-variant/60 font-label-md">Trailing Jump</span>
+                            <span id="bracket-trailing" class="font-numeric-data text-primary font-semibold">--</span>
+                        </div>
                     </div>
                 </div>
 
