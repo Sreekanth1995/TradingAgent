@@ -1424,7 +1424,7 @@ class DhanClient:
             "dhanClientId": self.client_id,
             "userNote": user_note if user_note else "GTT Trigger",
             "condition": {
-                "comparisonType": "LTP_WITH_VALUE",
+                "comparisonType": "PRICE_WITH_VALUE",
                 "exchangeSegment": condition_exchange_seg,
                 "securityId": str(actual_trigger_id),
                 "operator": dhan_operator,
