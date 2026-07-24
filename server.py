@@ -1546,10 +1546,6 @@ def conditional_order():
         except (TypeError, ValueError) as e:
             return jsonify({"status": "error", "message": f"Invalid SL/Target index value: {e}"}), 400
 
-        feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)
-        if not feed_id:
-            logger.warning(f"/conditional-order: no trade_feed_id for {underlying} — feed record will be orphaned")
-
         # ─── CONDITIONAL ENTRY PATH (entry_index provided) ───
         # Buy fires only when NIFTY touches entry_index; SL/Target arm on fill.
         if entry_index is not None:
@@ -1565,6 +1561,26 @@ def conditional_order():
             itm = resolve_call_itm(broker, underlying, entry_lvl) if side == 'CALL' else resolve_put_itm(broker, underlying, entry_lvl)
             if not itm:
                 return jsonify({"status": "error", "message": "Failed to resolve ITM contract at entry level"}), 400
+            
+            # Resolve feed ID if not provided
+            feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)
+            if not feed_id:
+                try:
+                    symbol_name = itm.get('symbol') or itm.get('tradingSymbol')
+                    feed_id = trade_feed.insert_trade(
+                        underlying=underlying,
+                        signal='LONG_ENTRY' if side == 'CALL' else 'SHORT_ENTRY',
+                        index_price=spot_index,
+                        option_symbol=symbol_name,
+                        sl_price=sl_idx_val,
+                        target_price=tgt_idx_val,
+                        status='PENDING',
+                        comment='Conditional order placed via API'
+                    )
+                    logger.info(f"Generated missing trade_feed_id = {feed_id} for conditional {underlying}")
+                except Exception as e:
+                    logger.warning(f"Failed to auto-insert trade feed row: {e}")
+
             correlation_id = f"ENTRY:{underlying}:{uuid.uuid4().hex[:12]}"
             res = conditional_engine.arm_conditional_entry({
                 "underlying": underlying, "side": side, "itm": itm,
@@ -1573,6 +1589,7 @@ def conditional_order():
                 "sl_index": sl_idx_val, "target_index": tgt_idx_val,
                 "correlation_id": correlation_id, "trade_feed_id": feed_id,
             })
+            _add_activity_log(f"Armed entry PENDING_{side} at {entry_lvl} for {underlying} ({itm.get('symbol') or itm.get('tradingSymbol')})")
             code = 200 if res.get('status') == 'success' else 400
             return jsonify(res), code
 
@@ -1592,6 +1609,25 @@ def conditional_order():
         itm = resolve_call_itm(broker, underlying, spot_index) if side == 'CALL' else resolve_put_itm(broker, underlying, spot_index)
         if not itm:
             return jsonify({"status": "error", "message": "Failed to resolve ITM contract or Index ID"}), 400
+
+        # Resolve feed ID if not provided
+        feed_id = data.get('trade_feed_id') or _get_pending_trade(underlying)
+        if not feed_id:
+            try:
+                symbol_name = itm.get('symbol') or itm.get('tradingSymbol')
+                feed_id = trade_feed.insert_trade(
+                    underlying=underlying,
+                    signal='LONG_ENTRY' if side == 'CALL' else 'SHORT_ENTRY',
+                    index_price=spot_index,
+                    option_symbol=symbol_name,
+                    sl_price=sl_idx_val,
+                    target_price=tgt_idx_val,
+                    status='PENDING',
+                    comment='Market order placed via API'
+                )
+                logger.info(f"Generated missing trade_feed_id = {feed_id} for immediate {underlying}")
+            except Exception as e:
+                logger.warning(f"Failed to auto-insert trade feed row: {e}")
 
         leg_data = {
             "underlying": underlying,
@@ -1617,6 +1653,7 @@ def conditional_order():
                     "quantity": quantity,
                 })
                 res['gtt_status'] = {"status": "pending", "message": "Queued for fill trigger"}
+            _add_activity_log(f"Executing immediate market entry: {side} {itm.get('symbol') or itm.get('tradingSymbol')} for {underlying}")
 
         code = 200 if res.get('status') == 'success' else 400
         return jsonify(res), code
@@ -1970,8 +2007,42 @@ def exit_conditional_order():
         side = state.get('side', 'NONE')
         if side == 'NONE':
             return jsonify({"status": "error", "message": f"No active conditional position for {underlying}"}), 400
+        
+        feed_id = state.get('trade_feed_id')
+        entry_price = float(state.get('entry_price') or 0)
+        qty = int(state.get('quantity') or 1)
+
         exit_signal = 'LONG_EXIT' if side == 'CALL' else 'SHORT_EXIT'
         result = conditional_engine.handle_signal(exit_signal, {'underlying': underlying})
+        
+        if result.get('status') == 'success':
+            exit_order_id = str(result.get('exit_order_id', ''))
+            if feed_id and exit_order_id:
+                # Store exit metadata so order update WS listener can record real exit price/profit
+                _set_exit_order_meta(exit_order_id, {
+                    'feed_id': feed_id,
+                    'entry_price': entry_price,
+                    'qty': qty,
+                })
+                logger.info(f"Exit order {exit_order_id} queued for conditional order — awaiting WS fill for {underlying}")
+            elif feed_id:
+                trade_feed.update_trade(feed_id, status='CLOSED', comment='Manual exit')
+            
+            _add_activity_log(f"Manual Exit triggered for conditional {underlying} ({side})")
+            
+            if side in ('CALL', 'PUT'):
+                _add_to_history({
+                    "underlying": underlying,
+                    "symbol": state.get('symbol'),
+                    "side": side,
+                    "entry_price": entry_price,
+                    "exit_price": None,
+                    "pnl_abs": None,
+                    "pnl_pct": None,
+                    "exit_reason": "MANUAL_EXIT",
+                    "timestamp": datetime.now().isoformat()
+                })
+
         code = 200 if result.get('status') == 'success' else 400
         return jsonify(result), code
     except Exception as e:
