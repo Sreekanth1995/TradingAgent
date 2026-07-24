@@ -500,15 +500,17 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- ARMED INDEX-TOUCH ENTRIES (GTT visual from Stitch) -->
+                        <!-- ARMED INDEX-TOUCH ENTRIES (GTT visual from Stitch) -->
                 <div id="armed-gtt-card" class="glass-panel p-lg rounded-xl overflow-hidden relative" style="display:none">
                     <div class="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent h-1/2 -top-1/2 animate-[bounce_4s_infinite] opacity-30 pointer-events-none"></div>
                     <div class="flex justify-between items-center mb-md">
                         <div>
                             <span class="font-label-md text-xs text-primary tracking-[0.2em] uppercase">NIFTY-ENTRY-TRIGGER</span>
                             <h4 id="armed-gtt-title" class="font-headline-md text-on-surface font-semibold">Call Entry Trigger</h4>
-                            <p id="armed-gtt-subtitle" class="text-xs text-on-surface-variant/60">Target: --</p>
+                            <div class="flex flex-col gap-0.5 mt-1">
+                                <p id="armed-gtt-subtitle" class="text-xs text-on-surface-variant/60">Target: --</p>
+                                <p id="armed-gtt-sl-display" class="text-xs text-on-surface-variant/60">Stop Loss: --</p>
+                            </div>
                         </div>
                         <div class="text-right">
                             <span class="text-[10px] text-on-surface-variant/60 uppercase block">Distance</span>
@@ -530,27 +532,35 @@
                             <h4 id="bracket-symbol" class="font-headline-md text-on-surface font-bold text-[16px]">--</h4>
                             <span id="bracket-qty-avg" class="text-xs text-on-surface-variant font-numeric-data">Qty: -- | Avg: --</span>
                         </div>
-                        <div class="text-right">
+                        <div class="text-right flex flex-col items-end">
                             <p id="bracket-pnl-amt" class="text-secondary font-display-lg text-headline-lg font-bold font-numeric-data leading-none">--</p>
                             <span id="bracket-pnl-pct" class="text-xs text-secondary-fixed-dim font-numeric-data">--</span>
+                            <span class="text-[10px] text-on-surface-variant/40 font-mono mt-1">LTP: <span id="bracket-ltp" class="text-on-surface font-semibold">--</span></span>
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-white/5 p-sm rounded border border-white/5 text-center">
-                            <span class="text-[9px] text-on-surface-variant/60 uppercase block mb-1">Target</span>
-                            <span id="bracket-tgt" class="font-numeric-data text-xs text-on-surface">--</span>
+                    <!-- New Stitch Slider Representation of SL -> Entry -> Target -->
+                    <div id="bracket-slider-container" class="mt-4 flex flex-col gap-2 w-full">
+                        <div class="flex justify-between text-[9px] font-bold text-on-surface-variant/40 uppercase">
+                            <span>SL</span>
+                            <span>Entry</span>
+                            <span>Target</span>
                         </div>
-                        <div class="bg-white/5 p-sm rounded border border-white/5 text-center">
-                            <span class="text-[9px] text-on-surface-variant/60 uppercase block mb-1">Stop Loss</span>
-                            <span id="bracket-sl" class="font-numeric-data text-xs text-error font-semibold">--</span>
+                        <div class="relative h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div id="bracket-slider-bar" class="absolute left-0 top-0 h-full bg-secondary w-[0%] shadow-[0_0_8px_rgba(1,245,160,0.3)]"></div>
+                            <div id="bracket-slider-entry" class="absolute left-[0%] top-0 w-px h-full bg-white z-10"></div>
                         </div>
-                        <div class="bg-white/5 p-sm rounded border border-white/5 relative overflow-hidden group text-center">
-                            <span class="text-[9px] text-on-surface-variant/60 uppercase block mb-1">Trailing</span>
-                            <span id="bracket-trailing" class="font-numeric-data text-xs text-primary flex items-center justify-center gap-1">
-                                -- <span class="material-symbols-outlined text-xs">keyboard_double_arrow_up</span>
-                            </span>
+                        <div class="flex justify-between text-[10px] font-mono text-on-surface-variant/60 font-numeric-data">
+                            <span id="bracket-slider-sl-val">--</span>
+                            <span id="bracket-slider-entry-val" class="text-on-surface font-semibold">--</span>
+                            <span id="bracket-slider-tgt-val">--</span>
                         </div>
+                    </div>
+
+                    <!-- Additional Order Details Footer -->
+                    <div class="mt-4 flex justify-between items-center text-xs border-t border-white/5 pt-2">
+                        <span class="text-on-surface-variant/60 font-label-md">Trailing Jump</span>
+                        <span id="bracket-trailing" class="font-numeric-data text-primary font-semibold">--</span>
                     </div>
                 </div>
 
@@ -825,21 +835,25 @@
 
             // 4. Update GTT trigger card (Armed Index-Touch Entries) dynamically
             const armedGttCard = document.getElementById('armed-gtt-card');
-            if (activeSide !== 'NONE' && sector && sector.idx_target_level) {
+            const targetLevel = state.idx_target_level || (sector && sector.idx_target_level);
+            const slLevel = state.idx_sl_level || (sector && sector.idx_sl_level);
+
+            if (activeSide !== 'NONE' && targetLevel) {
                 armedGttCard.style.display = 'block';
                 document.getElementById('armed-gtt-title').textContent = `${activeSide} Entry Trigger`;
-                document.getElementById('armed-gtt-subtitle').textContent = `Target Level: ${sector.idx_target_level}`;
+                document.getElementById('armed-gtt-subtitle').textContent = `Target Level: ${parseFloat(targetLevel).toFixed(2)}`;
+                document.getElementById('armed-gtt-sl-display').textContent = slLevel ? `Stop Loss: ${parseFloat(slLevel).toFixed(2)}` : 'Stop Loss: --';
                 
                 const niftyLtp = data.index_prices ? data.index_prices['NIFTY'] : null;
                 const distEl = document.getElementById('armed-gtt-distance');
                 const progressEl = document.getElementById('armed-gtt-progress');
                 if (niftyLtp) {
-                    const dist = activeSide === 'CALL' ? (sector.idx_target_level - niftyLtp) : (niftyLtp - sector.idx_target_level);
+                    const dist = activeSide === 'CALL' ? (targetLevel - niftyLtp) : (niftyLtp - targetLevel);
                     distEl.textContent = `${dist.toFixed(2)} pts`;
                     
                     // Compute visual progress percentage (e.g. within 200 pts range)
-                    const entry = sector.idx_target_level;
-                    const start = sector.entry_price || (activeSide === 'CALL' ? entry - 100 : entry + 100);
+                    const entry = targetLevel;
+                    const start = state.entry_price || (sector && sector.entry_price) || (activeSide === 'CALL' ? entry - 100 : entry + 100);
                     const totalRange = Math.abs(entry - start);
                     const currentDiff = Math.abs(entry - niftyLtp);
                     let pct = totalRange > 0 ? ((totalRange - currentDiff) / totalRange) * 100 : 0;
@@ -878,16 +892,43 @@
                 }
                 
                 const pctEl = document.getElementById('bracket-pnl-pct');
-                pctEl.textContent = `${pnlPctText} (${pnlText})`;
+                pctEl.textContent = `${pnlPctText}`;
                 if (isProfit) {
                     pctEl.className = 'text-xs text-secondary font-numeric-data';
                 } else {
                     pctEl.className = 'text-xs text-error font-numeric-data';
                 }
                 
-                document.getElementById('bracket-tgt').textContent = sector.tgt_price ? parseFloat(sector.tgt_price).toFixed(2) : '--';
-                document.getElementById('bracket-sl').textContent = sector.sl_price ? parseFloat(sector.sl_price).toFixed(2) : '--';
-                document.getElementById('bracket-trailing').textContent = sector.trailing_jump ? parseFloat(sector.trailing_jump).toFixed(2) : '--';
+                // Update new Stitch dynamic slider bar
+                const targetVal = parseFloat(sector.tgt_price || state.tgt_price);
+                const slVal = parseFloat(sector.sl_price || state.sl_price);
+                const entryVal = parseFloat(sector.entry_price || state.entry_price);
+                const ltpFloat = parseFloat(sector.ltp);
+
+                if (!isNaN(targetVal) && !isNaN(slVal) && !isNaN(entryVal) && !isNaN(ltpFloat) && (targetVal !== slVal)) {
+                    // Compute visual percentages relative to the [SL, Target] range
+                    // pct of current price (LTP)
+                    let pct = ((ltpFloat - slVal) / (targetVal - slVal)) * 100;
+                    pct = Math.max(0, Math.min(100, pct));
+                    document.getElementById('bracket-slider-bar').style.width = `${pct.toFixed(1)}%`;
+                    
+                    // pct of entry price
+                    let entryPct = ((entryVal - slVal) / (targetVal - slVal)) * 100;
+                    entryPct = Math.max(0, Math.min(100, entryPct));
+                    document.getElementById('bracket-slider-entry').style.left = `${entryPct.toFixed(1)}%`;
+                    
+                    document.getElementById('bracket-slider-sl-val').textContent = `₹${slVal.toFixed(2)}`;
+                    document.getElementById('bracket-slider-entry-val').textContent = `₹${entryVal.toFixed(2)}`;
+                    document.getElementById('bracket-slider-tgt-val').textContent = `₹${targetVal.toFixed(2)}`;
+                    
+                    document.getElementById('bracket-slider-container').style.display = 'flex';
+                } else {
+                    document.getElementById('bracket-slider-container').style.display = 'none';
+                }
+
+                // Update trailing stop
+                const trailingVal = sector.trailing_jump || state.trailing_jump;
+                document.getElementById('bracket-trailing').textContent = trailingVal ? parseFloat(trailingVal).toFixed(2) : '--';
             } else {
                 activeBracketsCard.style.display = 'none';
             }
