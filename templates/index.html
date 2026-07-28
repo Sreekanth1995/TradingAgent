@@ -576,8 +576,10 @@
                     <!-- Active Content -->
                     <div id="bracket-content" class="glass-panel p-lg rounded-xl border-l-4 border-secondary" style="display:none">
                         <div class="flex justify-between items-start mb-6">
-                            <div class="flex flex-col">
-                                <span id="bracket-status-badge" class="bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 mb-1">RUNNING</span>
+                                <div class="flex gap-2 mb-1">
+                                    <span id="bracket-status-badge" class="bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 font-bold">RUNNING</span>
+                                    <span id="bracket-protection-badge" class="bg-primary/20 text-primary text-[10px] w-fit px-2 py-0.5 rounded border border-primary/20 font-bold">GTT + Polling</span>
+                                </div>
                                 <h4 id="bracket-symbol" class="font-headline-md text-on-surface font-bold text-[16px]">--</h4>
                                 <span id="bracket-qty-avg" class="text-xs text-on-surface-variant font-numeric-data">Qty: -- | Avg: --</span>
                             </div>
@@ -1021,7 +1023,22 @@
             if (isActive && sector) {
                 showBracketState('content');
                 document.getElementById('bracket-status-badge').textContent = 'RUNNING';
-                document.getElementById('bracket-status-badge').className = 'bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 mb-1 font-bold';
+                document.getElementById('bracket-status-badge').className = 'bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 font-bold';
+                
+                const protStatus = state.protection_status || 'Polling Only';
+                const protEl = document.getElementById('bracket-protection-badge');
+                if (protEl) {
+                    protEl.textContent = protStatus;
+                    if (protStatus === 'GTT + Polling') {
+                        protEl.className = 'bg-secondary/20 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 font-bold uppercase tracking-wider';
+                    } else if (protStatus === 'Polling Only') {
+                        protEl.className = 'bg-warning/20 text-warning text-[10px] w-fit px-2 py-0.5 rounded border border-warning/20 font-bold uppercase tracking-wider';
+                    } else if (protStatus === 'Partial GTT') {
+                        protEl.className = 'bg-warning/20 text-warning text-[10px] w-fit px-2 py-0.5 rounded border border-warning/20 font-bold uppercase tracking-wider';
+                    } else {
+                        protEl.className = 'bg-error/20 text-error text-[10px] w-fit px-2 py-0.5 rounded border border-error/20 font-bold uppercase tracking-wider';
+                    }
+                }
                 
                 document.getElementById('bracket-symbol').textContent = sector.symbol || 'NIFTY Option';
                 document.getElementById('bracket-qty-avg').textContent = `Qty: ${sector.quantity} | Avg: ₹${parseFloat(sector.entry_price).toFixed(2)}`;

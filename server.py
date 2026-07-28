@@ -880,6 +880,11 @@ def _get_active_positions():
     for underlying in ["NIFTY", "BANKNIFTY", "FINNIFTY"]:
         try:
             state = super_order_engine._get_state(underlying)
+            is_conditional = False
+            if state.get('side', 'NONE') == 'NONE' and conditional_engine:
+                state = conditional_engine._get_state(underlying)
+                is_conditional = True
+
             if state.get('side', 'NONE') == 'NONE':
                 continue
 
@@ -894,7 +899,10 @@ def _get_active_positions():
                 # Back-fill entry_price into state if it was 0 (MARKET order not yet updated)
                 if entry_price > 0 and float(state.get('entry_price', 0)) == 0:
                     state['entry_price'] = entry_price
-                    super_order_engine._set_state(underlying, state)
+                    if is_conditional:
+                        conditional_engine._set_state(underlying, state)
+                    else:
+                        super_order_engine._set_state(underlying, state)
             else:
                 entry_price = float(state.get('entry_price', 0))
                 net_qty = int(state.get('quantity', 0))
@@ -912,6 +920,9 @@ def _get_active_positions():
 
             pnl_pct = round(((ltp / entry_price) - 1) * 100, 2) if entry_price > 0 and ltp else 0.0
 
+            sl_price = state.get('idx_sl_level') if is_conditional else state.get('sl_price')
+            tgt_price = state.get('idx_target_level') if is_conditional else state.get('tgt_price')
+
             active_positions.append({
                 "underlying": underlying,
                 "symbol": state.get('symbol'),
@@ -921,8 +932,8 @@ def _get_active_positions():
                 "ltp": ltp if ltp is not None else '---',
                 "pnl_abs": pnl_abs,
                 "pnl_pct": pnl_pct,
-                "sl_price": state.get('sl_price'),
-                "tgt_price": state.get('tgt_price'),
+                "sl_price": sl_price,
+                "tgt_price": tgt_price,
             })
         except Exception as e:
             logger.error(f"Error fetching position for {underlying}: {e}")
@@ -944,6 +955,26 @@ def get_state():
     try:
         underlying = data.get('underlying', 'NIFTY')
         state = super_order_engine._get_state(underlying)
+        if state.get('side', 'NONE') == 'NONE' and conditional_engine:
+            cond_state = conditional_engine._get_state(underlying)
+            if cond_state.get('side', 'NONE') != 'NONE':
+                state = cond_state
+
+        # Determine protection status
+        protection_status = "None"
+        if state.get('side') in ('CALL', 'PUT'):
+            has_sl_gtt = state.get('idx_sl_alert_id') or state.get('conditional_sl_alert_id')
+            has_tgt_gtt = state.get('idx_target_alert_id') or state.get('conditional_target_alert_id')
+            if has_sl_gtt and has_tgt_gtt:
+                protection_status = "GTT + Polling"
+            elif has_sl_gtt or has_tgt_gtt:
+                protection_status = "Partial GTT"
+            else:
+                protection_status = "Polling Only"
+        elif state.get('side') in ('PENDING_CALL', 'PENDING_PUT'):
+            protection_status = "Pending Trigger"
+
+        state['protection_status'] = protection_status
         active_positions = _get_active_positions()
 
         # Find this underlying's position detail for the dashboard card
