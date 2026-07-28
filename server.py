@@ -1028,6 +1028,12 @@ def get_state():
             except Exception as e:
                 logger.error(f"Error getting range tracker for {sym}: {e}")
 
+        recent_trades = []
+        try:
+            recent_trades = trade_feed.get_recent_trades(100)
+        except Exception as e:
+            logger.error(f"Error fetching recent trades for state: {e}")
+
         return jsonify({
             "status": "success",
             "state": state,
@@ -1035,7 +1041,8 @@ def get_state():
             "sector_details": sector_details,
             "funds": funds,
             "index_prices": index_prices,
-            "range_tracker": range_tracker
+            "range_tracker": range_tracker,
+            "recent_trades": recent_trades
         }), 200
     except Exception as e:
         logger.error(f"Get State Error: {e}")
@@ -1787,7 +1794,10 @@ def set_conditional_index_orders():
             state['idx_sec_id'] = idx_sec_id
             conditional_engine._set_state(underlying, state)
 
-        res = conditional_engine.set_index_boundaries(underlying, target_level, sl_level, quantity)
+        if state.get('side') in ('PENDING_CALL', 'PENDING_PUT'):
+            res = conditional_engine.modify_pending_protection(underlying, target_level, sl_level, quantity)
+        else:
+            res = conditional_engine.set_index_boundaries(underlying, target_level, sl_level, quantity)
         if res.get('status') == 'success':
             return jsonify(res), 200
         else:
@@ -2124,6 +2134,45 @@ def get_trade_feed():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route('/gtt-orders', methods=['POST'])
+def get_gtt_orders():
+    """
+    Fetches all GTT conditional orders from Dhan and divides them into filled and notfilled.
+    """
+    if not broker:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True) or {}
+    if data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    try:
+        all_gtts = broker.get_all_gtt_orders()
+        
+        filled = []
+        notfilled = []
+        other = []
+        
+        for gtt in all_gtts:
+            status = gtt.get('alertStatus', '').upper()
+            if status in ('ACTIVE', 'PENDING', 'UNTRIGGERED'):
+                notfilled.append(gtt)
+            elif status in ('TRIGGERED', 'EXECUTED', 'TRADED', 'FILLED'):
+                filled.append(gtt)
+            else:
+                other.append(gtt)
+                
+        return jsonify({
+            "status": "success",
+            "filled": filled,
+            "notfilled": notfilled,
+            "other": other
+        }), 200
+    except Exception as e:
+        logger.error(f"GTT Orders Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 def _compute_zone(range_tracker_pos, dy_pos):
     """
     Derive zone from RangeTracker and DySupportResistance positions.
@@ -2296,6 +2345,48 @@ def cancel_conditional_orders():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+def _find_level_key_by_value(levels_dict, value, underlying):
+    # If the levels_dict is nested under underlying:
+    idx_levels = levels_dict.get(underlying, {})
+    if not idx_levels and underlying not in levels_dict:
+        # Maybe it's flat
+        idx_levels = levels_dict
+    
+    # We want to search for the value in idx_levels
+    best_key = None
+    best_subkey = None
+    min_diff = 2.0 # Tolerance of 2 points
+    
+    for key, val in idx_levels.items():
+        if isinstance(val, dict):
+            for subkey in ('low', 'high', 'test'):
+                if subkey in val and val[subkey] is not None:
+                    try:
+                        v = float(val[subkey])
+                        diff = abs(v - value)
+                        if diff < min_diff:
+                            min_diff = diff
+                            best_key = key
+                            best_subkey = subkey
+                    except (ValueError, TypeError):
+                        continue
+    return best_key, best_subkey
+
+
+def _get_level_value_by_key(levels_dict, key, subkey, underlying):
+    idx_levels = levels_dict.get(underlying, {})
+    if not idx_levels and underlying not in levels_dict:
+        idx_levels = levels_dict
+    
+    val = idx_levels.get(key)
+    if isinstance(val, dict) and subkey in val:
+        try:
+            return float(val[subkey])
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
 @app.route('/set-levels', methods=['POST'])
 def set_levels():
     data = request.get_json(force=True, silent=True)
@@ -2303,7 +2394,41 @@ def set_levels():
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     
     levels = data.get('levels', {})
+    
+    # 1. Load old levels before saving
+    old_levels = _load_levels()
+    
+    # 2. Save new levels
     _save_levels(levels)
+    
+    # 3. Modify active or pending conditional order targets
+    try:
+        for underlying in ('NIFTY', 'BANKNIFTY', 'FINNIFTY'):
+            state = conditional_engine._get_state(underlying)
+            side = state.get('side', 'NONE')
+            if side in ('CALL', 'PUT', 'PENDING_CALL', 'PENDING_PUT'):
+                current_target = state.get('idx_target_level')
+                current_sl = state.get('idx_sl_level')
+                quantity = state.get('quantity')
+                
+                if current_target is not None and current_sl is not None:
+                    # Find which key this target mapped to in old levels
+                    key, subkey = _find_level_key_by_value(old_levels, current_target, underlying)
+                    if key:
+                        # Find the new value for this key
+                        new_target = _get_level_value_by_key(levels, key, subkey, underlying)
+                        if new_target is not None and new_target != current_target:
+                            logger.info(f"Set Levels: Updating target for {underlying} ({side}) from {current_target} to {new_target} based on key {key}.{subkey}")
+                            if side in ('PENDING_CALL', 'PENDING_PUT'):
+                                conditional_engine.modify_pending_protection(underlying, new_target, current_sl, quantity)
+                            else:
+                                conditional_engine.set_index_boundaries(underlying, new_target, current_sl, quantity)
+                            
+                            # Log activity
+                            _add_activity_log(f"Auto-modified {underlying} {side} target from {current_target} to {new_target} (levels update)", "🔄")
+    except Exception as e:
+        logger.error(f"Error auto-modifying targets on levels update: {e}")
+        
     return jsonify({"status": "success", "message": "Levels saved"}), 200
 
 @app.route('/get-levels', methods=['POST'])

@@ -96,6 +96,45 @@ class ConditionalOrderEngine:
                     del self.memory_store[key]  # expired — evict
         return None
 
+    def modify_pending_protection(self, underlying, target_level, sl_level, quantity=None):
+        """
+        Modify target and stop loss levels in pending protection.
+        """
+        state = self._get_state(underlying)
+        side = state.get('side', 'NONE')
+        if side not in ('PENDING_CALL', 'PENDING_PUT'):
+            return {"status": "error", "message": f"State side {side} is not pending for {underlying}"}
+
+        correlation_id = state.get('correlation_id')
+        if not correlation_id:
+            return {"status": "error", "message": f"No correlation_id found in pending state for {underlying}"}
+
+        # Update engine state
+        state['idx_target_level'] = float(target_level)
+        state['idx_sl_level'] = float(sl_level)
+        if quantity is not None:
+            state['quantity'] = int(quantity)
+        self._set_state(underlying, state)
+
+        # Update Redis/memory pending protection entry
+        key = f"pending_prot:{correlation_id}"
+        metadata = {
+            "underlying": underlying,
+            "target_level": float(target_level),
+            "sl_level": float(sl_level),
+            "quantity": int(quantity) if quantity is not None else state.get('quantity', 1)
+        }
+        try:
+            if self.use_redis:
+                self.r.setex(key, 86400, json.dumps(metadata))
+            else:
+                self.memory_store[key] = {"data": metadata, "expires_at": time.time() + 86400}
+            logger.info(f"Updated pending Protection for {underlying} (correlation {correlation_id}): {metadata}")
+            return {"status": "success", "message": "Pending protection updated"}
+        except Exception as e:
+            logger.error(f"Failed to update pending protection for {correlation_id}: {e}")
+            return {"status": "error", "message": str(e)}
+
     def cancel_active_conditional_orders(self, underlying, state=None):
         """Cancels associated Dhan Alert triggers (GTT) if they exist in state."""
         if state is None:
@@ -675,7 +714,52 @@ class ConditionalOrderEngine:
             for key in active_keys:
                 underlying = (key.decode() if isinstance(key, bytes) else key).split(':')[-1]
                 state = self._get_state(underlying)
-                
+
+                # 1. ACTIVE RECONCILIATION: Check if a pending GTT entry trigger has filled on the broker.
+                # Runs at a throttled 1-minute interval to prevent broker API rate limits.
+                if state.get('side') in ('PENDING_CALL', 'PENDING_PUT'):
+                    now = time.time()
+                    if not hasattr(self, '_last_positions_poll_time') or (now - self._last_positions_poll_time) >= 60:
+                        self._last_positions_poll_time = now
+                        opt_sec_id = state.get('security_id')
+                        correlation_id = state.get('correlation_id')
+                        if opt_sec_id and correlation_id and self.broker:
+                            try:
+                                logger.info(f"🔄 [RECONCILIATION] Polling positions to check if pending trigger for {underlying} is filled...")
+                                positions = self.broker.get_positions() or []
+                                matching_pos = next(
+                                    (p for p in positions if str(p.get('securityId')) == str(opt_sec_id) and p.get('netQty', 0) != 0),
+                                    None
+                                )
+                                if matching_pos:
+                                    msg = f"🔄 [RECONCILIATION] Armed {state.get('side')} entry filled via positions polling fallback for {underlying}! Transitioning and placing bracket protections."
+                                    logger.info(msg)
+                                    if self._activity_log_fn:
+                                        self._activity_log_fn(msg, "🚨 ")
+
+                                    pending = self.get_pending_protection(correlation_id, consume=True)
+                                    if pending:
+                                        # Transition to live position
+                                        state['side'] = 'CALL' if state['side'] == 'PENDING_CALL' else 'PUT'
+                                        state['quantity'] = matching_pos.get('buyQty', 1)
+                                        state['entry_price'] = float(matching_pos.get('buyAvg') or matching_pos.get('costPrice') or 0)
+                                        self._set_state(underlying, state)
+
+                                        # Arm index SL / Target brackets immediately
+                                        gtt_res = self.set_index_boundaries(
+                                            underlying=underlying,
+                                            target_level=pending['target_level'],
+                                            sl_level=pending['sl_level'],
+                                            quantity=state['quantity']
+                                        )
+                                        logger.info(f"Reconciliation-Triggered GTT Result: {gtt_res}")
+                                        if gtt_res.get('status') != 'success' and self._activity_log_fn:
+                                            self._activity_log_fn(
+                                                f"Reconciliation bracket arm FAILED for {underlying} ({gtt_res.get('message')}) — position is unprotected!", "🚨 "
+                                            )
+                            except Exception as recon_err:
+                                logger.error(f"Reconciliation check failed for {underlying}: {recon_err}")
+
                 # Only live positions get monitored. PENDING_* (armed-but-unfilled)
                 # have no real position yet — skip, or the side check below would
                 # mis-classify PENDING_CALL as a PUT and fire a spurious exit.

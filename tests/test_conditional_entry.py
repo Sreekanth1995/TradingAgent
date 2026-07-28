@@ -421,3 +421,92 @@ class TestMonitorGuard:
         # Live position: LTP checked, exit fired.
         broker.get_ltp.assert_called_once_with('13', exchange_segment='IDX_I')
         broker.place_order.assert_called_once()
+
+
+class TestModifyPendingAndSetLevels:
+    def test_modify_pending_protection_success(self):
+        eng, broker = make_engine()
+        # Set up a pending CALL position
+        corr_id = 'ENTRY:NIFTY:xyz'
+        eng._set_state('NIFTY', {
+            'side': 'PENDING_CALL',
+            'symbol': 'NIFTY_MOCK_24550_CE', 'security_id': CE_SID,
+            'idx_sec_id': '13', 'quantity': 1,
+            'correlation_id': corr_id,
+            'idx_sl_level': 24500.0, 'idx_target_level': 24700.0,
+        })
+        eng.store_pending_protection(corr_id, {
+            'underlying': 'NIFTY',
+            'target_level': 24700.0,
+            'sl_level': 24500.0,
+            'quantity': 1,
+        })
+
+        # Modify the pending target level
+        res = eng.modify_pending_protection('NIFTY', target_level=24800.0, sl_level=24500.0)
+        assert res['status'] == 'success'
+
+        # Verify state is updated
+        state = eng._get_state('NIFTY')
+        assert state['idx_target_level'] == 24800.0
+
+        # Verify pending protection is updated
+        pending = eng.get_pending_protection(corr_id, consume=True)
+        assert pending is not None
+        assert pending['target_level'] == 24800.0
+
+    def test_set_levels_updates_pending_protection(self):
+        from unittest.mock import patch
+        from server import app
+        app.config['TESTING'] = True
+        
+        from server import conditional_engine
+        
+        corr_id = 'ENTRY:NIFTY:xyz'
+        conditional_engine._set_state('NIFTY', {
+            'side': 'PENDING_CALL',
+            'symbol': 'NIFTY_MOCK_24550_CE', 'security_id': CE_SID,
+            'idx_sec_id': '13', 'quantity': 1,
+            'correlation_id': corr_id,
+            'idx_sl_level': 24500.0, 'idx_target_level': 24700.0,
+        })
+        conditional_engine.store_pending_protection(corr_id, {
+            'underlying': 'NIFTY',
+            'target_level': 24700.0,
+            'sl_level': 24500.0,
+            'quantity': 1,
+        })
+        
+        old_levels = {
+            "NIFTY": {
+                "LTP1": {"low": 24500.0, "high": 24550.0},
+                "UTP1": {"low": 24700.0, "high": 24750.0}
+            }
+        }
+        
+        new_levels = {
+            "NIFTY": {
+                "LTP1": {"low": 24500.0, "high": 24550.0},
+                "UTP1": {"low": 24800.0, "high": 24850.0}
+            }
+        }
+        
+        with patch('server.SECRET', 'test_secret'), \
+             patch('server._load_levels', return_value=old_levels), \
+             patch('server._save_levels'):
+            
+            with app.test_client() as client:
+                resp = client.post('/set-levels', json={
+                    "secret": "test_secret",
+                    "levels": new_levels
+                })
+                assert resp.status_code == 200
+                assert resp.get_json()['status'] == 'success'
+                
+                # Check that pending target is updated to 24800.0!
+                state = conditional_engine._get_state('NIFTY')
+                assert state['idx_target_level'] == 24800.0
+                
+                pending = conditional_engine.get_pending_protection(corr_id, consume=True)
+                assert pending is not None
+                assert pending['target_level'] == 24800.0

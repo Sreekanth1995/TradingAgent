@@ -190,6 +190,14 @@ class DhanClient:
             self.dhan = dhanhq(self.client_id, self.access_token)
             logger.info("✅ Dhan client reinitialized with new token.")
 
+        # Force-close active websocket to trigger reconnection with the fresh token
+        if hasattr(self, 'active_ws') and self.active_ws:
+            logger.info("Closing active websocket connection to force reconnection with new token.")
+            try:
+                self.active_ws.transport.close()
+            except Exception as close_err:
+                logger.warning(f"Failed to force-close active WS: {close_err}")
+
     def start_order_update_listener(self, on_update):
         """Start Dhan Live Order Update WebSocket in a daemon thread.
 
@@ -202,6 +210,8 @@ class DhanClient:
 
         import asyncio
 
+        self.active_ws = None
+
         class _AppSocket(OrderSocket):
             def __init__(self_, *args, **kwargs):
                 super().__init__(*args, **kwargs)
@@ -210,37 +220,95 @@ class DhanClient:
             async def connect_order_update(self_):
                 import websockets
                 import json
-                async with websockets.connect(self_.order_feed_wss) as websocket:
-                    auth_message = {
-                        "LoginReq": {
-                            "MsgCode": 42,
-                            "ClientId": str(self_.client_id),
-                            "Token": str(self_.access_token)
-                        },
-                        "UserType": "SELF"
-                    }
+                import ssl
+                import certifi
 
-                    await websocket.send(json.dumps(auth_message))
-                    logger.info(f"Sent subscribe message to Dhan WS.")
+                try:
+                    ssl_context = ssl.create_default_context(cafile=certifi.where())
+                    logger.info("Connecting to Dhan WS with secure SSL context...")
+                    async with websockets.connect(
+                        self_.order_feed_wss,
+                        ssl=ssl_context,
+                        open_timeout=10,
+                        ping_interval=20,
+                        ping_timeout=20
+                    ) as websocket:
+                        self.active_ws = websocket
+                        auth_message = {
+                            "LoginReq": {
+                                "MsgCode": 42,
+                                "ClientId": str(self_.client_id),
+                                "Token": str(self_.access_token)
+                            },
+                            "UserType": "SELF"
+                        }
 
-                    async for message in websocket:
-                        if not message:
-                            continue
-                        if isinstance(message, bytes):
-                            try:
-                                message = message.decode('utf-8')
-                            except Exception as decode_err:
-                                logger.warning(f"Failed to decode bytes message: {decode_err}")
+                        await websocket.send(json.dumps(auth_message))
+                        logger.info(f"Sent subscribe message to Dhan WS.")
+
+                        async for message in websocket:
+                            if not message:
                                 continue
-                        for part in message.strip().split('\n'):
-                            part = part.strip()
-                            if not part:
+                            if isinstance(message, bytes):
+                                try:
+                                    message = message.decode('utf-8')
+                                except Exception as decode_err:
+                                    logger.warning(f"Failed to decode bytes message: {decode_err}")
+                                    continue
+                            for part in message.strip().split('\n'):
+                                part = part.strip()
+                                if not part:
+                                    continue
+                                try:
+                                    data = json.loads(part)
+                                    await self_.handle_order_update(data)
+                                except json.JSONDecodeError as je:
+                                    logger.warning(f"Failed to decode message part: {part!r} | Error: {je}")
+                except Exception as ws_err:
+                    logger.warning(f"Dhan WS connection failed with secure context: {ws_err}. Attempting fallback connection without verification...")
+                    ssl_context = ssl.create_default_context()
+                    ssl_context.check_hostname = False
+                    ssl_context.verify_mode = ssl.CERT_NONE
+                    async with websockets.connect(
+                        self_.order_feed_wss,
+                        ssl=ssl_context,
+                        open_timeout=10,
+                        ping_interval=20,
+                        ping_timeout=20
+                    ) as websocket:
+                        self.active_ws = websocket
+                        auth_message = {
+                            "LoginReq": {
+                                "MsgCode": 42,
+                                "ClientId": str(self_.client_id),
+                                "Token": str(self_.access_token)
+                            },
+                            "UserType": "SELF"
+                        }
+
+                        await websocket.send(json.dumps(auth_message))
+                        logger.info(f"Sent subscribe message to Dhan WS (UNVERIFIED SSL).")
+
+                        async for message in websocket:
+                            if not message:
                                 continue
-                            try:
-                                data = json.loads(part)
-                                await self_.handle_order_update(data)
-                            except json.JSONDecodeError as je:
-                                logger.warning(f"Failed to decode message part: {part!r} | Error: {je}")
+                            if isinstance(message, bytes):
+                                try:
+                                    message = message.decode('utf-8')
+                                except Exception as decode_err:
+                                    logger.warning(f"Failed to decode bytes message: {decode_err}")
+                                    continue
+                            for part in message.strip().split('\n'):
+                                part = part.strip()
+                                if not part:
+                                    continue
+                                try:
+                                    data = json.loads(part)
+                                    await self_.handle_order_update(data)
+                                except json.JSONDecodeError as je:
+                                    logger.warning(f"Failed to decode message part: {part!r} | Error: {je}")
+                finally:
+                    self.active_ws = None
 
             async def handle_order_update(self_, order_update):
                 try:
@@ -270,7 +338,10 @@ class DhanClient:
                     time.sleep(backoff)
                     backoff = min(backoff * 2, 120)
                 else:
-                    backoff = 5
+                    # Avoid tight loop hammering if WS exits cleanly without raising Exception
+                    logger.warning(f"Order update WS connection closed. Reconnecting in {backoff}s…")
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 120)
 
         t = threading.Thread(target=_run, daemon=True, name="dhan-order-ws")
         t.start()
@@ -1508,6 +1579,7 @@ class DhanClient:
         headers = {
             'Content-Type': 'application/json',
             'access-token': self.access_token,
+            'client-id': self.client_id
         }
         
         # Dhan API typically requires the FULL structure for PUT modification.
@@ -1533,9 +1605,16 @@ class DhanClient:
             if resp.status_code == 200:
                 logger.info(f"Conditional Order {alert_id} modified successfully.")
                 return {"success": True, "alert_id": alert_id, "error": None}
-            else:
-                logger.error(f"Modify Conditional Failed: {resp.status_code} {resp.text}")
-                return {"success": False, "error": resp.text}
+            if resp.status_code == 401:
+                logger.warning("Modify GTT: 401 Unauthorized. Syncing token...")
+                if self._sync_token_from_redis():
+                    headers['access-token'] = self.access_token
+                    resp = requests.put(url, headers=headers, json=payload, timeout=5)
+                    if resp.status_code == 200:
+                        logger.info(f"Conditional Order {alert_id} modified successfully after token refresh.")
+                        return {"success": True, "alert_id": alert_id, "error": None}
+            logger.error(f"Modify Conditional Failed: {resp.status_code} {resp.text}")
+            return {"success": False, "error": resp.text}
         except Exception as e:
             logger.error(f"Modify Conditional Exception: {e}")
             return {"success": False, "error": str(e)}
@@ -1552,9 +1631,42 @@ class DhanClient:
             resp = requests.get(url, headers=headers, timeout=(5, 10))
             if resp.status_code == 200:
                 return resp.json().get('data', {})
-        except:
-            pass
+            if resp.status_code == 401:
+                logger.warning("Get GTT Details: 401 Unauthorized. Syncing token...")
+                if self._sync_token_from_redis():
+                    headers['access-token'] = self.access_token
+                    resp = requests.get(url, headers=headers, timeout=(5, 10))
+                    if resp.status_code == 200:
+                        return resp.json().get('data', {})
+        except Exception as e:
+            logger.error(f"Exception fetching conditional order details for {alert_id}: {e}")
         return None
+
+    def get_all_gtt_orders(self):
+        """Fetches all conditional orders (GTT alerts) from Dhan."""
+        if self.dry_run:
+            return []
+        url = "https://api.dhan.co/v2/alerts/orders"
+        headers = {
+            'access-token': self.access_token,
+            'client-id': self.client_id
+        }
+        try:
+            resp = requests.get(url, headers=headers, timeout=(5, 10))
+            if resp.status_code == 200:
+                return resp.json().get('data', []) or resp.json() or []
+            if resp.status_code == 401:
+                logger.warning("Get GTT: 401 Unauthorized. Syncing token...")
+                if self._sync_token_from_redis():
+                    headers['access-token'] = self.access_token
+                    resp = requests.get(url, headers=headers, timeout=(5, 10))
+                    if resp.status_code == 200:
+                        return resp.json().get('data', []) or resp.json() or []
+            logger.error(f"Failed to fetch GTT alerts: {resp.status_code} {resp.text}")
+            return []
+        except Exception as e:
+            logger.error(f"Exception fetching GTT alerts: {e}")
+            return []
 
 
 
