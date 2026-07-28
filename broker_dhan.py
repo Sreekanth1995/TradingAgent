@@ -1654,14 +1654,24 @@ class DhanClient:
         try:
             resp = requests.get(url, headers=headers, timeout=(5, 10))
             if resp.status_code == 200:
-                return resp.json().get('data', []) or resp.json() or []
+                res_data = resp.json()
+                if isinstance(res_data, list):
+                    return res_data
+                elif isinstance(res_data, dict):
+                    return res_data.get('data', []) or res_data or []
+                return []
             if resp.status_code == 401:
                 logger.warning("Get GTT: 401 Unauthorized. Syncing token...")
                 if self._sync_token_from_redis():
                     headers['access-token'] = self.access_token
                     resp = requests.get(url, headers=headers, timeout=(5, 10))
                     if resp.status_code == 200:
-                        return resp.json().get('data', []) or resp.json() or []
+                        res_data = resp.json()
+                        if isinstance(res_data, list):
+                            return res_data
+                        elif isinstance(res_data, dict):
+                            return res_data.get('data', []) or res_data or []
+                        return []
             logger.error(f"Failed to fetch GTT alerts: {resp.status_code} {resp.text}")
             return []
         except Exception as e:
