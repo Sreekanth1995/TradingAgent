@@ -1563,14 +1563,13 @@ def conditional_order():
         existing_state = conditional_engine._get_state(underlying)
         existing_side = existing_state.get('side', 'NONE')
         if existing_side != 'NONE':
-            target_pending = 'PENDING_CALL' if side == 'CALL' else 'PENDING_PUT'
-            if existing_side in ('PENDING_CALL', 'PENDING_PUT') and existing_side != target_pending:
-                logger.info(f"Reversal while pending: cancelling armed {existing_side} for {underlying}")
+            if existing_side in ('PENDING_CALL', 'PENDING_PUT'):
+                logger.info(f"Replacing armed pending entry {existing_side} with new {side} entry for {underlying}")
                 conditional_engine.cancel_pending_entry(underlying)
             else:
                 return jsonify({
                     "status": "error",
-                    "message": f"{underlying} already has an open/pending {existing_side} position. Exit it first."
+                    "message": f"{underlying} already has a live open {existing_side} position. Exit it first."
                 }), 400
 
         # 5. SL / Target required for both paths
