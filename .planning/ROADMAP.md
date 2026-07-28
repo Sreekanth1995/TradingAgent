@@ -18,13 +18,22 @@
 - [x] Phase 10: Implement Margin and Fund APIs
     - **Goal**: Implement Dhan margin calculation and fund limit retrieval endpoints and expose them to Claude via MCP.
     - **Depends on**: Phase 6
+- [x] Phase 11: AI-in-the-Loop Architecture
+    - **Goal**: Emits index LTP/ITM options via SSE, consumed by Claude via MCP to decide execution.
+    - **Depends on**: Phase 6
 
-### Phase 1: Skip trade on Expiry days
+## Milestone 0.2.0: Multi-Strategy Expansion
 
-**Goal:** [To be planned]
+- [x] Phase 12: Third Strategy Implementation
+    - **Goal**: Implement a 3rd strategy based on QQE, Q-Trend, and Renko Candles/Bjorgum Key Levels.
+    - **Depends on**: Phase 11
+
+### Phase 12: Third Strategy Implementation
+
+**Goal:** Integrate QQE, Q-Trend, and Renko/Bjorgum indicators into a 3rd unified strategy.
 **Requirements**: TBD
-**Depends on:** Phase 0
+**Depends on:** Phase 11
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 1 to break down)
+- [x] TBD (run /gsd-plan-phase 12 to break down)
