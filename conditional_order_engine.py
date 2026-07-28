@@ -741,7 +741,9 @@ class ConditionalOrderEngine:
                                     if pending:
                                         # Transition to live position
                                         state['side'] = 'CALL' if state['side'] == 'PENDING_CALL' else 'PUT'
-                                        state['quantity'] = matching_pos.get('buyQty', 1)
+                                        opt_sec_id = state.get('security_id')
+                                        lot_size = self.broker.lot_map.get(str(opt_sec_id)) or 1
+                                        state['quantity'] = matching_pos.get('buyQty', 1) // lot_size
                                         state['entry_price'] = float(matching_pos.get('buyAvg') or matching_pos.get('costPrice') or 0)
                                         self._set_state(underlying, state)
 
