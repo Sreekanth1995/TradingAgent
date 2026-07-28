@@ -375,8 +375,8 @@
             <!-- Column 2: Trade Controls & Active Positions -->
             <section class="col-span-12 lg:col-span-5 flex flex-col gap-lg">
                 
-                <!-- Trade Controls panel -->
-                <div class="glass-panel p-lg rounded-xl">
+                <!-- Trade Controls panel (Hidden visually to avoid JS reference errors) -->
+                <div class="glass-panel p-lg rounded-xl" style="display: none !important;">
                     <h2 class="font-headline-md text-sm font-bold uppercase tracking-widest text-on-surface flex items-center gap-sm mb-md pb-2 border-b border-white/5">
                         <span class="material-symbols-outlined text-primary text-[20px]">tune</span>
                         Trade Command Centers
@@ -501,21 +501,36 @@
                     </div>
                 </div>
                         <!-- ARMED INDEX-TOUCH ENTRIES (GTT visual from Stitch) -->
-                <div id="armed-gtt-card" style="display:none" class="flex flex-col gap-md mb-lg">
+                <!-- ARMED INDEX-TOUCH ENTRIES (GTT visual from Stitch) -->
+                <div id="armed-gtt-card" class="flex flex-col gap-md mb-lg">
                     <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-sm px-xs font-bold uppercase tracking-wider text-xs">
                         <span class="material-symbols-outlined text-primary text-[18px]">target</span>
                         ARMED INDEX-TOUCH ENTRIES (GTT)
                     </h2>
-                    <div class="glass-panel p-lg rounded-xl overflow-hidden relative">
+                    
+                    <!-- Loading State -->
+                    <div id="armed-gtt-loading" class="glass-panel p-lg rounded-xl text-center text-xs text-primary font-semibold animate-pulse flex items-center justify-center gap-2" style="display:none">
+                        <span class="animate-spin text-sm">⏳</span> Syncing GTT state...
+                    </div>
+                    
+                    <!-- Error State -->
+                    <div id="armed-gtt-error" class="glass-panel p-lg rounded-xl text-center text-xs text-error font-semibold flex items-center justify-center gap-2" style="display:none">
+                        <span>⚠️</span> Failed to load GTT state.
+                    </div>
+                    
+                    <!-- Empty State -->
+                    <div id="armed-gtt-empty" class="glass-panel p-lg rounded-xl text-center text-xs text-on-surface-variant/40 italic">
+                        No armed GTT entries active.
+                    </div>
+
+                    <!-- Active Content -->
+                    <div id="armed-gtt-content" class="glass-panel p-lg rounded-xl overflow-hidden relative" style="display:none">
+                        <!-- Scanning line animation -->
                         <div class="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent h-1/2 -top-1/2 animate-[bounce_4s_infinite] opacity-30 pointer-events-none"></div>
                         <div class="flex justify-between items-center mb-md">
                             <div>
-                                <span class="font-label-md text-xs text-primary tracking-[0.2em] uppercase">NIFTY-ENTRY-TRIGGER</span>
+                                <span id="armed-gtt-status-label" class="font-label-md text-xs text-primary tracking-[0.2em] uppercase">NIFTY-ENTRY-TRIGGER</span>
                                 <h4 id="armed-gtt-title" class="font-headline-md text-on-surface font-semibold">Call Entry Trigger</h4>
-                                <div class="flex flex-col gap-0.5 mt-1">
-                                    <p id="armed-gtt-subtitle" class="text-xs text-on-surface-variant/60">Target: --</p>
-                                    <p id="armed-gtt-sl-display" class="text-xs text-on-surface-variant/60">Stop Loss: --</p>
-                                </div>
                             </div>
                             <div class="text-right">
                                 <span class="text-[10px] text-on-surface-variant/60 uppercase block">Distance</span>
@@ -523,23 +538,46 @@
                             </div>
                         </div>
                         <div class="space-y-sm">
-                            <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                <div id="armed-gtt-progress" class="h-full bg-primary shadow-[0_0_10px_rgba(219,184,255,0.8)] w-[0%] transition-all duration-1000"></div>
+                            <div class="flex justify-between text-xs font-numeric-data text-on-surface-variant">
+                                <span id="armed-gtt-sl" class="text-error font-semibold">SL: --</span>
+                                <span id="armed-gtt-entry" class="text-primary font-semibold">Entry: --</span>
+                                <span id="armed-gtt-tgt" class="text-secondary font-semibold">Target: --</span>
+                            </div>
+                            <div class="w-full h-2 bg-white/5 rounded-full relative overflow-visible">
+                                <div id="armed-gtt-progress" class="h-full bg-primary shadow-[0_0_10px_rgba(219,184,255,0.8)] w-[0%] transition-all duration-1000 rounded-full"></div>
+                                <div id="armed-gtt-pointer" class="absolute left-[0%] -top-1 w-0.5 h-4 bg-white shadow-[0_0_8px_white] z-10"></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- ACTIVE ORDER BRACKETS (Styled positions widget from Stitch) -->
-                <div id="active-brackets-card" style="display:none" class="flex flex-col gap-md">
+                <div id="active-brackets-card" class="flex flex-col gap-md">
                     <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-sm px-xs font-bold uppercase tracking-wider text-xs">
                         <span class="material-symbols-outlined text-secondary text-[18px]">monitor_heart</span>
                         CONDITIONAL ORDER BRACKETS
                     </h2>
-                    <div class="glass-panel p-lg rounded-xl border-l-4 border-secondary">
+
+                    <!-- Loading State -->
+                    <div id="bracket-loading" class="glass-panel p-lg rounded-xl text-center text-xs text-secondary font-semibold animate-pulse flex items-center justify-center gap-2" style="display:none">
+                        <span class="animate-spin text-sm">⏳</span> Loading brackets...
+                    </div>
+                    
+                    <!-- Error State -->
+                    <div id="bracket-error" class="glass-panel p-lg rounded-xl text-center text-xs text-error font-semibold flex items-center justify-center gap-2" style="display:none">
+                        <span>⚠️</span> Failed to load bracket details.
+                    </div>
+                    
+                    <!-- Empty State -->
+                    <div id="bracket-empty" class="glass-panel p-lg rounded-xl text-center text-xs text-on-surface-variant/40 italic">
+                        No active order brackets running.
+                    </div>
+
+                    <!-- Active Content -->
+                    <div id="bracket-content" class="glass-panel p-lg rounded-xl border-l-4 border-secondary" style="display:none">
                         <div class="flex justify-between items-start mb-6">
                             <div class="flex flex-col">
-                                <span class="bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 mb-1">RUNNING</span>
+                                <span id="bracket-status-badge" class="bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 mb-1">RUNNING</span>
                                 <h4 id="bracket-symbol" class="font-headline-md text-on-surface font-bold text-[16px]">--</h4>
                                 <span id="bracket-qty-avg" class="text-xs text-on-surface-variant font-numeric-data">Qty: -- | Avg: --</span>
                             </div>
@@ -551,20 +589,20 @@
                         </div>
                         
                         <!-- New Stitch Slider Representation of SL -> Entry -> Target -->
-                        <div id="bracket-slider-container" class="mt-4 flex flex-col gap-2 w-full">
-                            <div class="flex justify-between text-[9px] font-bold text-on-surface-variant/40 uppercase">
-                                <span>SL</span>
-                                <span>Entry</span>
-                                <span>Target</span>
+                        <div id="bracket-slider-container" class="mt-lg space-y-sm" style="display:none">
+                            <div class="flex justify-between text-[10px] font-numeric-data text-on-surface-variant uppercase tracking-wider">
+                                <span id="bracket-slider-sl-val" class="text-error">SL: --</span>
+                                <span id="bracket-slider-entry-val" class="text-primary">Entry: --</span>
+                                <span id="bracket-slider-tgt-val" class="text-secondary">Target: --</span>
                             </div>
-                            <div class="relative h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                <div id="bracket-slider-bar" class="absolute left-0 top-0 h-full bg-secondary w-[0%] shadow-[0_0_8px_rgba(1,245,160,0.3)]"></div>
-                                <div id="bracket-slider-entry" class="absolute left-[0%] top-0 w-px h-full bg-white z-10"></div>
+                            <div class="w-full h-2 bg-white/5 rounded-full overflow-hidden relative">
+                                <div id="bracket-slider-bar" class="absolute h-full bg-primary shadow-[0_0_10px_rgba(219,184,255,0.8)] w-[0%] transition-all duration-1000"></div>
+                                <div id="bracket-slider-pointer" class="absolute left-[0%] -top-1 w-0.5 h-4 bg-white shadow-[0_0_8px_white] z-10"></div>
                             </div>
-                            <div class="flex justify-between text-[10px] font-mono text-on-surface-variant/60 font-numeric-data">
-                                <span id="bracket-slider-sl-val">--</span>
-                                <span id="bracket-slider-entry-val" class="text-on-surface font-semibold">--</span>
-                                <span id="bracket-slider-tgt-val">--</span>
+                            <div class="flex justify-between text-[10px] font-label-md text-on-surface-variant/40">
+                                <span id="bracket-pct-sl">--</span>
+                                <span id="bracket-current-val">--</span>
+                                <span id="bracket-pct-tgt">--</span>
                             </div>
                         </div>
 
@@ -626,8 +664,8 @@
                     </div>
                 </div>
 
-                <!-- Live Performance History list -->
-                <div class="flex flex-col">
+                <!-- Live Performance History list (Hidden visually to avoid JS reference errors) -->
+                <div class="flex flex-col" style="display: none !important;">
                     <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-md px-xs text-sm font-bold uppercase">
                         <span class="material-symbols-outlined text-on-surface-variant text-[20px]">history</span>
                         TRADE HISTORY
@@ -661,6 +699,21 @@
         // DOM counts for Price Levels Studio
         let utpCount = 0;
         let ltpCount = 0;
+        let isFirstLoad = true;
+
+        function showGttState(stateName) {
+            document.getElementById('armed-gtt-loading').style.display = (stateName === 'loading') ? 'flex' : 'none';
+            document.getElementById('armed-gtt-error').style.display = (stateName === 'error') ? 'flex' : 'none';
+            document.getElementById('armed-gtt-empty').style.display = (stateName === 'empty') ? 'block' : 'none';
+            document.getElementById('armed-gtt-content').style.display = (stateName === 'content') ? 'block' : 'none';
+        }
+
+        function showBracketState(stateName) {
+            document.getElementById('bracket-loading').style.display = (stateName === 'loading') ? 'flex' : 'none';
+            document.getElementById('bracket-error').style.display = (stateName === 'error') ? 'flex' : 'none';
+            document.getElementById('bracket-empty').style.display = (stateName === 'empty') ? 'block' : 'none';
+            document.getElementById('bracket-content').style.display = (stateName === 'content') ? 'block' : 'none';
+        }
 
         window.onload = () => {
             const savedSecret = localStorage.getItem('agent_secret');
@@ -676,6 +729,16 @@
             refreshActivityLogs();
             setInterval(refreshActivityLogs, 5000);
 
+            // Trigger instant refresh on typing/pasting secret
+            document.getElementById('secret').addEventListener('input', () => {
+                const secret = document.getElementById('secret').value.trim();
+                if (secret) {
+                    refreshState();
+                    refreshActivityLogs();
+                    refreshTradeFeed();
+                }
+            });
+
             const params = new URLSearchParams(window.location.search);
             if (params.get('auth_status') === 'success') {
                 notify('✅ Secure connection established!', 'success');
@@ -685,20 +748,38 @@
 
         async function refreshState() {
             const secret = document.getElementById('secret').value.trim();
-            if (!secret) return;
+            if (!secret) {
+                showGttState('empty');
+                showBracketState('empty');
+                return;
+            }
 
             localStorage.setItem('agent_secret', secret);
 
             try {
+                if (isFirstLoad) {
+                    showGttState('loading');
+                    showBracketState('loading');
+                }
+
                 // 1. Fetch State & Active Positions
                 const stateResp = await fetch('/get-state', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ secret, underlying: 'NIFTY' })
                 });
+                
+                if (!stateResp.ok) {
+                    throw new Error('Get state network response not OK');
+                }
+                
                 const stateData = await stateResp.json();
                 if (stateData.status === 'success') {
                     updateUI(stateData);
+                    isFirstLoad = false;
+                } else {
+                    showGttState('error');
+                    showBracketState('error');
                 }
 
                 // 2. Fetch Trade History
@@ -714,7 +795,11 @@
 
                 // 3. Fetch Feelings
                 refreshFeelings();
-            } catch (err) { console.error('Data Sync Failed', err); }
+            } catch (err) {
+                console.error('Data Sync Failed', err);
+                showGttState('error');
+                showBracketState('error');
+            }
         }
 
         function renderPositionCard(pos) {
@@ -846,43 +931,98 @@
             });
 
             // 4. Update GTT trigger card (Armed Index-Touch Entries) dynamically
-            const armedGttCard = document.getElementById('armed-gtt-card');
-            const targetLevel = state.idx_target_level || (sector && sector.idx_target_level);
-            const slLevel = state.idx_sl_level || (sector && sector.idx_sl_level);
+            const isPending = (activeSide === 'PENDING_CALL' || activeSide === 'PENDING_PUT');
 
-            if (activeSide !== 'NONE' && targetLevel) {
-                armedGttCard.style.display = 'block';
-                document.getElementById('armed-gtt-title').textContent = `${activeSide} Entry Trigger`;
-                document.getElementById('armed-gtt-subtitle').textContent = `Target Level: ${parseFloat(targetLevel).toFixed(2)}`;
-                document.getElementById('armed-gtt-sl-display').textContent = slLevel ? `Stop Loss: ${parseFloat(slLevel).toFixed(2)}` : 'Stop Loss: --';
+            if (isPending && state.entry_trigger) {
+                showGttState('content');
+                const sideName = activeSide === 'PENDING_CALL' ? 'CALL' : 'PUT';
+                document.getElementById('armed-gtt-title').textContent = `${sideName} Entry Trigger`;
+                
+                document.getElementById('armed-gtt-status-label').textContent = 'NIFTY-ENTRY-TRIGGER';
+                document.getElementById('armed-gtt-status-label').className = 'font-label-md text-xs text-primary tracking-[0.2em] uppercase';
+
+                // Show SL, Entry, Target values
+                document.getElementById('armed-gtt-sl').textContent = state.idx_sl_level ? `SL: ${parseFloat(state.idx_sl_level).toFixed(2)}` : 'SL: --';
+                document.getElementById('armed-gtt-entry').textContent = `Entry: ${parseFloat(state.entry_trigger).toFixed(2)}`;
+                document.getElementById('armed-gtt-tgt').textContent = state.idx_target_level ? `Target: ${parseFloat(state.idx_target_level).toFixed(2)}` : 'Target: --';
                 
                 const niftyLtp = data.index_prices ? data.index_prices['NIFTY'] : null;
                 const distEl = document.getElementById('armed-gtt-distance');
                 const progressEl = document.getElementById('armed-gtt-progress');
+                const pointerEl = document.getElementById('armed-gtt-pointer');
+                
                 if (niftyLtp) {
-                    const dist = activeSide === 'CALL' ? (targetLevel - niftyLtp) : (niftyLtp - targetLevel);
+                    const dist = sideName === 'CALL' ? (state.entry_trigger - niftyLtp) : (niftyLtp - state.entry_trigger);
                     distEl.textContent = `${dist.toFixed(2)} pts`;
                     
-                    // Compute visual progress percentage (e.g. within 200 pts range)
-                    const entry = targetLevel;
-                    const start = state.entry_price || (sector && sector.entry_price) || (activeSide === 'CALL' ? entry - 100 : entry + 100);
+                    // Compute visual progress percentage (e.g. within 200 pts range of target)
+                    const entry = state.entry_trigger;
+                    const start = activeSide === 'PENDING_CALL' ? entry - 100 : entry + 100;
                     const totalRange = Math.abs(entry - start);
                     const currentDiff = Math.abs(entry - niftyLtp);
                     let pct = totalRange > 0 ? ((totalRange - currentDiff) / totalRange) * 100 : 0;
                     pct = Math.max(0, Math.min(100, pct));
                     progressEl.style.width = `${pct.toFixed(0)}%`;
+                    pointerEl.style.left = `${pct.toFixed(0)}%`;
                 } else {
                     distEl.textContent = '--';
                     progressEl.style.width = '0%';
+                    pointerEl.style.left = '0%';
                 }
             } else {
-                armedGttCard.style.display = 'none';
+                // FALLBACK: Display last GTT trigger of today for visual demonstration
+                let gttTrade = null;
+                if (data.recent_trades && data.recent_trades.length > 0) {
+                    gttTrade = data.recent_trades.find(t => t.index_price && t.sl_price && t.target_price);
+                }
+                
+                if (gttTrade) {
+                    showGttState('content');
+                    const sideName = gttTrade.signal === 'LONG_ENTRY' ? 'CALL' : 'PUT';
+                    document.getElementById('armed-gtt-title').textContent = `${sideName} Entry Trigger`;
+                    
+                    document.getElementById('armed-gtt-status-label').textContent = `LAST ARMED TRIGGER (TODAY) - ${gttTrade.status}`;
+                    document.getElementById('armed-gtt-status-label').className = 'font-label-md text-xs text-on-surface-variant/50 tracking-[0.2em] uppercase font-bold';
+
+                    document.getElementById('armed-gtt-sl').textContent = `SL: ${parseFloat(gttTrade.sl_price).toFixed(2)}`;
+                    document.getElementById('armed-gtt-entry').textContent = `Entry: ${parseFloat(gttTrade.index_price).toFixed(2)}`;
+                    document.getElementById('armed-gtt-tgt').textContent = `Target: ${parseFloat(gttTrade.target_price).toFixed(2)}`;
+
+                    const niftyLtp = data.index_prices ? data.index_prices['NIFTY'] : null;
+                    const distEl = document.getElementById('armed-gtt-distance');
+                    const progressEl = document.getElementById('armed-gtt-progress');
+                    const pointerEl = document.getElementById('armed-gtt-pointer');
+                    
+                    if (niftyLtp) {
+                        const dist = sideName === 'CALL' ? (gttTrade.index_price - niftyLtp) : (niftyLtp - gttTrade.index_price);
+                        distEl.textContent = `${dist.toFixed(2)} pts`;
+                        
+                        const entry = gttTrade.index_price;
+                        const start = sideName === 'CALL' ? entry - 100 : entry + 100;
+                        const totalRange = Math.abs(entry - start);
+                        const currentDiff = Math.abs(entry - niftyLtp);
+                        let pct = totalRange > 0 ? ((totalRange - currentDiff) / totalRange) * 100 : 0;
+                        pct = Math.max(0, Math.min(100, pct));
+                        progressEl.style.width = `${pct.toFixed(0)}%`;
+                        pointerEl.style.left = `${pct.toFixed(0)}%`;
+                    } else {
+                        distEl.textContent = '--';
+                        progressEl.style.width = '0%';
+                        pointerEl.style.left = '0%';
+                    }
+                } else {
+                    showGttState('empty');
+                }
             }
 
             // 5. Update Active Order Brackets Card dynamically
-            const activeBracketsCard = document.getElementById('active-brackets-card');
-            if (activeSide !== 'NONE' && sector) {
-                activeBracketsCard.style.display = 'block';
+            const isActive = (activeSide === 'CALL' || activeSide === 'PUT');
+
+            if (isActive && sector) {
+                showBracketState('content');
+                document.getElementById('bracket-status-badge').textContent = 'RUNNING';
+                document.getElementById('bracket-status-badge').className = 'bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 mb-1 font-bold';
+                
                 document.getElementById('bracket-symbol').textContent = sector.symbol || 'NIFTY Option';
                 document.getElementById('bracket-qty-avg').textContent = `Qty: ${sector.quantity} | Avg: ₹${parseFloat(sector.entry_price).toFixed(2)}`;
                 
@@ -912,37 +1052,95 @@
                 }
                 
                 // Update new Stitch dynamic slider bar
-                const targetVal = parseFloat(sector.tgt_price || state.tgt_price);
-                const slVal = parseFloat(sector.sl_price || state.sl_price);
-                const entryVal = parseFloat(sector.entry_price || state.entry_price);
-                const ltpFloat = parseFloat(sector.ltp);
+                const targetVal = parseFloat(state.idx_target_level || sector.tgt_price);
+                const slVal = parseFloat(state.idx_sl_level || sector.sl_price);
+                const entryVal = parseFloat(state.entry_trigger || state.entry_price || sector.entry_price);
+                const indexLtp = data.index_prices ? parseFloat(data.index_prices['NIFTY']) : null;
 
-                if (!isNaN(targetVal) && !isNaN(slVal) && !isNaN(entryVal) && !isNaN(ltpFloat) && (targetVal !== slVal)) {
+                if (!isNaN(targetVal) && !isNaN(slVal) && !isNaN(entryVal) && indexLtp && !isNaN(indexLtp) && (targetVal !== slVal)) {
                     // Compute visual percentages relative to the [SL, Target] range
-                    // pct of current price (LTP)
-                    let pct = ((ltpFloat - slVal) / (targetVal - slVal)) * 100;
+                    let pct = ((indexLtp - slVal) / (targetVal - slVal)) * 100;
                     pct = Math.max(0, Math.min(100, pct));
                     document.getElementById('bracket-slider-bar').style.width = `${pct.toFixed(1)}%`;
                     
-                    // pct of entry price
                     let entryPct = ((entryVal - slVal) / (targetVal - slVal)) * 100;
                     entryPct = Math.max(0, Math.min(100, entryPct));
-                    document.getElementById('bracket-slider-entry').style.left = `${entryPct.toFixed(1)}%`;
+                    document.getElementById('bracket-slider-pointer').style.left = `${entryPct.toFixed(1)}%`;
                     
-                    document.getElementById('bracket-slider-sl-val').textContent = `₹${slVal.toFixed(2)}`;
-                    document.getElementById('bracket-slider-entry-val').textContent = `₹${entryVal.toFixed(2)}`;
-                    document.getElementById('bracket-slider-tgt-val').textContent = `₹${targetVal.toFixed(2)}`;
+                    document.getElementById('bracket-slider-sl-val').textContent = `SL: ${slVal.toFixed(2)}`;
+                    document.getElementById('bracket-slider-entry-val').textContent = `Entry: ${entryVal.toFixed(2)}`;
+                    document.getElementById('bracket-slider-tgt-val').textContent = `Target: ${targetVal.toFixed(2)}`;
                     
-                    document.getElementById('bracket-slider-container').style.display = 'flex';
+                    const pctSl = ((slVal - entryVal) / entryVal) * 100;
+                    const pctTgt = ((targetVal - entryVal) / entryVal) * 100;
+                    
+                    document.getElementById('bracket-pct-sl').textContent = `${pctSl >= 0 ? '+' : ''}${pctSl.toFixed(2)}%`;
+                    document.getElementById('bracket-current-val').textContent = `Current: ${indexLtp.toFixed(2)}`;
+                    document.getElementById('bracket-pct-tgt').textContent = `${pctTgt >= 0 ? '+' : ''}${pctTgt.toFixed(2)}%`;
+                    
+                    document.getElementById('bracket-slider-container').style.display = 'block';
                 } else {
                     document.getElementById('bracket-slider-container').style.display = 'none';
                 }
 
-                // Update trailing stop
                 const trailingVal = sector.trailing_jump || state.trailing_jump;
                 document.getElementById('bracket-trailing').textContent = trailingVal ? parseFloat(trailingVal).toFixed(2) : '--';
             } else {
-                activeBracketsCard.style.display = 'none';
+                // FALLBACK: Display last filled/closed trade bracket of today for visual demonstration
+                let bracketTrade = null;
+                if (data.recent_trades && data.recent_trades.length > 0) {
+                    bracketTrade = data.recent_trades.find(t => t.entry_price && t.sl_price && t.target_price);
+                }
+                
+                if (bracketTrade) {
+                    showBracketState('content');
+                    document.getElementById('bracket-status-badge').textContent = `LAST BRACKET (TODAY) - ${bracketTrade.status}`;
+                    document.getElementById('bracket-status-badge').className = 'bg-white/5 text-on-surface-variant/60 text-[10px] w-fit px-2 py-0.5 rounded border border-white/10 mb-1 font-bold';
+                    
+                    document.getElementById('bracket-symbol').textContent = bracketTrade.option_symbol || 'NIFTY Option';
+                    document.getElementById('bracket-qty-avg').textContent = `Avg: ₹${parseFloat(bracketTrade.entry_price).toFixed(2)}`;
+                    
+                    document.getElementById('bracket-ltp').textContent = '--';
+                    
+                    const pnlVal = bracketTrade.profit !== null && bracketTrade.profit !== undefined ? parseFloat(bracketTrade.profit).toFixed(2) : '0.00';
+                    const isProfit = parseFloat(pnlVal) >= 0;
+                    const sign = isProfit ? '+' : '';
+                    
+                    const amtEl = document.getElementById('bracket-pnl-amt');
+                    amtEl.textContent = `${sign}₹${pnlVal}`;
+                    amtEl.className = isProfit ? 'text-secondary font-display-lg text-headline-lg font-bold font-numeric-data leading-none' : 'text-error font-display-lg text-headline-lg font-bold font-numeric-data leading-none';
+                    
+                    const pctEl = document.getElementById('bracket-pnl-pct');
+                    pctEl.textContent = `--`;
+                    pctEl.className = 'text-xs text-on-surface-variant/40 font-numeric-data';
+                    
+                    const targetVal = parseFloat(bracketTrade.target_price);
+                    const slVal = parseFloat(bracketTrade.sl_price);
+                    const entryVal = parseFloat(bracketTrade.entry_price);
+                    
+                    if (!isNaN(targetVal) && !isNaN(slVal) && !isNaN(entryVal) && (targetVal !== slVal)) {
+                        document.getElementById('bracket-slider-sl-val').textContent = `SL: ${slVal.toFixed(2)}`;
+                        document.getElementById('bracket-slider-entry-val').textContent = `Entry: ${entryVal.toFixed(2)}`;
+                        document.getElementById('bracket-slider-tgt-val').textContent = `Target: ${targetVal.toFixed(2)}`;
+                        
+                        const pctSl = ((slVal - entryVal) / entryVal) * 100;
+                        const pctTgt = ((targetVal - entryVal) / entryVal) * 100;
+                        
+                        document.getElementById('bracket-pct-sl').textContent = `${pctSl >= 0 ? '+' : ''}${pctSl.toFixed(2)}%`;
+                        document.getElementById('bracket-current-val').textContent = `Final Status: ${bracketTrade.status}`;
+                        document.getElementById('bracket-pct-tgt').textContent = `${pctTgt >= 0 ? '+' : ''}${pctTgt.toFixed(2)}%`;
+                        
+                        document.getElementById('bracket-slider-bar').style.width = '50%';
+                        document.getElementById('bracket-slider-pointer').style.left = '50%';
+                        document.getElementById('bracket-slider-container').style.display = 'block';
+                    } else {
+                        document.getElementById('bracket-slider-container').style.display = 'none';
+                    }
+                    
+                    document.getElementById('bracket-trailing').textContent = '--';
+                } else {
+                    showBracketState('empty');
+                }
             }
 
             // 6. Update Range Tracker Pills (Header)
@@ -1262,11 +1460,14 @@
                     if (listEl) listEl.innerHTML = '<div class="text-error font-bold mb-1">[ERROR] Unauthorized or error fetching logs</div>';
                     return;
                 }
-                const logs = data.logs.slice(0, 20);
+                const logs = data.logs.slice(0, 35);
                 if (logs.length === 0) {
                     if (listEl) listEl.innerHTML = '<div class="text-on-surface-variant/40 italic">No system log entries yet.</div>';
                     return;
                 }
+                
+                // Reverse so the newest logs scroll in at the bottom like a real terminal
+                logs.reverse();
                 
                 if (listEl) {
                     listEl.innerHTML = logs.map(line => {
@@ -1278,29 +1479,66 @@
                             .replace(/>/g, '&gt;');
                         return `<div class="${colorClass} mb-1">${safe}</div>`;
                     }).join('');
+                    
+                    // Auto-scroll to the bottom of the terminal widget
+                    listEl.scrollTop = listEl.scrollHeight;
                 }
             } catch (err) {
                 console.error("Error fetching activity logs", err);
             }
         }
 
+        function renderOrderRow(o) {
+            const time = o.createTime ? o.createTime.slice(11, 19) : '--';
+            const type = o.transactionType || '?';
+            const qty = o.quantity || 0;
+            const avgPrice = o.averageTradedPrice || o.price || 0;
+            
+            let statusBadge = '';
+            const status = o.orderStatus || '';
+            if (status === 'TRADED') {
+                statusBadge = `<span class="bg-secondary/10 text-secondary text-[9px] px-2 py-0.5 rounded border border-secondary/20 font-bold uppercase">TRADED</span>`;
+            } else if (status === 'CANCELLED') {
+                statusBadge = `<span class="bg-white/5 text-on-surface-variant/50 text-[9px] px-2 py-0.5 rounded border border-white/10 font-bold uppercase">CANCELLED</span>`;
+            } else if (status === 'REJECTED') {
+                statusBadge = `<span class="bg-error/10 text-error text-[9px] px-2 py-0.5 rounded border border-error/20 font-bold uppercase">REJECTED</span>`;
+            } else if (status === 'PENDING') {
+                statusBadge = `<span class="bg-primary/20 text-primary text-[9px] px-2 py-0.5 rounded border border-primary/20 font-bold uppercase">PENDING</span>`;
+            } else {
+                statusBadge = `<span class="bg-white/5 text-on-surface-variant/70 text-[9px] px-2 py-0.5 rounded border border-white/10 uppercase">${status}</span>`;
+            }
+
+            const typeColor = type === 'BUY' ? 'text-secondary' : 'text-error';
+
+            return `
+                <tr class="hover:bg-white/5 transition-colors">
+                    <td class="px-md py-3 font-mono text-on-surface-variant/80">${time}</td>
+                    <td class="px-md py-3 font-medium">
+                        <span class="block text-on-background">${o.tradingSymbol}</span>
+                        <span class="text-[9px] font-mono text-on-surface-variant/40"><span class="${typeColor} font-bold">${type}</span> ${qty} @ ₹${parseFloat(avgPrice).toFixed(2)}</span>
+                    </td>
+                    <td class="px-md py-3">${statusBadge}</td>
+                </tr>
+            `;
+        }
+
         async function refreshTradeFeed() {
             const secret = document.getElementById('secret').value.trim();
             if (!secret) return;
             try {
-                const res = await fetch('/trade-feed', {
+                const res = await fetch('/orders', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ secret })
                 });
                 const data = await res.json();
                 const tbody = document.getElementById('feed-body');
-                if (data.status === 'success' && data.trades && data.trades.length > 0) {
-                    tbody.innerHTML = data.trades.map(renderFeedRow).join('');
+                if (data.status === 'success' && data.orders && data.orders.length > 0) {
+                    tbody.innerHTML = data.orders.map(renderOrderRow).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="3" class="px-md py-md text-center text-on-surface-variant/40 italic">No trade signals yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="3" class="px-md py-md text-center text-on-surface-variant/40 italic">No trade orders in Dhan account.</td></tr>';
                 }
-            } catch (err) { console.error('Trade feed fetch failed', err); }
+            } catch (err) { console.error('Orders fetch failed', err); }
         }
 
         async function refreshFeelings() {

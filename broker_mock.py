@@ -323,6 +323,33 @@ class MockDhanClient:
         logger.info(f"[MOCK BROKER] GTT Modified: alertId={alert_id} | newVal={comparing_value}")
         return {"success": True, "alert_id": alert_id, "error": None}
 
+    def get_all_gtt_orders(self):
+        """Fetches all conditional orders (GTT alerts) in mock store."""
+        results = []
+        for alert_id, item in self.mock_gtts.items():
+            results.append({
+                "alertId": alert_id,
+                "dhanClientId": "mock_client",
+                "userNote": item.get("user_note", ""),
+                "alertStatus": "ACTIVE",
+                "condition": {
+                    "comparisonType": "PRICE_WITH_VALUE",
+                    "exchangeSegment": "IDX_I",
+                    "securityId": item.get("trigger_sec_id", "13"),
+                    "operator": item.get("operator"),
+                    "comparingValue": item.get("comparing_value"),
+                },
+                "orders": [{
+                    "transactionType": item.get("transaction_type", "BUY"),
+                    "exchangeSegment": "NSE_FNO",
+                    "productType": "INTRADAY",
+                    "orderType": "MARKET",
+                    "securityId": item.get("sec_id"),
+                    "quantity": item.get("quantity")
+                }]
+            })
+        return results
+
     def kill_all_gtt(self, sec_id):
         return {"success": True}
 
