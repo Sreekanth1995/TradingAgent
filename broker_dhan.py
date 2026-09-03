@@ -373,12 +373,37 @@ class DhanClient:
 
         def _needs_download():
             if not os.path.exists(csv_file):
-                return True
-            if file_age_hours > 12:
+                logger.info("Scrip master CSV does not exist. Initial download required.")
                 return True
             if os.path.getsize(csv_file) < MIN_VALID_SIZE:
                 logger.warning(f"Existing CSV is too small ({os.path.getsize(csv_file)//1024} KB < {MIN_VALID_SIZE//1024} KB) — likely truncated. Re-downloading.")
                 return True
+
+            import pytz
+            from datetime import datetime, time, timedelta
+            IST = pytz.timezone('Asia/Kolkata')
+            now_ist = datetime.now(IST)
+
+            weekday = now_ist.weekday()  # Monday=0, ..., Friday=4
+            current_time = now_ist.time()
+
+            # 1. Never download during active trading hours (09:00 - 15:30 IST Mon-Fri)
+            if 0 <= weekday <= 4 and time(9, 0) <= current_time <= time(15, 30):
+                return False
+
+            # 2. Download rule: Download after market close on Friday (>= 15:30 IST)
+            # Check if current CSV was updated before the most recent Friday 15:30 IST cutoff
+            mtime_ist = datetime.fromtimestamp(os.path.getmtime(csv_file), tz=IST)
+            days_since_friday = (weekday - 4) % 7
+            if days_since_friday == 0 and current_time < time(15, 30):
+                days_since_friday = 7
+
+            last_friday_1530 = (now_ist - timedelta(days=days_since_friday)).replace(hour=15, minute=30, second=0, microsecond=0)
+
+            if mtime_ist < last_friday_1530:
+                logger.info(f"Scrip Master CSV last modified at {mtime_ist.strftime('%Y-%m-%d %H:%M:%S IST')} (before last Friday 15:30 IST). Triggering Friday post-market update.")
+                return True
+
             return False
 
         if _needs_download():
