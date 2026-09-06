@@ -2031,6 +2031,39 @@ def exit_super_order():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route('/scale-conditional-order', methods=['POST'])
+def scale_conditional_order():
+    """
+    Executes partial scale-out for an active conditional order position.
+    """
+    if not broker or not conditional_engine:
+        return jsonify({"status": "error", "message": "System not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    underlying = data.get('underlying', 'NIFTY').upper()
+    scale_quantity = data.get('scale_quantity', 1)
+    new_sl = data.get('new_sl')
+    new_target = data.get('new_target')
+
+    try:
+        res = conditional_engine.scale_out_position(
+            underlying,
+            scale_lots=scale_quantity,
+            new_sl=new_sl,
+            new_target=new_target
+        )
+        if res.get('status') == 'success':
+            return jsonify(res), 200
+        else:
+            return jsonify(res), 400
+    except Exception as e:
+        logger.error(f"Error in scale-conditional-order endpoint: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route('/exit-conditional-order', methods=['POST'])
 def exit_conditional_order():
     """Exits (squares off) an active Conditional Order position at market price."""

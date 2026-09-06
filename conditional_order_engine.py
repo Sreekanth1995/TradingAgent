@@ -700,6 +700,77 @@ class ConditionalOrderEngine:
             logger.error(f"Internal Boundary Setting Error: {e}")
             return {"status": "error", "message": str(e)}
 
+    def scale_out_position(self, underlying, scale_lots, new_sl=None, new_target=None):
+        """
+        Executes partial scale-out:
+        1. Sells `scale_lots` of option at market price.
+        2. Decrements active `quantity` in state.
+        3. Updates Dhan GTT SL/Target alert quantities and new levels for remaining lots.
+        """
+        try:
+            state = self._get_state(underlying)
+            side = state.get('side')
+            if side not in ('CALL', 'PUT'):
+                return {"status": "error", "message": f"No active position to scale out for {underlying} (side={side})"}
+
+            opt_sec_id = state.get('security_id')
+            current_qty = int(state.get('quantity', 1))
+            scale_lots = int(scale_lots)
+
+            if scale_lots >= current_qty:
+                return {"status": "error", "message": f"scale_lots ({scale_lots}) >= current_qty ({current_qty}) — use full exit instead"}
+
+            lot_size = self.broker.lot_map.get(str(opt_sec_id)) or 65
+            scale_units = scale_lots * lot_size
+            rem_lots = current_qty - scale_lots
+
+            # Execute market SELL for scale_units
+            sell_res = self.broker.place_order(
+                sec_id=opt_sec_id,
+                exchange_seg="NSE_FNO",
+                quantity=scale_units,
+                transaction_type="SELL",
+                order_type="MARKET",
+                product_type=OPTIONS_PRODUCT_TYPE
+            )
+
+            if not sell_res.get('success'):
+                return {"status": "error", "message": f"Partial scale SELL order failed: {sell_res.get('error')}"}
+
+            # Update state quantity and levels
+            state['quantity'] = rem_lots
+            state['partially_closed'] = True
+            if new_sl is not None:
+                state['idx_sl_level'] = float(new_sl)
+            if new_target is not None:
+                state['idx_target_level'] = float(new_target)
+
+            self._set_state(underlying, state)
+
+            # Re-arm GTT boundaries with new remaining quantity
+            tgt_lvl = state.get('idx_target_level')
+            sl_lvl = state.get('idx_sl_level')
+            gtt_res = {}
+            if tgt_lvl and sl_lvl:
+                gtt_res = self.set_index_boundaries(underlying, tgt_lvl, sl_lvl, quantity=rem_lots)
+
+            msg = f"Partial scale-out executed for {underlying}: sold {scale_lots} lots ({scale_units} units). Remaining {rem_lots} lots protected @ SL={sl_lvl} TGT={tgt_lvl}."
+            logger.info(msg)
+            if self._activity_log_fn:
+                self._activity_log_fn(msg, "✂️ ")
+
+            return {
+                "status": "success",
+                "message": msg,
+                "scaled_lots": scale_lots,
+                "remaining_lots": rem_lots,
+                "sell_order_id": sell_res.get('order_id'),
+                "gtt": gtt_res
+            }
+        except Exception as e:
+            logger.error(f"Scale-out error for {underlying}: {e}")
+            return {"status": "error", "message": str(e)}
+
     def monitor_positions(self):
         """
         Background monitor: Fetches LTP for active indices and exits trades if SL/Target hit.
