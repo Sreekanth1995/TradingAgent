@@ -2127,3 +2127,37 @@ class DhanClient:
         except Exception as e:
             logger.error(f"Error consuming consent: {e}")
             return False, str(e)
+
+    def renew_token(self):
+        """
+        Extends the validity of an active Dhan access token by 24 hours.
+        Calls official endpoint: POST https://api.dhan.co/v2/RenewToken
+        """
+        if not self.access_token or not self.client_id:
+            logger.error("renew_token: Missing access_token or client_id")
+            return False, "Missing access_token or client_id"
+
+        url = "https://api.dhan.co/v2/RenewToken"
+        headers = {
+            'access-token': self.access_token,
+            'dhanClientId': str(self.client_id),
+            'Content-Type': 'application/json'
+        }
+
+        try:
+            resp = requests.post(url, headers=headers, timeout=(5, 10))
+            if resp.status_code == 200:
+                data = resp.json()
+                new_token = (data.get("token") or data.get("accessToken") or
+                             (data.get("data") or {}).get("token"))
+                target_token = new_token if new_token else self.access_token
+                self.refresh_client(target_token)
+                logger.info("✅ Successfully renewed Dhan access token via RenewToken API")
+                return True, "Token Renewed Successfully"
+
+            logger.error(f"Failed to renew token: {resp.status_code} - {resp.text}")
+            return False, f"Renew failed: {resp.status_code} - {resp.text}"
+        except Exception as e:
+            logger.error(f"Error renewing token: {e}")
+            return False, str(e)
+

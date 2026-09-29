@@ -2801,6 +2801,26 @@ def auth_callback():
     else:
         return f"Authentication Failed: {message}", 500
 
+@app.route('/auth/renew', methods=['POST'])
+def auth_renew():
+    """
+    Renews the current active Dhan access token via POST https://api.dhan.co/v2/RenewToken.
+    Extends validity by 24 hours without requiring browser/TOTP login.
+    """
+    if not broker:
+        return jsonify({"status": "error", "message": "Broker not initialized"}), 503
+
+    data = request.get_json(force=True, silent=True)
+    if not data or data.get('secret') != SECRET:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    success, message = broker.renew_token()
+    if success:
+        return jsonify({"status": "success", "message": message}), 200
+    else:
+        return jsonify({"status": "error", "message": message}), 500
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 80))
     app.run(host='0.0.0.0', port=port)
+
