@@ -16,8 +16,7 @@ echo " TradingAgent Vultr Deployment"
 echo " Target: $SERVER_USER@$SERVER_IP"
 echo "=================================================="
 echo ""
-echo "You'll be asked for the server password a couple of times."
-echo "Password: bD?2\$2#TY-v*sx@9"
+echo "You'll be asked for your server SSH password or key."
 echo ""
 
 # Step 1: Add server to known hosts
