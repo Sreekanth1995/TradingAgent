@@ -22,11 +22,17 @@ try:
 except ImportError:
     PYOTP_AVAILABLE = False
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("auto_login_dhan")
 
 TA_SERVER_URL = os.getenv("TRADING_AGENT_URL", "http://127.0.0.1:80")
-SECRET = os.getenv("SECRET", "AGY_SEC_2026_x7k9")
+SECRET = os.getenv("SECRET") or os.getenv("WEBHOOK_SECRET") or "AGY_SEC_2026_x7k9"
 
 def attempt_renew_token():
     """Attempt primary 09:00 AM renewal via RenewToken API."""
