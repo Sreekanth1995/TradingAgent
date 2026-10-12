@@ -37,3 +37,19 @@
 
 Plans:
 - [x] TBD (run /gsd-plan-phase 12 to break down)
+
+## Milestone 0.3.0: Modular Broker Architecture (Dedicated Services Decoupling)
+
+- [x] Phase 13: Service Contracts & Backwards-Compatible Facade
+    - **Goal**: Define clean protocols/interfaces for broker operations and convert `DhanClient` into a Facade that delegates without breaking existing callers (`server.py`, `SuperOrderEngine`, etc.).
+    - **Depends on**: Phase 12
+- [x] Phase 14: Market Data, Instrument & Auth Service Decomposition
+    - **Goal**: Extract `DhanAuthService`, `DhanMarketDataService` (with cache/fallbacks), and `DhanInstrumentService` (offline-loadable scrip master).
+    - **Depends on**: Phase 13
+- [x] Phase 15: Order Execution & GTT Conditional Services
+    - **Goal**: Extract `DhanOrderService` (Super & standard orders) and `DhanConditionalOrderService` (GTT legs and triggers).
+    - **Depends on**: Phase 14
+- [x] Phase 16: Safety, Realtime Updates & Mock Harmonization
+    - **Goal**: Extract `DhanSafetyService` (kill switch, reconciliation, operator alarms), `DhanSocketService`, and update `MockDhanClient` to verify zero-regression offline test runs.
+    - **Depends on**: Phase 15
+

@@ -1,11 +1,17 @@
 # State: TradingAgent
 
-**Milestone**: 0.2.0
-**Active Phase**: Milestone Complete (Awaiting next version requirements)
+**Milestone**: 0.3.0 (Modular Broker Architecture) - Completed
+**Active Phase**: Milestone 0.3.0 Complete (Ready for Next Milestone)
 
 ## Roadmap Progress
-- [x] Phase 1 - 12: Completed
-- [ ] Next: Milestone 0.3.0 (Planning)
+- [x] Milestone 0.1.0: Foundation (Phases 1 - 11) Completed
+- [x] Milestone 0.2.0: Strategy Expansion (Phase 12) Completed
+- [x] Milestone 0.3.0: Modular Broker Architecture (Phases 13 - 16) Completed
+  - [x] Phase 13: Service Contracts & Backwards-Compatible Facade
+  - [x] Phase 14: Market Data, Instrument & Auth Service Decomposition
+  - [x] Phase 15: Order Execution & GTT Conditional Services
+  - [x] Phase 16: Safety, Realtime Updates & Mock Harmonization
+
 
 ## Recent Decisions
 - **D-01**: Use Redis as primary state store for reliability. [2026-03-24]
