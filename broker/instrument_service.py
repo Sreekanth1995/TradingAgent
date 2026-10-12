@@ -27,6 +27,7 @@ class DhanInstrumentService:
         self.expiry_indices: Set[str] = set()
         self.scrip_loaded: bool = False
         self._scrip_ready = threading.Event()
+        self._reload_lock = threading.Lock()
 
         if start_thread and load_scrip:
             def load_scrip_background():
@@ -62,13 +63,20 @@ class DhanInstrumentService:
         """Returns standard Dhan Security ID for indices."""
         return index_id_for(symbol)
 
-    def _load_scrip_master(self) -> None:
-        """Downloads and parses the Dhan Scrip Master CSV."""
+    def reload_scrip_master(self, force_download: bool = True) -> int:
+        """Forces a thread-safe reload of the scrip master without clearing active maps."""
+        with self._reload_lock:
+            return self._load_scrip_master(force_download=force_download)
+
+    def _load_scrip_master(self, force_download: bool = False) -> int:
+        """Downloads and parses the Dhan Scrip Master CSV atomically."""
         csv_file = self.scrip_csv_path
         url = "https://images.dhan.co/api-data/api-scrip-master.csv"
         MIN_VALID_SIZE = 20 * 1024 * 1024
 
         def _needs_download() -> bool:
+            if force_download:
+                return True
             if not os.path.exists(csv_file):
                 logger.info("Scrip master CSV does not exist. Initial download required.")
                 return True
@@ -127,9 +135,12 @@ class DhanInstrumentService:
 
         if not os.path.exists(csv_file):
             logger.error("Scrip Master CSV not found and download failed.")
-            return
+            return len(self.scrip_map)
 
-        logger.info(f"Parsing Scrip Master from {csv_file} ...")
+        logger.info(f"Parsing Scrip Master from {csv_file} into local staging maps...")
+        temp_scrip_map: Dict[Any, str] = {}
+        temp_lot_map: Dict[str, int] = {}
+        temp_exact_symbol_map: Dict[str, Dict[str, Any]] = {}
         count = 0
         try:
             with open(csv_file, 'r', encoding='utf-8-sig') as f:
@@ -137,7 +148,7 @@ class DhanInstrumentService:
                 headers = reader.fieldnames or []
                 if 'SEM_EXM_EXCH_ID' not in headers:
                     logger.error(f"Expected column 'SEM_EXM_EXCH_ID' not found. Got: {headers}.")
-                    return
+                    return len(self.scrip_map)
                 for row in reader:
                     if row.get('SEM_EXM_EXCH_ID') == 'NSE' and row.get('SEM_INSTRUMENT_NAME') in ['OPTIDX', 'OPTSTK', 'FUTIDX', 'FUTSTK']:
                         sym = row.get('SM_SYMBOL_NAME', '').strip()
@@ -149,15 +160,15 @@ class DhanInstrumentService:
                         expiry_raw = row.get('SEM_EXPIRY_DATE', '').split(" ")[0]
                         key = (sym, strike, opt_type, expiry_raw)
                         sec_id = row.get('SEM_SMST_SECURITY_ID', '').strip()
-                        self.scrip_map[key] = sec_id
+                        temp_scrip_map[key] = sec_id
                         try:
-                            self.lot_map[sec_id] = int(float(row.get('SEM_LOT_UNITS', 1)))
+                            temp_lot_map[sec_id] = int(float(row.get('SEM_LOT_UNITS', 1)))
                         except Exception:
-                            self.lot_map[sec_id] = 1
+                            temp_lot_map[sec_id] = 1
 
                         trading_sym = row.get('SEM_TRADING_SYMBOL', '').strip()
                         if trading_sym:
-                            self.exact_symbol_map[trading_sym] = {
+                            temp_exact_symbol_map[trading_sym] = {
                                 "security_id": sec_id,
                                 "strike": strike,
                                 "expiry": expiry_raw,
@@ -167,18 +178,31 @@ class DhanInstrumentService:
                             }
                         count += 1
 
-            self.expiry_indices = set()
+            temp_expiry_indices: Set[str] = set()
             import pytz
             from datetime import datetime
             IST = pytz.timezone('Asia/Kolkata')
             today_str = datetime.now(IST).strftime('%Y-%m-%d')
-            for (sym, strike, opt_type, exp) in self.scrip_map.keys():
+            for (sym, strike, opt_type, exp) in temp_scrip_map.keys():
                 if exp == today_str and sym in ['NIFTY', 'BANKNIFTY', 'FINNIFTY']:
-                    self.expiry_indices.add(sym)
+                    temp_expiry_indices.add(sym)
 
-            logger.info(f"Loaded {count} instruments into Scrip Map.")
+            if count > 0:
+                # Atomic pointer swap to guarantee zero downtime
+                self.scrip_map = temp_scrip_map
+                self.lot_map = temp_lot_map
+                self.exact_symbol_map = temp_exact_symbol_map
+                self.expiry_indices = temp_expiry_indices
+                self.scrip_loaded = True
+                self._scrip_ready.set()
+                logger.info(f"Loaded {count} instruments into Scrip Map atomically.")
+                return count
+            else:
+                logger.error("Scrip master parsing produced 0 valid instruments; preserving previous maps.")
+                return len(self.scrip_map)
         except Exception as e:
-            logger.error(f"Error parsing CSV: {e}")
+            logger.error(f"Error parsing CSV: {e}; preserving previous maps.")
+            return len(self.scrip_map)
 
     def is_expiry_day(self, underlying: str) -> bool:
         """Checks if today is an expiry day for the given underlying index."""

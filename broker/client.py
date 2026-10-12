@@ -82,6 +82,7 @@ class DhanClient:
         self.safety_service = safety_service or DhanSafetyService(
             order_service=self.order_service,
             auth_service=self.auth_service,
+            conditional_order_service=self.conditional_order_service,
             activity_log_fn=activity_log_fn,
         )
 
@@ -294,6 +295,9 @@ class DhanClient:
 
     def _load_scrip_master(self) -> None:
         self.instrument_service._load_scrip_master()
+
+    def reload_scrip_master(self, force_download: bool = True) -> int:
+        return self.instrument_service.reload_scrip_master(force_download=force_download)
 
     def is_expiry_day(self, underlying: str) -> bool:
         return self.instrument_service.is_expiry_day(underlying)

@@ -53,3 +53,15 @@ Plans:
     - **Goal**: Extract `DhanSafetyService` (kill switch, reconciliation, operator alarms), `DhanSocketService`, and update `MockDhanClient` to verify zero-regression offline test runs.
     - **Depends on**: Phase 15
 
+## Milestone 0.4.0: Critical Safety Hardening & Autonomous Reconciliation
+
+- [x] Phase 17: Zero-Downtime Atomic Scrip Reload & Lot Map Guard
+    - **Goal**: Replace in-place scrip dictionary clearing with atomic swap, serialized lock on `/reload-scrip`, and fail-closed lot size validation.
+    - **Depends on**: Phase 16
+- [x] Phase 18: Kill Switch Super Order Leg Cancellation
+    - **Goal**: Cancel Super Order bracket legs (`TARGET_LEG`, `STOP_LOSS_LEG`) explicitly via `/super/orders/{id}/{leg}` before flattening open positions to prevent orphan naked shorts.
+    - **Depends on**: Phase 17
+- [x] Phase 19: Approach C Autonomous Reconciliation Safety Net
+    - **Goal**: Implement redundant positions polling in `ConditionalOrderEngine` for filled-but-unprotected orders with idempotent bracket arming and fail-closed alarms.
+    - **Depends on**: Phase 18
+

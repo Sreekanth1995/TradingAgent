@@ -58,7 +58,14 @@ class DhanOrderService:
             lots = int(leg_data.get('quantity', 1))
             lot_size = 1
             if self.instrument and hasattr(self.instrument, 'lot_map'):
-                lot_size = self.instrument.lot_map.get(sec_id, 1)
+                if getattr(self.instrument, 'scrip_loaded', False) and sec_id:
+                    lot_size = self.instrument.lot_map.get(str(sec_id))
+                    if not lot_size:
+                        msg = f"lot_map miss for sec_id={sec_id} ({symbol}) — refusing to place order (fail-closed)"
+                        logger.error(msg)
+                        return {"success": False, "error": msg}
+                else:
+                    lot_size = self.instrument.lot_map.get(str(sec_id), 1) or 1
             final_qty = lots * lot_size
 
             logger.info(f"$$$ [BROKER] PLACING {transaction_type} ORDER: {lots} Lots ({final_qty} units) x {symbol} (ID: {sec_id}, LotSize: {lot_size}) $$$")
@@ -333,6 +340,30 @@ class DhanOrderService:
 
     def place_super_order(self, symbol: str, leg_data: Dict[str, Any]) -> Dict[str, Any]:
         """Places a Native Bracket Order (Super Order) using Dhan API v2."""
+        qty = int(leg_data.get('quantity', 1))
+        sec_id = leg_data.get('security_id')
+        if not sec_id:
+            return {"success": False, "error": "Security ID missing for Super Order"}
+
+        lot_size = 1
+        if self.instrument and hasattr(self.instrument, 'lot_map'):
+            if getattr(self.instrument, 'scrip_loaded', False) and sec_id:
+                lot_size = self.instrument.lot_map.get(str(sec_id))
+                if not lot_size:
+                    msg = f"lot_map miss for sec_id={sec_id} — refusing to place Super Order (fail-closed)"
+                    logger.error(msg)
+                    return {"success": False, "error": msg}
+            else:
+                lot_size = self.instrument.lot_map.get(str(sec_id), 1) or 1
+        final_qty = qty * lot_size
+
+        target_price = leg_data.get('target_price')
+        stop_loss_price = leg_data.get('stop_loss_price')
+        trailing_jump = leg_data.get('trailing_jump')
+
+        if not target_price or not stop_loss_price:
+            return {"success": False, "error": "Target/SL Prices missing for Super Order"}
+
         if self.auth.dry_run:
             logger.info(f"$$$ [BROKER] MOCK SUPER ORDER for {symbol} $$$")
             return {"success": True, "order_id": "mock_bo_123", "error": None}
@@ -356,23 +387,6 @@ class DhanOrderService:
         else:
             order_type = "MARKET"
             price = 0
-
-        qty = int(leg_data.get('quantity', 1))
-        sec_id = leg_data.get('security_id')
-        if not sec_id:
-            return {"success": False, "error": "Security ID missing for Super Order"}
-
-        lot_size = 1
-        if self.instrument and hasattr(self.instrument, 'lot_map'):
-            lot_size = self.instrument.lot_map.get(sec_id, 1)
-        final_qty = qty * lot_size
-
-        target_price = leg_data.get('target_price')
-        stop_loss_price = leg_data.get('stop_loss_price')
-        trailing_jump = leg_data.get('trailing_jump')
-
-        if not target_price or not stop_loss_price:
-            return {"success": False, "error": "Target/SL Prices missing for Super Order"}
 
         try:
             tp = float(target_price)

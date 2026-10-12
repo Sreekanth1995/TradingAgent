@@ -1,5 +1,17 @@
 # TODOS
 
+## Completed in Milestone 0.4.0 (Hardening & Safety Architecture, 2026-10-13)
+- **Scrip reload: zero-downtime atomic swap & lot_map guard (Phase 17)** —
+  `broker/instrument_service.py` stages scrip parsing into local dictionaries and atomically swaps references with `_reload_lock`, preventing empty map lookups. `broker/order_service.py` fails closed on missing/zero `lot_size` instead of 1-unit fallbacks.
+- **Kill switch: Super Order leg cancellation before squareoff (Phase 18)** —
+  `broker/safety_service.py` executes a 4-stage cancel sweep: queries `get_super_orders()` to cancel bracket legs via `/super/orders/{id}/{leg}`, cancels pending standard orders, cancels GTT rules, and then flattens open positions, preventing orphan triggers.
+- **Conditional entry: Approach C reconciliation safety net (Phase 19)** —
+  `ConditionalOrderEngine.monitor_positions` periodically checks `broker.get_positions()` with a 30s throttle per underlying. If filled without a postback, it idempotently arms brackets or raises loud `🚨` alarms with `protection_failed=True`.
+- **Conditional entry: handle REJECTED/CANCELLED postback for ENTRY (Phase 19)** —
+  `ConditionalOrderEngine.handle_postback` clears `PENDING_*` state and consumes `pending_protection` on broker rejections/cancellations, un-wedging engine state.
+- **Tests: no-network DhanClient constructor (Phase 13)** —
+  `DhanClient(load_scrip=False)` skips background thread and network downloads during offline test runs.
+
 ## Completed in PR #9a (alarm-pipe foundation, 2026-05-27)
 - **Broker: refuse to invent a security_id when strike not in scrip map** —
   `_get_security_id` now returns `None` on a `scrip_map` miss instead of the

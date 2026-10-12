@@ -79,6 +79,10 @@ class InstrumentServiceInterface(Protocol):
         """Map underlying index symbol to security ID."""
         ...
 
+    def reload_scrip_master(self, force_download: bool = True) -> int:
+        """Forces a thread-safe reload of the scrip master without clearing active maps."""
+        ...
+
 
 @runtime_checkable
 class MarketDataServiceInterface(Protocol):

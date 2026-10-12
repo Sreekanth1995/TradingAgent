@@ -1,16 +1,16 @@
 # State: TradingAgent
 
-**Milestone**: 0.3.0 (Modular Broker Architecture) - Completed
-**Active Phase**: Milestone 0.3.0 Complete (Ready for Next Milestone)
+**Milestone**: 0.4.0 (Critical Safety Hardening & Autonomous Reconciliation) - Completed
+**Active Phase**: Milestone 0.4.0 Complete (Ready for Next Feature Milestone)
 
 ## Roadmap Progress
 - [x] Milestone 0.1.0: Foundation (Phases 1 - 11) Completed
 - [x] Milestone 0.2.0: Strategy Expansion (Phase 12) Completed
 - [x] Milestone 0.3.0: Modular Broker Architecture (Phases 13 - 16) Completed
-  - [x] Phase 13: Service Contracts & Backwards-Compatible Facade
-  - [x] Phase 14: Market Data, Instrument & Auth Service Decomposition
-  - [x] Phase 15: Order Execution & GTT Conditional Services
-  - [x] Phase 16: Safety, Realtime Updates & Mock Harmonization
+- [x] Milestone 0.4.0: Critical Safety Hardening & Autonomous Reconciliation (Phases 17 - 19) Completed
+  - [x] Phase 17: Zero-Downtime Atomic Scrip Reload & Lot Map Guard
+  - [x] Phase 18: Kill Switch Super Order Leg Cancellation
+  - [x] Phase 19: Approach C Autonomous Reconciliation Safety Net
 
 
 ## Recent Decisions

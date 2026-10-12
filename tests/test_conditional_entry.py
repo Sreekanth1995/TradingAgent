@@ -510,3 +510,84 @@ class TestModifyPendingAndSetLevels:
                 pending = conditional_engine.get_pending_protection(corr_id, consume=True)
                 assert pending is not None
                 assert pending['target_level'] == 24800.0
+
+
+def test_postback_rejected_clears_pending_state():
+    """Verify an exchange REJECTED postback for ENTRY clears PENDING state and un-wedges engine."""
+    eng, broker = make_engine()
+    corr_id = 'ENTRY:NIFTY:rej_test'
+    arm_call(eng, correlation=corr_id)
+
+    assert eng._get_state('NIFTY')['side'] == 'PENDING_CALL'
+
+    # Broker sends REJECTED postback
+    res = eng.handle_postback({
+        'orderStatus': 'REJECTED',
+        'orderId': 'ORD_REJ_1',
+        'userNote': corr_id,
+        'rejectionReason': 'RMS: Insufficient margin'
+    })
+    assert res['status'] == 'success'
+    assert 'CLEARED_REJECTED_ENTRY' in res['action']
+
+    # State is cleanly reset to NONE
+    assert eng._get_state('NIFTY')['side'] == 'NONE'
+    # Pending protection consumed
+    assert eng.get_pending_protection(corr_id) is None
+
+
+def test_reconciliation_sweep_arms_bracket_when_postback_dropped():
+    """Verify monitor_positions polls positions and arms bracket if postback never arrives."""
+    eng, broker = make_engine()
+    corr_id = 'ENTRY:NIFTY:recon_test'
+    arm_call(eng, correlation=corr_id)
+
+    assert eng._get_state('NIFTY')['side'] == 'PENDING_CALL'
+
+    # Mock broker reporting position filled (75 units = 1 lot)
+    broker.get_positions = MagicMock(return_value=[
+        {'securityId': CE_SID, 'netQty': 75, 'buyAvg': 120.0}
+    ])
+    broker.place_conditional_order = MagicMock(wraps=broker.place_conditional_order)
+    # Set LTP between SL and target so polling monitor doesn't exit immediately
+    broker.get_ltp = MagicMock(return_value=24650.0)
+
+    # Run reconciliation in monitor_positions
+    eng.monitor_positions()
+
+    state = eng._get_state('NIFTY')
+    assert state['side'] == 'CALL'
+    assert state['quantity'] == 1
+    assert state['entry_price'] == 120.0
+    # GTT SL & Target were placed by reconciliation
+    assert broker.place_conditional_order.call_count >= 1
+
+
+def test_reconciliation_missing_pending_protection_alarms_and_flags_failed():
+    """Verify reconciliation flags protection_failed and alarms if pending protection was lost."""
+    log = MagicMock()
+    broker = MockDhanClient()
+    broker.lot_map = {CE_SID: 75}
+    broker.get_ltp = MagicMock(return_value=24650.0)
+    eng = ConditionalOrderEngine(broker=broker, activity_log_fn=log)
+    eng.memory_store = {}
+
+    corr_id = 'ENTRY:NIFTY:lost_prot'
+    arm_call(eng, correlation=corr_id)
+    # Artificially consume pending protection to simulate TTL expiration or data loss
+    eng.get_pending_protection(corr_id, consume=True)
+
+    broker.get_positions = MagicMock(return_value=[
+        {'securityId': CE_SID, 'netQty': 75, 'buyAvg': 120.0}
+    ])
+
+    eng.monitor_positions()
+
+    state = eng._get_state('NIFTY')
+    assert state['side'] == 'CALL'
+    assert state['protection_failed'] is True
+    assert state['protection_error'] == 'missing_pending_protection'
+    # Loud alarm raised
+    alarm_calls = [str(call) for call in log.call_args_list if 'UNPROTECTED POSITION' in str(call)]
+    assert len(alarm_calls) > 0
+

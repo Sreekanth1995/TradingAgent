@@ -595,10 +595,14 @@ class ConditionalOrderEngine:
             sl_level=pending['sl_level'],
             quantity=filled_lots,
         )
-        if gtt_res.get('status') != 'success' and self._activity_log_fn:
-            self._activity_log_fn(
-                f"Conditional entry FILLED for {underlying} but bracket arm FAILED "
-                f"({gtt_res.get('message')}) — position may be unprotected!", "🚨 ")
+        if gtt_res.get('status') != 'success':
+            state['protection_failed'] = True
+            state['protection_error'] = gtt_res.get('message')
+            self._set_state(underlying, state)
+            if self._activity_log_fn:
+                self._activity_log_fn(
+                    f"Conditional entry FILLED for {underlying} but bracket arm FAILED "
+                    f"({gtt_res.get('message')}) — position may be unprotected!", "🚨 ")
         logger.info(f"Conditional fill ({'final' if is_final else 'partial'}) {underlying}: "
                     f"armed bracket for {filled_lots} lots -> {gtt_res.get('status')}")
         return {"status": "success", "source": "conditional_fill", "final": is_final, "gtt": gtt_res}
@@ -787,11 +791,14 @@ class ConditionalOrderEngine:
                 state = self._get_state(underlying)
 
                 # 1. ACTIVE RECONCILIATION: Check if a pending GTT entry trigger has filled on the broker.
-                # Runs at a throttled 1-minute interval to prevent broker API rate limits.
+                # Runs at a throttled 30-second interval per underlying to prevent broker API rate limits.
                 if state.get('side') in ('PENDING_CALL', 'PENDING_PUT'):
                     now = time.time()
-                    if not hasattr(self, '_last_positions_poll_time') or (now - self._last_positions_poll_time) >= 60:
-                        self._last_positions_poll_time = now
+                    if not hasattr(self, '_last_positions_poll_time_by_underlying'):
+                        self._last_positions_poll_time_by_underlying = {}
+                    last_poll = self._last_positions_poll_time_by_underlying.get(underlying, 0)
+                    if (now - last_poll) >= 30:
+                        self._last_positions_poll_time_by_underlying[underlying] = now
                         opt_sec_id = state.get('security_id')
                         correlation_id = state.get('correlation_id')
                         if opt_sec_id and correlation_id and self.broker:
@@ -808,17 +815,28 @@ class ConditionalOrderEngine:
                                     if self._activity_log_fn:
                                         self._activity_log_fn(msg, "🚨 ")
 
+                                    lot_size = self.broker.lot_map.get(str(opt_sec_id)) or 0
+                                    net_qty = matching_pos.get('netQty')
+                                    if net_qty is None:
+                                        net_qty = matching_pos.get('positionQty')
+                                    if net_qty is None:
+                                        net_qty = matching_pos.get('buyQty', 0)
+
+                                    if not lot_size or lot_size <= 0:
+                                        err_msg = f"🔄 [RECONCILIATION] lot_map miss for sec_id={opt_sec_id} ({underlying}) — cannot safely arm bracket. Marking protection_failed!"
+                                        logger.error(err_msg)
+                                        if self._activity_log_fn:
+                                            self._activity_log_fn(err_msg, "🚨 ")
+                                        state['side'] = 'CALL' if state['side'] == 'PENDING_CALL' else 'PUT'
+                                        state['protection_failed'] = True
+                                        state['protection_error'] = "lot_map miss at reconciliation"
+                                        self._set_state(underlying, state)
+                                        continue
+
                                     pending = self.get_pending_protection(correlation_id, consume=True)
                                     if pending:
                                         # Transition to live position
                                         state['side'] = 'CALL' if state['side'] == 'PENDING_CALL' else 'PUT'
-                                        opt_sec_id = state.get('security_id')
-                                        lot_size = self.broker.lot_map.get(str(opt_sec_id)) or 1
-                                        net_qty = matching_pos.get('netQty')
-                                        if net_qty is None:
-                                            net_qty = matching_pos.get('positionQty')
-                                        if net_qty is None:
-                                            net_qty = matching_pos.get('buyQty', 1)
                                         state['quantity'] = abs(net_qty) // lot_size
                                         state['entry_price'] = float(matching_pos.get('buyAvg') or matching_pos.get('costPrice') or 0)
                                         self._set_state(underlying, state)
@@ -835,6 +853,17 @@ class ConditionalOrderEngine:
                                             self._activity_log_fn(
                                                 f"Reconciliation bracket arm FAILED for {underlying} ({gtt_res.get('message')}) — position is unprotected!", "🚨 "
                                             )
+                                    else:
+                                        # Filled on broker but pending protection record missing
+                                        unprot_msg = f"🔄 [RECONCILIATION] UNPROTECTED POSITION: {underlying} filled on broker (qty={net_qty}) but pending_protection record is missing! Operator action required."
+                                        logger.error(unprot_msg)
+                                        if self._activity_log_fn:
+                                            self._activity_log_fn(unprot_msg, "🚨 ")
+                                        state['side'] = 'CALL' if state['side'] == 'PENDING_CALL' else 'PUT'
+                                        state['quantity'] = abs(net_qty) // lot_size
+                                        state['protection_failed'] = True
+                                        state['protection_error'] = "missing_pending_protection"
+                                        self._set_state(underlying, state)
                             except Exception as recon_err:
                                 logger.error(f"Reconciliation check failed for {underlying}: {recon_err}")
 
@@ -901,7 +930,30 @@ class ConditionalOrderEngine:
             if order_status in ("TRADED", "PART_TRADED") and user_note and str(user_note).startswith("ENTRY:"):
                 return self._handle_conditional_fill(user_note, data, order_status == "TRADED")
 
-            # 1b. MARKET entry fill (legacy path) — linked by orderId. Unchanged.
+            # 1b. CONDITIONAL entry rejected or cancelled — un-wedge engine state.
+            if order_status in ("REJECTED", "CANCELLED") and user_note and str(user_note).startswith("ENTRY:"):
+                correlation_id = str(user_note)
+                pending = self.get_pending_protection(correlation_id, consume=True)
+                underlying = pending.get('underlying') if pending else None
+                if not underlying:
+                    active_keys = (self.r.keys("cond_state:*") if self.use_redis
+                                   else [k for k in self.memory_store if k.startswith("cond_state:")])
+                    for key in active_keys:
+                        u = (key.decode() if isinstance(key, bytes) else key).split(':')[-1]
+                        st = self._get_state(u)
+                        if st.get('correlation_id') == correlation_id:
+                            underlying = u
+                            break
+
+                if underlying:
+                    msg = f"Conditional ENTRY order was {order_status} by broker for {underlying} ({correlation_id}). Cancelling pending state."
+                    logger.warning(msg)
+                    if self._activity_log_fn:
+                        self._activity_log_fn(msg, "🚨 ")
+                    self._clear_state(underlying)
+                    return {"status": "success", "action": f"CLEARED_{order_status}_ENTRY_{underlying}"}
+
+            # 1c. MARKET entry fill (legacy path) — linked by orderId. Unchanged.
             if order_status == "TRADED" and order_id:
                 logger.info(f"Order {order_id} TRADED. Checking for pending conditional triggers.")
                 pending = self.get_pending_protection(order_id)

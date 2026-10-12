@@ -141,3 +141,96 @@ def test_no_untimed_requests_in_broker_package():
                 offenders.append((py_file.name, line_no, block.replace("\n", "\\n")[:100]))
 
     assert offenders == [], f"Found untimed requests calls in broker/: {offenders}"
+
+
+def test_zero_downtime_scrip_reload_preserves_maps():
+    """Verify reload_scrip_master preserves existing maps if new source fails or is invalid."""
+    inst = DhanInstrumentService(load_scrip=False)
+    inst.scrip_map = {("NIFTY", 22000.0, "CE", "2026-10-15"): "12345"}
+    inst.lot_map = {"12345": 50}
+    inst.scrip_loaded = True
+
+    # Point to nonexistent path
+    inst._csv_path = "/nonexistent/test_scrip.csv"
+
+    # Attempt reload with force_download=False so it tries local nonexistent file
+    count = inst.reload_scrip_master(force_download=False)
+    assert count == 1
+    # Existing maps remain 100% intact
+    assert inst.scrip_map[("NIFTY", 22000.0, "CE", "2026-10-15")] == "12345"
+    assert inst.lot_map["12345"] == 50
+
+
+def test_fail_closed_lot_guard_when_scrip_loaded():
+    """Verify place_order and place_super_order fail-closed if security_id is missing from lot_map."""
+    auth = DhanAuthService(dry_run=True)
+    inst = DhanInstrumentService(load_scrip=False)
+    inst.lot_map = {"12345": 25}
+    inst.scrip_loaded = True  # Marks that scrip is loaded
+
+    mdata = DhanMarketDataService(auth_service=auth, instrument_service=inst)
+    order = DhanOrderService(auth_service=auth, instrument_service=inst, market_data_service=mdata)
+
+    # Placing an order with unknown sec_id "99999" must fail-closed
+    res = order.place_order(
+        symbol="NIFTY-UNKNOWN",
+        leg_data={"security_id": "99999", "quantity": 1, "transaction_type": "BUY"}
+    )
+    assert res.get("success") is False
+    assert "lot_map miss" in res.get("error", "")
+
+    # Super order with unknown sec_id "99999" must also fail-closed
+    super_res = order.place_super_order(
+        symbol="NIFTY-UNKNOWN",
+        leg_data={
+            "security_id": "99999",
+            "quantity": 1,
+            "target_price": 100.0,
+            "stop_loss_price": 50.0,
+        }
+    )
+    assert super_res.get("success") is False
+    assert "lot_map miss" in super_res.get("error", "")
+
+
+def test_kill_switch_cancels_super_order_legs_before_squareoff():
+    """Verify kill_switch cancels super order legs and pending orders before squaring off positions."""
+    mock_order = MagicMock()
+    mock_auth = MagicMock()
+    mock_auth.dry_run = True
+
+    # Setup mock super order legs
+    mock_order.get_super_orders.return_value = [
+        {"orderId": "BO_101", "legName": "TARGET_LEG", "tradingSymbol": "NIFTY-22000-CE"},
+        {"orderId": "BO_101", "legName": "STOP_LOSS_LEG", "tradingSymbol": "NIFTY-22000-CE"}
+    ]
+    mock_order.cancel_super_order.return_value = {"success": True}
+
+    # Setup mock pending general orders
+    mock_order.get_all_orders.return_value = [
+        {"orderId": "ORD_201", "orderStatus": "PENDING", "tradingSymbol": "NIFTY-22100-PE"}
+    ]
+    mock_order.cancel_order.return_value = {"success": True}
+
+    # Setup mock open positions
+    mock_order.get_positions.return_value = [
+        {"securityId": "12345", "netQty": 50, "tradingSymbol": "NIFTY-22000-CE"}
+    ]
+
+    safety = DhanSafetyService(order_service=mock_order, auth_service=mock_auth)
+    result = safety.kill_switch()
+
+    # Verify Super Order legs were cancelled via cancel_super_order
+    assert len(result["cancelled_super_legs"]) == 2
+    assert mock_order.cancel_super_order.call_count == 2
+    mock_order.cancel_super_order.assert_any_call("BO_101", "TARGET_LEG")
+    mock_order.cancel_super_order.assert_any_call("BO_101", "STOP_LOSS_LEG")
+
+    # Verify standard order cancelled via cancel_order
+    assert len(result["cancelled"]) == 1
+    mock_order.cancel_order.assert_called_once_with("ORD_201")
+
+    # Verify positions were squared off
+    assert len(result["squaredoff"]) == 1
+    assert result["squaredoff"][0]["symbol"] == "NIFTY-22000-CE"
+

@@ -1475,19 +1475,12 @@ def reload_scrip():
         return jsonify({"status": "error", "message": "System not initialized"}), 503
 
     try:
-        # Delete stale file so _load_scrip_master always re-downloads fresh
-        csv_file = broker.scrip_csv_path
-        if os.path.exists(csv_file):
-            os.remove(csv_file)
-        broker.scrip_map = {}
-        broker.lot_map = {}
-        broker.exact_symbol_map = {}
-        broker.scrip_loaded = False
-        broker._scrip_ready.clear()
-        broker._load_scrip_master()
-        broker.scrip_loaded = True
-        broker._scrip_ready.set()
-        count = len(broker.scrip_map)
+        csv_file = getattr(broker, 'scrip_csv_path', '')
+        if hasattr(broker, 'reload_scrip_master'):
+            count = broker.reload_scrip_master(force_download=True)
+        else:
+            broker._load_scrip_master()
+            count = len(getattr(broker, 'scrip_map', {}))
         return jsonify({"status": "success", "scrip_count": count, "csv_path": csv_file}), 200
     except Exception as e:
         logger.error(f"reload_scrip error: {traceback.format_exc()}")
