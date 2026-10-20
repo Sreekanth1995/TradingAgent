@@ -1187,52 +1187,45 @@ def get_margin():
 
         sec_id = itm['security_id']
         lot_size = broker.lot_map.get(str(sec_id), 1)
+        if not lot_size or lot_size <= 1:
+            default_lots = {"NIFTY": 65, "BANKNIFTY": 15, "FINNIFTY": 65}
+            lot_size = default_lots.get(underlying, 50)
 
-        # 3. Margin per lot via Dhan margin calculator
+        # 3. Margin per lot via Dhan margin calculator (with resilient LTP fallback)
         ltp = broker.get_ltp(sec_id)
+        estimated_pricing = False
         if not ltp or float(ltp) <= 0:
-            logger.error(f"get-margin: LTP fetch failed for sec_id={sec_id} ({itm.get('symbol')})")
-            return jsonify({
-                "status": "error",
-                "message": f"LTP unavailable for {itm.get('symbol')} (sec_id={sec_id}). Cannot calculate margin.",
-                "security_id": sec_id,
-                "symbol": itm.get('symbol'),
-                "available_balance": available,
-            }), 400
-        ltp = float(ltp)
+            strike = float(itm.get('strike') or spot_index)
+            if side == 'CALL':
+                intrinsic = max(0.0, spot_index - strike)
+            else:
+                intrinsic = max(0.0, strike - spot_index)
+            # Conservative ITM option premium: intrinsic value + 70 points extrinsic buffer
+            ltp = max(120.0, intrinsic + 70.0)
+            estimated_pricing = True
+            logger.warning(f"get-margin: Live LTP unavailable for sec_id={sec_id} ({itm.get('symbol')}). Using estimated ITM premium {ltp:.2f}")
+        else:
+            ltp = float(ltp)
 
-        margin_resp = broker.margin_calculator({
-            'security_id': sec_id,
-            'exchange_segment': 'NSE_FNO',
-            'transaction_type': 'BUY',
-            'quantity': lot_size,
-            'product_type': 'INTRADAY',
-            'price': ltp,
-        })
-        logger.info(f"get-margin margin_resp: {margin_resp}")
+        margin_per_lot = 0.0
+        try:
+            margin_resp = broker.margin_calculator({
+                'security_id': sec_id,
+                'exchange_segment': 'NSE_FNO',
+                'transaction_type': 'BUY',
+                'quantity': lot_size,
+                'product_type': 'INTRADAY',
+                'price': ltp,
+            })
+            if margin_resp.get('status') == 'success':
+                margin_per_lot = float((margin_resp.get('data') or {}).get('totalMargin') or 0)
+        except Exception as e:
+            logger.warning(f"get-margin: margin_calculator error: {e}")
 
-        if margin_resp.get('status') != 'success':
-            return jsonify({
-                "status": "error",
-                "message": f"Margin calculator API failed: {margin_resp.get('message') or margin_resp.get('remarks') or margin_resp}",
-                "margin_raw": margin_resp,
-                "security_id": sec_id,
-                "symbol": itm.get('symbol'),
-                "ltp": ltp,
-                "available_balance": available,
-            }), 400
-
-        margin_per_lot = float((margin_resp.get('data') or {}).get('totalMargin') or 0)
+        # If Dhan margin_calculator returned 0 or failed, option buyer margin is simply premium * lot_size
         if margin_per_lot <= 0:
-            logger.error(f"get-margin: totalMargin=0 despite success. margin_resp={margin_resp}")
-            return jsonify({
-                "status": "error",
-                "message": "Margin calculator returned 0. Check security_id or LTP.",
-                "margin_raw": margin_resp,
-                "security_id": sec_id,
-                "ltp": ltp,
-                "available_balance": available,
-            }), 400
+            margin_per_lot = float(ltp * lot_size)
+            logger.info(f"get-margin: Fallback margin_per_lot calculated as premium*lot_size: {margin_per_lot:.2f}")
 
         import math
         suggested_lots = max(1, math.floor(available * 0.8 / margin_per_lot))
@@ -1248,6 +1241,7 @@ def get_margin():
             "available_balance": available,
             "margin_per_lot": margin_per_lot,
             "suggested_lots": suggested_lots,
+            "estimated_pricing": estimated_pricing,
         }), 200
     except Exception as e:
         logger.error(f"Get Margin Error: {traceback.format_exc()}")
