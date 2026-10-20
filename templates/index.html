@@ -175,9 +175,14 @@
     <header class="fixed top-0 w-full z-50 bg-surface-container-low/60 backdrop-blur-xl border-b border-white/10 px-lg py-md shadow-2xl shadow-primary/5">
         <div class="max-w-container-max mx-auto flex justify-between items-center">
             <div class="flex items-center gap-xl">
-                <h1 class="font-display-lg text-headline-md tracking-tighter text-primary drop-shadow-[0_0_8px_rgba(219,184,255,0.4)]">
-                    Antigravity Trader
-                </h1>
+                <div class="flex items-center gap-3">
+                    <h1 class="font-display-lg text-headline-md tracking-tighter text-primary drop-shadow-[0_0_8px_rgba(219,184,255,0.4)]">
+                        Antigravity Trader
+                    </h1>
+                    <span class="text-xs px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30 font-mono font-medium tracking-wide">
+                        {{ version|default('v2.0.0') }}
+                    </span>
+                </div>
                 <nav class="hidden md:flex gap-lg items-center">
                     <a class="text-primary border-b-2 border-primary pb-2 font-bold font-label-md text-label-md" href="#">Dashboard</a>
                     <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Analytics</a>

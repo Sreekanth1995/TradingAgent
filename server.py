@@ -29,6 +29,18 @@ import trade_feed
 # Load Environment Variables
 load_dotenv()
 
+# Version & Release Management
+VERSION_FILE = os.path.join(os.path.dirname(__file__), "VERSION")
+APP_VERSION = "v2.0.0"
+if os.path.exists(VERSION_FILE):
+    try:
+        with open(VERSION_FILE, "r") as _vf:
+            _v = _vf.read().strip()
+            if _v:
+                APP_VERSION = _v
+    except Exception:
+        pass
+
 # Configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 # WEBHOOK_SECRET is fail-closed at boot. A misconfigured deploy that forgets to
@@ -460,14 +472,27 @@ def health():
             feelings_store = "unknown"
         status = {
             "status": "healthy" if broker and super_order_engine else "degraded",
+            "version": APP_VERSION,
             "broker_initialized": broker is not None,
             "engine_initialized": super_order_engine is not None,
             "feelings_store": feelings_store,
             "error": init_error,
         }
     except Exception as e:
-        status = {"status": "error", "message": str(e)}
+        status = {"status": "error", "message": str(e), "version": APP_VERSION}
     return jsonify(status), 200
+
+
+@app.route('/version')
+def version():
+    """
+    Returns the current application release version, release tag, and engine status.
+    """
+    return jsonify({
+        "version": APP_VERSION,
+        "release": APP_VERSION,
+        "status": "healthy" if broker and super_order_engine else "degraded"
+    }), 200
 
 def _event_stream(q):
     """Generator for Server-Sent Events (SSE)."""
@@ -561,7 +586,7 @@ def dashboard():
     """
     Serves the Admin Dashboard UI.
     """
-    return render_template('index.html')
+    return render_template('index.html', version=APP_VERSION)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -2796,7 +2821,7 @@ def auth_callback():
     
     success, message = broker.consume_consent(token_id)
     if success:
-        return render_template('index.html', auth_status="success")
+        return render_template('index.html', auth_status="success", version=APP_VERSION)
     else:
         return f"Authentication Failed: {message}", 500
 

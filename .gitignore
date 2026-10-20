@@ -26,3 +26,6 @@ deploy_automated.exp
 
 # Local scratch dir for /design-review screenshots (synced to ~/.gstack/projects/)
 .gstack-design-shots/
+.claude/
+graphify-out/
+

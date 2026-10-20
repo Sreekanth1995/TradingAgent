@@ -10,10 +10,20 @@ SERVER_USER="root"
 APP_DIR="/opt/trading-agent"
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
+VERSION_FILE="$PROJECT_DIR/VERSION"
+if [ -f "$VERSION_FILE" ]; then
+    CURRENT_VERSION=$(tr -d '[:space:]' < "$VERSION_FILE")
+else
+    CURRENT_VERSION=$(git describe --tags --exact-match 2>/dev/null || git describe --tags 2>/dev/null || echo "v2.0.0")
+fi
+GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+
 echo ""
 echo "=================================================="
 echo " TradingAgent Vultr Deployment"
 echo " Target: $SERVER_USER@$SERVER_IP"
+echo " Release: $CURRENT_VERSION ($GIT_COMMIT on $GIT_BRANCH)"
 echo "=================================================="
 echo ""
 echo "You'll be asked for your server SSH password or key."
@@ -68,6 +78,17 @@ cd $APP_DIR
 pip3 install -r requirements.txt -q
 echo "✅ Dependencies installed"
 
+# Clean up obsolete .git folder if present from older syncs
+rm -rf $APP_DIR/.git
+
+# Record release metadata on server
+cat > $APP_DIR/RELEASE_INFO << RELEASE_META_INNER
+Version: $CURRENT_VERSION
+Commit: $GIT_COMMIT
+Branch: $GIT_BRANCH
+DeployedAt: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+RELEASE_META_INNER
+
 # Create systemd service for auto-start
 cat > /etc/systemd/system/trading-agent.service << 'SERVICE'
 [Unit]
@@ -96,14 +117,17 @@ sleep 2
 systemctl status trading-agent --no-pager
 
 echo ""
-echo "✅ TradingAgent is LIVE at http://$SERVER_IP:80"
+echo "✅ TradingAgent ($CURRENT_VERSION) is LIVE at http://$SERVER_IP:80"
 REMOTE_DEPLOY
 
 echo ""
 echo "=================================================="
 echo " ✅ DEPLOYMENT COMPLETE!"
 echo ""
+echo " Release: $CURRENT_VERSION ($GIT_COMMIT)"
 echo " Dashboard: http://$SERVER_IP:80"
+echo " Health Check: http://$SERVER_IP:80/health"
+echo " Version API: http://$SERVER_IP:80/version"
 echo " Static IP (whitelist in Dhan): $SERVER_IP"
 echo " TradingView Webhook URL: http://$SERVER_IP:80/webhook"
 echo "=================================================="
