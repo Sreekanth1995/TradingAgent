@@ -46,6 +46,9 @@ rsync -avz --progress \
   --exclude='*.log' \
   --exclude='node_modules' \
   --exclude='venv' \
+  --exclude='.claude' \
+  --exclude='graphify-out' \
+  --exclude='.planning' \
   --exclude='.env' \
   --exclude='trade_history.json' \
   --exclude='levels.json' \
