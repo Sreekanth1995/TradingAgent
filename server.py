@@ -1170,12 +1170,16 @@ def get_margin():
 
     try:
         # 1. Available balance
-        fund_resp = broker.get_fund_limits()
-        fund_data = (fund_resp.get('data') or {})
-        available = float(
-            fund_data.get('availabelBalance') or
-            fund_data.get('availableBalance') or 0
-        )
+        available = 0.0
+        try:
+            fund_resp = broker.get_fund_limits()
+            fund_data = (fund_resp.get('data') or {}) if isinstance(fund_resp, dict) else {}
+            available = float(
+                fund_data.get('availabelBalance') or
+                fund_data.get('availableBalance') or 0
+            )
+        except Exception as e:
+            logger.warning(f"get-margin: get_fund_limits exception: {e}")
 
         # 2. Resolve ITM contract
         spot_index = resolve_index_spot(broker, underlying, data)
@@ -1217,17 +1221,18 @@ def get_margin():
                 'product_type': 'INTRADAY',
                 'price': ltp,
             })
-            if margin_resp.get('status') == 'success':
+            if isinstance(margin_resp, dict) and margin_resp.get('status') == 'success':
                 margin_per_lot = float((margin_resp.get('data') or {}).get('totalMargin') or 0)
         except Exception as e:
             logger.warning(f"get-margin: margin_calculator error: {e}")
 
         # If Dhan margin_calculator returned 0 or failed, option buyer margin is simply premium * lot_size
         if margin_per_lot <= 0:
-            margin_per_lot = float(ltp * lot_size)
+            margin_per_lot = float(ltp * lot_size) if ltp > 0 else 10000.0
             logger.info(f"get-margin: Fallback margin_per_lot calculated as premium*lot_size: {margin_per_lot:.2f}")
 
         import math
+        margin_per_lot = max(1.0, margin_per_lot)
         suggested_lots = max(1, math.floor(available * 0.8 / margin_per_lot))
 
         return jsonify({
