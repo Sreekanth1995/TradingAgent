@@ -1,17 +1,17 @@
-# Graph Report - TradingAgent  (2026-10-13)
+# Graph Report - TradingAgent  (2026-10-21)
 
 ## Corpus Check
-- 101 files · ~66,511 words
+- 101 files · ~66,550 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 6 file(s) not represented in the graph (top: (none) 4, .example 1, .pine 1)
 
 ## Summary
-- 1161 nodes · 2209 edges · 111 communities (38 shown, 73 thin omitted)
+- 1161 nodes · 2209 edges · 109 communities (37 shown, 72 thin omitted)
 - Extraction: 89% EXTRACTED · 11% INFERRED · 0% AMBIGUOUS · INFERRED: 233 edges (avg confidence: 0.9)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `20125de7`
+- Built from commit: `f29d2143`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -24,7 +24,7 @@
 - Milestone 0.1.0: Live Trading Foundation
 - route
 - server.py
-- instrument_resolver.py
+- conditional_order
 - DhanClient
 - DhanOrderService
 - _add_activity_log
@@ -77,11 +77,9 @@
 - validate_sl_target
 - DhanMarketDataService
 - TestSlackWebhookGating
-- _compute_zone
 - test_dhan_client_facade_delegation
 - load_scrip_background
 - TestSuperOrderModify
-- set_feeling_route
 - test_gtt_orders.py
 - DhanSafetyService
 - Summary: Phase 13 - Modular Broker Facade & Dedicated Services
@@ -130,7 +128,7 @@
 - **Fail-Closed Operator Alarm Architecture** — docs_architecture_alarm_pipeline, docs_architecture_broker_disagreement, templates_index_refreshactivitylogs, readme_alarm_pipeline [INFERRED 0.95]
 - **State-Aware UI Position Management Loop** — templates_index_refreshstate, templates_index_updateui, templates_index_senduiaction, planning_phases_08_ui_management_08_context_state_aware_dashboard [INFERRED 0.95]
 
-## Communities (111 total, 73 thin omitted)
+## Communities (109 total, 72 thin omitted)
 
 ### Community 0 - ".process_signal"
 Cohesion: 0.10
@@ -158,19 +156,19 @@ Nodes (44): Broker Layer (broker_dhan.py), Flask Server (server.py), Super Order
 
 ### Community 6 - "route"
 Cohesion: 0.05
-Nodes (20): auth_callback(), auth_initiate(), auth_renew(), dashboard(), dhan_postback(), fund_limit(), get_activity_logs(), get_broker_orders() (+12 more)
+Nodes (20): auth_callback(), auth_initiate(), auth_renew(), dashboard(), fund_limit(), get_activity_logs(), get_broker_orders(), get_broker_positions() (+12 more)
 
 ### Community 7 - "server.py"
 Cohesion: 0.08
-Nodes (17): _clear_exit_order_meta(), _ErrorBufferHandler, _find_level_key_by_value(), get_context(), _get_exit_order_meta(), get_feeling_route(), get_last_signal(), _get_level_value_by_key() (+9 more)
+Nodes (17): _clear_exit_order_meta(), dhan_postback(), _ErrorBufferHandler, _find_level_key_by_value(), get_context(), _get_exit_order_meta(), _get_level_value_by_key(), get_levels() (+9 more)
 
-### Community 8 - "instrument_resolver.py"
-Cohesion: 0.15
-Nodes (10): calculate_quantity_from_margin(), resolve_call_itm(), resolve_index_spot(), resolve_put_itm(), get_itm(), get_margin(), level_hit(), _set_pending_trade() (+2 more)
+### Community 8 - "conditional_order"
+Cohesion: 0.12
+Nodes (14): calculate_quantity_from_margin(), resolve_call_itm(), resolve_index_spot(), resolve_put_itm(), conditional_order(), _feeling_block_for_entry(), get_itm(), get_margin() (+6 more)
 
 ### Community 11 - "_add_activity_log"
-Cohesion: 0.13
-Nodes (8): _add_activity_log(), cancel_conditional_orders(), conditional_order(), _feeling_block_for_entry(), _get_pending_trade(), manual_exit(), _post_to_slack_async(), skip_trade()
+Cohesion: 0.10
+Nodes (10): _add_activity_log(), cancel_conditional_orders(), _compute_zone(), _contra_pending_warnings(), dy_signal(), get_zone(), manual_exit(), _post_to_slack_async() (+2 more)
 
 ### Community 12 - "broker_mock.py"
 Cohesion: 0.14
@@ -264,10 +262,6 @@ Nodes (4): derive_side(), normalize_feeling(), simulate_today(), simulate_from_c
 Cohesion: 0.29
 Nodes (3): DhanMarketDataService, DhanSocketService, Tasks
 
-### Community 92 - "_compute_zone"
-Cohesion: 0.25
-Nodes (4): _compute_zone(), dy_signal(), get_zone(), range_signal()
-
 ### Community 98 - "test_gtt_orders.py"
 Cohesion: 0.29
 Nodes (3): client(), test_gtt_orders_success(), test_gtt_orders_unauthorized()
@@ -287,7 +281,7 @@ Nodes (3): Executive Summary, Key Changes, Summary: Phase 18 - Kill Switch Super
 ## Knowledge Gaps
 - **43 isolated node(s):** `updateFeeling`, `Direct Signal Strategy`, `Unauthenticated SSE and Last-Signal Endpoints`, `SSE Queue Blocking DoS Vulnerability`, `Operational Hardening PR #9a` (+38 more)
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 470 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **73 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **72 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_

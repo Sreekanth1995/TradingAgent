@@ -1895,43 +1895,55 @@
       "file_type": "code",
       "norm_label": "cancel_conditional_orders()",
       "source_file": "server.py",
-      "source_location": "L2366"
+      "source_location": "L2360"
     },
     {
-      "id": "server_conditional_order",
-      "label": "conditional_order()",
+      "id": "server_compute_zone",
+      "label": "_compute_zone()",
       "_callable": true,
       "_origin": "ast",
       "community": 11,
       "community_name": "_add_activity_log",
       "file_type": "code",
-      "norm_label": "conditional_order()",
+      "norm_label": "_compute_zone()",
       "source_file": "server.py",
-      "source_location": "L1491"
+      "source_location": "L2226"
     },
     {
-      "id": "server_feeling_block_for_entry",
-      "label": "_feeling_block_for_entry()",
+      "id": "server_contra_pending_warnings",
+      "label": "_contra_pending_warnings()",
       "_callable": true,
       "_origin": "ast",
       "community": 11,
       "community_name": "_add_activity_log",
       "file_type": "code",
-      "norm_label": "_feeling_block_for_entry()",
+      "norm_label": "_contra_pending_warnings()",
       "source_file": "server.py",
-      "source_location": "L2526"
+      "source_location": "L2585"
     },
     {
-      "id": "server_get_pending_trade",
-      "label": "_get_pending_trade()",
+      "id": "server_dy_signal",
+      "label": "dy_signal()",
       "_callable": true,
       "_origin": "ast",
       "community": 11,
       "community_name": "_add_activity_log",
       "file_type": "code",
-      "norm_label": "_get_pending_trade()",
+      "norm_label": "dy_signal()",
       "source_file": "server.py",
-      "source_location": "L295"
+      "source_location": "L2283"
+    },
+    {
+      "id": "server_get_zone",
+      "label": "get_zone()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 11,
+      "community_name": "_add_activity_log",
+      "file_type": "code",
+      "norm_label": "get_zone()",
+      "source_file": "server.py",
+      "source_location": "L2319"
     },
     {
       "id": "server_manual_exit",
@@ -1970,16 +1982,28 @@
       "source_location": "L140"
     },
     {
-      "id": "server_skip_trade",
-      "label": "skip_trade()",
+      "id": "server_range_signal",
+      "label": "range_signal()",
       "_callable": true,
       "_origin": "ast",
       "community": 11,
       "community_name": "_add_activity_log",
       "file_type": "code",
-      "norm_label": "skip_trade()",
+      "norm_label": "range_signal()",
       "source_file": "server.py",
-      "source_location": "L2156"
+      "source_location": "L2246"
+    },
+    {
+      "id": "server_set_feeling_route",
+      "label": "set_feeling_route()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 11,
+      "community_name": "_add_activity_log",
+      "file_type": "code",
+      "norm_label": "set_feeling_route()",
+      "source_file": "server.py",
+      "source_location": "L2616"
     },
     {
       "id": "tests_test_expiry_selection_test_expiry_selection_only_today_available",
@@ -2279,7 +2303,7 @@
       "file_type": "code",
       "norm_label": "cancel_super_order()",
       "source_file": "server.py",
-      "source_location": "L1951"
+      "source_location": "L1945"
     },
     {
       "id": "server_dhan_webhook",
@@ -2315,7 +2339,7 @@
       "file_type": "code",
       "norm_label": "get_trade_feed()",
       "source_file": "server.py",
-      "source_location": "L2180"
+      "source_location": "L2174"
     },
     {
       "id": "trade_feed_connect",
@@ -3059,7 +3083,7 @@
       "file_type": "code",
       "norm_label": "exit_conditional_order()",
       "source_file": "server.py",
-      "source_location": "L2061"
+      "source_location": "L2055"
     },
     {
       "id": "server_exit_super_order",
@@ -3071,7 +3095,7 @@
       "file_type": "code",
       "norm_label": "exit_super_order()",
       "source_file": "server.py",
-      "source_location": "L1977"
+      "source_location": "L1971"
     },
     {
       "id": "server_get_history",
@@ -3083,7 +3107,7 @@
       "file_type": "code",
       "norm_label": "get_history()",
       "source_file": "server.py",
-      "source_location": "L1327"
+      "source_location": "L1321"
     },
     {
       "id": "server_load_history",
@@ -5351,7 +5375,7 @@
       "file_type": "code",
       "norm_label": "scrip_status()",
       "source_file": "server.py",
-      "source_location": "L1403"
+      "source_location": "L1397"
     },
     {
       "id": "broker_market_data_service_dhanmarketdataservice_calculate_lots_by_margin",
@@ -5579,7 +5603,7 @@
       "file_type": "code",
       "norm_label": "auth_callback()",
       "source_file": "server.py",
-      "source_location": "L2779"
+      "source_location": "L2773"
     },
     {
       "id": "server_auth_initiate",
@@ -5591,7 +5615,7 @@
       "file_type": "code",
       "norm_label": "auth_initiate()",
       "source_file": "server.py",
-      "source_location": "L2757"
+      "source_location": "L2751"
     },
     {
       "id": "server_auth_renew",
@@ -5603,7 +5627,7 @@
       "file_type": "code",
       "norm_label": "auth_renew()",
       "source_file": "server.py",
-      "source_location": "L2798"
+      "source_location": "L2792"
     },
     {
       "id": "server_dashboard",
@@ -5618,18 +5642,6 @@
       "source_location": "L560"
     },
     {
-      "id": "server_dhan_postback",
-      "label": "dhan_postback()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "route",
-      "file_type": "code",
-      "norm_label": "dhan_postback()",
-      "source_file": "server.py",
-      "source_location": "L1760"
-    },
-    {
       "id": "server_fund_limit",
       "label": "fund_limit()",
       "_callable": true,
@@ -5639,7 +5651,7 @@
       "file_type": "code",
       "norm_label": "fund_limit()",
       "source_file": "server.py",
-      "source_location": "L1258"
+      "source_location": "L1252"
     },
     {
       "id": "server_get_activity_logs",
@@ -5651,7 +5663,7 @@
       "file_type": "code",
       "norm_label": "get_activity_logs()",
       "source_file": "server.py",
-      "source_location": "L1348"
+      "source_location": "L1342"
     },
     {
       "id": "server_get_broker_orders",
@@ -5663,7 +5675,7 @@
       "file_type": "code",
       "norm_label": "get_broker_orders()",
       "source_file": "server.py",
-      "source_location": "L2138"
+      "source_location": "L2132"
     },
     {
       "id": "server_get_broker_positions",
@@ -5675,7 +5687,19 @@
       "file_type": "code",
       "norm_label": "get_broker_positions()",
       "source_file": "server.py",
-      "source_location": "L2120"
+      "source_location": "L2114"
+    },
+    {
+      "id": "server_get_feeling_route",
+      "label": "get_feeling_route()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "route",
+      "file_type": "code",
+      "norm_label": "get_feeling_route()",
+      "source_file": "server.py",
+      "source_location": "L2684"
     },
     {
       "id": "server_get_gtt_orders",
@@ -5687,7 +5711,19 @@
       "file_type": "code",
       "norm_label": "get_gtt_orders()",
       "source_file": "server.py",
-      "source_location": "L2194"
+      "source_location": "L2188"
+    },
+    {
+      "id": "server_get_last_signal",
+      "label": "get_last_signal()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "route",
+      "file_type": "code",
+      "norm_label": "get_last_signal()",
+      "source_file": "server.py",
+      "source_location": "L549"
     },
     {
       "id": "server_get_ltp",
@@ -5723,7 +5759,7 @@
       "file_type": "code",
       "norm_label": "margin_calculator()",
       "source_file": "server.py",
-      "source_location": "L1283"
+      "source_location": "L1277"
     },
     {
       "id": "server_margin_calculator_multi",
@@ -5735,7 +5771,7 @@
       "file_type": "code",
       "norm_label": "margin_calculator_multi()",
       "source_file": "server.py",
-      "source_location": "L1306"
+      "source_location": "L1300"
     },
     {
       "id": "server_reload_scrip",
@@ -5747,19 +5783,7 @@
       "file_type": "code",
       "norm_label": "reload_scrip()",
       "source_file": "server.py",
-      "source_location": "L1465"
-    },
-    {
-      "id": "server_scale_conditional_order",
-      "label": "scale_conditional_order()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "route",
-      "file_type": "code",
-      "norm_label": "scale_conditional_order()",
-      "source_file": "server.py",
-      "source_location": "L2028"
+      "source_location": "L1459"
     },
     {
       "id": "server_server_logs",
@@ -5771,7 +5795,7 @@
       "file_type": "code",
       "norm_label": "server_logs()",
       "source_file": "server.py",
-      "source_location": "L1384"
+      "source_location": "L1378"
     },
     {
       "id": "server_set_conditional_index_orders",
@@ -5783,7 +5807,7 @@
       "file_type": "code",
       "norm_label": "set_conditional_index_orders()",
       "source_file": "server.py",
-      "source_location": "L1790"
+      "source_location": "L1784"
     },
     {
       "id": "server_update_super_order",
@@ -5795,7 +5819,7 @@
       "file_type": "code",
       "norm_label": "update_super_order()",
       "source_file": "server.py",
-      "source_location": "L1909"
+      "source_location": "L1903"
     },
     {
       "id": "server_update_token",
@@ -5807,7 +5831,7 @@
       "file_type": "code",
       "norm_label": "update_token()",
       "source_file": "server.py",
-      "source_location": "L2730"
+      "source_location": "L2724"
     },
     {
       "id": "broker_mock_mockdhanclient_get_all_gtt_orders",
@@ -5942,6 +5966,18 @@
       "source_location": "L317"
     },
     {
+      "id": "server_dhan_postback",
+      "label": "dhan_postback()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "server.py",
+      "file_type": "code",
+      "norm_label": "dhan_postback()",
+      "source_file": "server.py",
+      "source_location": "L1754"
+    },
+    {
       "id": "server_errorbufferhandler_emit",
       "label": ".emit()",
       "_callable": true,
@@ -5963,7 +5999,7 @@
       "file_type": "code",
       "norm_label": "_find_level_key_by_value()",
       "source_file": "server.py",
-      "source_location": "L2404"
+      "source_location": "L2398"
     },
     {
       "id": "server_get_context",
@@ -5975,7 +6011,7 @@
       "file_type": "code",
       "norm_label": "get_context()",
       "source_file": "server.py",
-      "source_location": "L2509"
+      "source_location": "L2503"
     },
     {
       "id": "server_get_exit_order_meta",
@@ -5990,30 +6026,6 @@
       "source_location": "L311"
     },
     {
-      "id": "server_get_feeling_route",
-      "label": "get_feeling_route()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 7,
-      "community_name": "server.py",
-      "file_type": "code",
-      "norm_label": "get_feeling_route()",
-      "source_file": "server.py",
-      "source_location": "L2690"
-    },
-    {
-      "id": "server_get_last_signal",
-      "label": "get_last_signal()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 7,
-      "community_name": "server.py",
-      "file_type": "code",
-      "norm_label": "get_last_signal()",
-      "source_file": "server.py",
-      "source_location": "L549"
-    },
-    {
       "id": "server_get_level_value_by_key",
       "label": "_get_level_value_by_key()",
       "_callable": true,
@@ -6023,7 +6035,7 @@
       "file_type": "code",
       "norm_label": "_get_level_value_by_key()",
       "source_file": "server.py",
-      "source_location": "L2432"
+      "source_location": "L2426"
     },
     {
       "id": "server_get_levels",
@@ -6035,7 +6047,7 @@
       "file_type": "code",
       "norm_label": "get_levels()",
       "source_file": "server.py",
-      "source_location": "L2491"
+      "source_location": "L2485"
     },
     {
       "id": "server_handle_live_order_update",
@@ -6110,6 +6122,18 @@
       "source_location": "L419"
     },
     {
+      "id": "server_scale_conditional_order",
+      "label": "scale_conditional_order()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "server.py",
+      "file_type": "code",
+      "norm_label": "scale_conditional_order()",
+      "source_file": "server.py",
+      "source_location": "L2022"
+    },
+    {
       "id": "server_set_context",
       "label": "set_context()",
       "_callable": true,
@@ -6119,7 +6143,7 @@
       "file_type": "code",
       "norm_label": "set_context()",
       "source_file": "server.py",
-      "source_location": "L2499"
+      "source_location": "L2493"
     },
     {
       "id": "server_set_levels",
@@ -6131,7 +6155,7 @@
       "file_type": "code",
       "norm_label": "set_levels()",
       "source_file": "server.py",
-      "source_location": "L2447"
+      "source_location": "L2441"
     },
     {
       "id": "broker_mock_mockdhanclient_modify_super_target_leg",
@@ -6151,7 +6175,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "code",
       "norm_label": "calculate_quantity_from_margin()",
       "source_file": "instrument_resolver.py",
@@ -6163,7 +6187,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "code",
       "norm_label": "resolve_call_itm()",
       "source_file": "instrument_resolver.py",
@@ -6175,7 +6199,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "code",
       "norm_label": "resolve_index_spot()",
       "source_file": "instrument_resolver.py",
@@ -6187,11 +6211,35 @@
       "_callable": true,
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "code",
       "norm_label": "resolve_put_itm()",
       "source_file": "instrument_resolver.py",
       "source_location": "L127"
+    },
+    {
+      "id": "server_conditional_order",
+      "label": "conditional_order()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 8,
+      "community_name": "conditional_order",
+      "file_type": "code",
+      "norm_label": "conditional_order()",
+      "source_file": "server.py",
+      "source_location": "L1485"
+    },
+    {
+      "id": "server_feeling_block_for_entry",
+      "label": "_feeling_block_for_entry()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 8,
+      "community_name": "conditional_order",
+      "file_type": "code",
+      "norm_label": "_feeling_block_for_entry()",
+      "source_file": "server.py",
+      "source_location": "L2520"
     },
     {
       "id": "server_get_itm",
@@ -6199,7 +6247,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "code",
       "norm_label": "get_itm()",
       "source_file": "server.py",
@@ -6211,11 +6259,23 @@
       "_callable": true,
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "code",
       "norm_label": "get_margin()",
       "source_file": "server.py",
       "source_location": "L1156"
+    },
+    {
+      "id": "server_get_pending_trade",
+      "label": "_get_pending_trade()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 8,
+      "community_name": "conditional_order",
+      "file_type": "code",
+      "norm_label": "_get_pending_trade()",
+      "source_file": "server.py",
+      "source_location": "L295"
     },
     {
       "id": "server_level_hit",
@@ -6223,11 +6283,11 @@
       "_callable": true,
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "code",
       "norm_label": "level_hit()",
       "source_file": "server.py",
-      "source_location": "L1697"
+      "source_location": "L1691"
     },
     {
       "id": "server_set_pending_trade",
@@ -6235,7 +6295,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "code",
       "norm_label": "_set_pending_trade()",
       "source_file": "server.py",
@@ -6247,11 +6307,23 @@
       "_callable": true,
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "code",
       "norm_label": "set_super_order()",
       "source_file": "server.py",
-      "source_location": "L1835"
+      "source_location": "L1829"
+    },
+    {
+      "id": "server_skip_trade",
+      "label": "skip_trade()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 8,
+      "community_name": "conditional_order",
+      "file_type": "code",
+      "norm_label": "skip_trade()",
+      "source_file": "server.py",
+      "source_location": "L2150"
     },
     {
       "id": "server_webhook",
@@ -6259,7 +6331,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "code",
       "norm_label": "webhook()",
       "source_file": "server.py",
@@ -6998,54 +7070,6 @@
       "source_location": "L68"
     },
     {
-      "id": "server_compute_zone",
-      "label": "_compute_zone()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 92,
-      "community_name": "_compute_zone",
-      "file_type": "code",
-      "norm_label": "_compute_zone()",
-      "source_file": "server.py",
-      "source_location": "L2232"
-    },
-    {
-      "id": "server_dy_signal",
-      "label": "dy_signal()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 92,
-      "community_name": "_compute_zone",
-      "file_type": "code",
-      "norm_label": "dy_signal()",
-      "source_file": "server.py",
-      "source_location": "L2289"
-    },
-    {
-      "id": "server_get_zone",
-      "label": "get_zone()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 92,
-      "community_name": "_compute_zone",
-      "file_type": "code",
-      "norm_label": "get_zone()",
-      "source_file": "server.py",
-      "source_location": "L2325"
-    },
-    {
-      "id": "server_range_signal",
-      "label": "range_signal()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 92,
-      "community_name": "_compute_zone",
-      "file_type": "code",
-      "norm_label": "range_signal()",
-      "source_file": "server.py",
-      "source_location": "L2252"
-    },
-    {
       "id": "broker_client_dhanclient_alarm",
       "label": "._alarm()",
       "_callable": true,
@@ -7284,30 +7308,6 @@
       "norm_label": ".test_modify_super_order_routes_to_correct_broker_legs()",
       "source_file": "tests/test_super_order_smart_exit_refined.py",
       "source_location": "L30"
-    },
-    {
-      "id": "server_contra_pending_warnings",
-      "label": "_contra_pending_warnings()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 97,
-      "community_name": "set_feeling_route",
-      "file_type": "code",
-      "norm_label": "_contra_pending_warnings()",
-      "source_file": "server.py",
-      "source_location": "L2591"
-    },
-    {
-      "id": "server_set_feeling_route",
-      "label": "set_feeling_route()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 97,
-      "community_name": "set_feeling_route",
-      "file_type": "code",
-      "norm_label": "set_feeling_route()",
-      "source_file": "server.py",
-      "source_location": "L2622"
     },
     {
       "id": "tests_test_gtt_orders_client",
@@ -8078,17 +8078,6 @@
       "source_location": "L122"
     },
     {
-      "id": "server_rationale_1492",
-      "label": "Programmatic/AI entry point for manual UI signals.",
-      "_origin": "ast",
-      "community": 11,
-      "community_name": "_add_activity_log",
-      "file_type": "rationale",
-      "norm_label": "programmatic/ai entry point for manual ui signals.",
-      "source_file": "server.py",
-      "source_location": "L1492"
-    },
-    {
       "id": "server_rationale_153",
       "label": "Appends a log entry to the in-memory deque and persists it to Redis if\u2026",
       "_origin": "ast",
@@ -8100,18 +8089,51 @@
       "source_location": "L153"
     },
     {
-      "id": "server_rationale_2157",
-      "label": "Called by Claude when it decides NOT to place an order for a received signal.\u2026",
+      "id": "server_rationale_2227",
+      "label": "Derive zone from RangeTracker and DySupportResistance positions. ABOVE = price\u2026",
       "_origin": "ast",
       "community": 11,
       "community_name": "_add_activity_log",
       "file_type": "rationale",
-      "norm_label": "called by claude when it decides not to place an order for a received signal....",
+      "norm_label": "derive zone from rangetracker and dysupportresistance positions. above = price...",
       "source_file": "server.py",
-      "source_location": "L2157"
+      "source_location": "L2227"
     },
     {
-      "id": "server_rationale_2367",
+      "id": "server_rationale_2247",
+      "label": "TradingView alert endpoint for RangeTracker indicator. Stores the price\u2026",
+      "_origin": "ast",
+      "community": 11,
+      "community_name": "_add_activity_log",
+      "file_type": "rationale",
+      "norm_label": "tradingview alert endpoint for rangetracker indicator. stores the price...",
+      "source_file": "server.py",
+      "source_location": "L2247"
+    },
+    {
+      "id": "server_rationale_2284",
+      "label": "TradingView alert endpoint for DySupportResistance indicator. Stores the price\u2026",
+      "_origin": "ast",
+      "community": 11,
+      "community_name": "_add_activity_log",
+      "file_type": "rationale",
+      "norm_label": "tradingview alert endpoint for dysupportresistance indicator. stores the price...",
+      "source_file": "server.py",
+      "source_location": "L2284"
+    },
+    {
+      "id": "server_rationale_2320",
+      "label": "Returns the current market zone for one or all underlyings. Zone is derived\u2026",
+      "_origin": "ast",
+      "community": 11,
+      "community_name": "_add_activity_log",
+      "file_type": "rationale",
+      "norm_label": "returns the current market zone for one or all underlyings. zone is derived...",
+      "source_file": "server.py",
+      "source_location": "L2320"
+    },
+    {
+      "id": "server_rationale_2361",
       "label": "Cancels active GTT conditional orders for a position. Payload: { secret,\u2026",
       "_origin": "ast",
       "community": 11,
@@ -8119,18 +8141,29 @@
       "file_type": "rationale",
       "norm_label": "cancels active gtt conditional orders for a position. payload: { secret,...",
       "source_file": "server.py",
-      "source_location": "L2367"
+      "source_location": "L2361"
     },
     {
-      "id": "server_rationale_2527",
-      "label": "Route-layer feeling gate. Returns None to allow the entry, or a dict body to\u2026",
+      "id": "server_rationale_2586",
+      "label": "Return a list of warnings if the new feeling contradicts existing PENDING\u2026",
       "_origin": "ast",
       "community": 11,
       "community_name": "_add_activity_log",
       "file_type": "rationale",
-      "norm_label": "route-layer feeling gate. returns none to allow the entry, or a dict body to...",
+      "norm_label": "return a list of warnings if the new feeling contradicts existing pending...",
       "source_file": "server.py",
-      "source_location": "L2527"
+      "source_location": "L2586"
+    },
+    {
+      "id": "server_rationale_2617",
+      "label": "Set per-underlying market feeling. Payload: {secret, underlying, value} -\u2026",
+      "_origin": "ast",
+      "community": 11,
+      "community_name": "_add_activity_log",
+      "file_type": "rationale",
+      "norm_label": "set per-underlying market feeling. payload: {secret, underlying, value} -...",
+      "source_file": "server.py",
+      "source_location": "L2617"
     },
     {
       "id": "server_rationale_812",
@@ -8706,7 +8739,7 @@
       "source_location": "L1"
     },
     {
-      "id": "server_rationale_1952",
+      "id": "server_rationale_1946",
       "label": "Cancels the pending (unfilled) entry leg of an active Super Order.",
       "_origin": "ast",
       "community": 15,
@@ -8714,10 +8747,10 @@
       "file_type": "rationale",
       "norm_label": "cancels the pending (unfilled) entry leg of an active super order.",
       "source_file": "server.py",
-      "source_location": "L1952"
+      "source_location": "L1946"
     },
     {
-      "id": "server_rationale_2181",
+      "id": "server_rationale_2175",
       "label": "Returns the last 50 structured trade events for the dashboard feed table.",
       "_origin": "ast",
       "community": 15,
@@ -8725,7 +8758,7 @@
       "file_type": "rationale",
       "norm_label": "returns the last 50 structured trade events for the dashboard feed table.",
       "source_file": "server.py",
-      "source_location": "L2181"
+      "source_location": "L2175"
     },
     {
       "id": "server_rationale_481",
@@ -9121,7 +9154,7 @@
       "source_location": "L1"
     },
     {
-      "id": "server_rationale_1328",
+      "id": "server_rationale_1322",
       "label": "Returns the persistent trade history.",
       "_origin": "ast",
       "community": 29,
@@ -9129,10 +9162,10 @@
       "file_type": "rationale",
       "norm_label": "returns the persistent trade history.",
       "source_file": "server.py",
-      "source_location": "L1328"
+      "source_location": "L1322"
     },
     {
-      "id": "server_rationale_1978",
+      "id": "server_rationale_1972",
       "label": "Exits (squares off) an active Super Order position at market price.",
       "_origin": "ast",
       "community": 29,
@@ -9140,10 +9173,10 @@
       "file_type": "rationale",
       "norm_label": "exits (squares off) an active super order position at market price.",
       "source_file": "server.py",
-      "source_location": "L1978"
+      "source_location": "L1972"
     },
     {
-      "id": "server_rationale_2062",
+      "id": "server_rationale_2056",
       "label": "Exits (squares off) an active Conditional Order position at market price.",
       "_origin": "ast",
       "community": 29,
@@ -9151,7 +9184,7 @@
       "file_type": "rationale",
       "norm_label": "exits (squares off) an active conditional order position at market price.",
       "source_file": "server.py",
-      "source_location": "L2062"
+      "source_location": "L2056"
     },
     {
       "id": "tests_test_conditional_entry",
@@ -10520,7 +10553,7 @@
       "source_location": ""
     },
     {
-      "id": "server_rationale_1404",
+      "id": "server_rationale_1398",
       "label": "Returns scrip master load status: how many instruments are loaded, expiry dates\u2026",
       "_origin": "ast",
       "community": 56,
@@ -10528,7 +10561,7 @@
       "file_type": "rationale",
       "norm_label": "returns scrip master load status: how many instruments are loaded, expiry dates...",
       "source_file": "server.py",
-      "source_location": "L1404"
+      "source_location": "L1398"
     },
     {
       "id": "broker_market_data_service_py_any",
@@ -10707,7 +10740,7 @@
       "source_location": "L1084"
     },
     {
-      "id": "server_rationale_1259",
+      "id": "server_rationale_1253",
       "label": "Retrieve available fund limits (availableBalance).",
       "_origin": "ast",
       "community": 6,
@@ -10715,10 +10748,10 @@
       "file_type": "rationale",
       "norm_label": "retrieve available fund limits (availablebalance).",
       "source_file": "server.py",
-      "source_location": "L1259"
+      "source_location": "L1253"
     },
     {
-      "id": "server_rationale_1284",
+      "id": "server_rationale_1278",
       "label": "Calculate margin for a single order. Payload: { secret, security_id,\u2026",
       "_origin": "ast",
       "community": 6,
@@ -10726,10 +10759,10 @@
       "file_type": "rationale",
       "norm_label": "calculate margin for a single order. payload: { secret, security_id,...",
       "source_file": "server.py",
-      "source_location": "L1284"
+      "source_location": "L1278"
     },
     {
-      "id": "server_rationale_1307",
+      "id": "server_rationale_1301",
       "label": "Calculate margin for multiple orders. Payload: { secret, orders: [...] }",
       "_origin": "ast",
       "community": 6,
@@ -10737,10 +10770,10 @@
       "file_type": "rationale",
       "norm_label": "calculate margin for multiple orders. payload: { secret, orders: [...] }",
       "source_file": "server.py",
-      "source_location": "L1307"
+      "source_location": "L1301"
     },
     {
-      "id": "server_rationale_1349",
+      "id": "server_rationale_1343",
       "label": "Returns the most recent system activity logs (signals received, orders placed).\u2026",
       "_origin": "ast",
       "community": 6,
@@ -10748,10 +10781,10 @@
       "file_type": "rationale",
       "norm_label": "returns the most recent system activity logs (signals received, orders placed)....",
       "source_file": "server.py",
-      "source_location": "L1349"
+      "source_location": "L1343"
     },
     {
-      "id": "server_rationale_1385",
+      "id": "server_rationale_1379",
       "label": "Returns recent WARNING/ERROR/CRITICAL log entries captured in memory. Useful\u2026",
       "_origin": "ast",
       "community": 6,
@@ -10759,10 +10792,10 @@
       "file_type": "rationale",
       "norm_label": "returns recent warning/error/critical log entries captured in memory. useful...",
       "source_file": "server.py",
-      "source_location": "L1385"
+      "source_location": "L1379"
     },
     {
-      "id": "server_rationale_1466",
+      "id": "server_rationale_1460",
       "label": "Forces a synchronous re-download and reload of the Dhan scrip master CSV. Call\u2026",
       "_origin": "ast",
       "community": 6,
@@ -10770,21 +10803,10 @@
       "file_type": "rationale",
       "norm_label": "forces a synchronous re-download and reload of the dhan scrip master csv. call...",
       "source_file": "server.py",
-      "source_location": "L1466"
+      "source_location": "L1460"
     },
     {
-      "id": "server_rationale_1761",
-      "label": "Catch-all endpoint for Dhan Postback notifications. Suggested URL:\u2026",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "route",
-      "file_type": "rationale",
-      "norm_label": "catch-all endpoint for dhan postback notifications. suggested url:...",
-      "source_file": "server.py",
-      "source_location": "L1761"
-    },
-    {
-      "id": "server_rationale_1791",
+      "id": "server_rationale_1785",
       "label": "Creates Dhan Conditional Trigger orders (GTT) based on INDEX LEVELS.",
       "_origin": "ast",
       "community": 6,
@@ -10792,10 +10814,10 @@
       "file_type": "rationale",
       "norm_label": "creates dhan conditional trigger orders (gtt) based on index levels.",
       "source_file": "server.py",
-      "source_location": "L1791"
+      "source_location": "L1785"
     },
     {
-      "id": "server_rationale_1910",
+      "id": "server_rationale_1904",
       "label": "Updates the target and sl legs of an active Premium-based Super Order. Payload:\u2026",
       "_origin": "ast",
       "community": 6,
@@ -10803,21 +10825,10 @@
       "file_type": "rationale",
       "norm_label": "updates the target and sl legs of an active premium-based super order. payload:...",
       "source_file": "server.py",
-      "source_location": "L1910"
+      "source_location": "L1904"
     },
     {
-      "id": "server_rationale_2029",
-      "label": "Executes partial scale-out for an active conditional order position.",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "route",
-      "file_type": "rationale",
-      "norm_label": "executes partial scale-out for an active conditional order position.",
-      "source_file": "server.py",
-      "source_location": "L2029"
-    },
-    {
-      "id": "server_rationale_2121",
+      "id": "server_rationale_2115",
       "label": "Returns all current open positions from Dhan.",
       "_origin": "ast",
       "community": 6,
@@ -10825,10 +10836,10 @@
       "file_type": "rationale",
       "norm_label": "returns all current open positions from dhan.",
       "source_file": "server.py",
-      "source_location": "L2121"
+      "source_location": "L2115"
     },
     {
-      "id": "server_rationale_2139",
+      "id": "server_rationale_2133",
       "label": "Returns the full order book from Dhan.",
       "_origin": "ast",
       "community": 6,
@@ -10836,10 +10847,10 @@
       "file_type": "rationale",
       "norm_label": "returns the full order book from dhan.",
       "source_file": "server.py",
-      "source_location": "L2139"
+      "source_location": "L2133"
     },
     {
-      "id": "server_rationale_2195",
+      "id": "server_rationale_2189",
       "label": "Fetches all GTT conditional orders from Dhan and divides them into filled and\u2026",
       "_origin": "ast",
       "community": 6,
@@ -10847,10 +10858,21 @@
       "file_type": "rationale",
       "norm_label": "fetches all gtt conditional orders from dhan and divides them into filled and...",
       "source_file": "server.py",
-      "source_location": "L2195"
+      "source_location": "L2189"
     },
     {
-      "id": "server_rationale_2731",
+      "id": "server_rationale_2685",
+      "label": "Get per-underlying market feeling. Payload: {secret, underlying?} - If\u2026",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "route",
+      "file_type": "rationale",
+      "norm_label": "get per-underlying market feeling. payload: {secret, underlying?} - if...",
+      "source_file": "server.py",
+      "source_location": "L2685"
+    },
+    {
+      "id": "server_rationale_2725",
       "label": "Endpoint to update Dhan Access Token dynamically. Expected Payload: {\"secret\":\u2026",
       "_origin": "ast",
       "community": 6,
@@ -10858,10 +10880,10 @@
       "file_type": "rationale",
       "norm_label": "endpoint to update dhan access token dynamically. expected payload: {\"secret\":...",
       "source_file": "server.py",
-      "source_location": "L2731"
+      "source_location": "L2725"
     },
     {
-      "id": "server_rationale_2758",
+      "id": "server_rationale_2752",
       "label": "Step 1: Get Dhan Consent URL and return to frontend.",
       "_origin": "ast",
       "community": 6,
@@ -10869,10 +10891,10 @@
       "file_type": "rationale",
       "norm_label": "step 1: get dhan consent url and return to frontend.",
       "source_file": "server.py",
-      "source_location": "L2758"
+      "source_location": "L2752"
     },
     {
-      "id": "server_rationale_2780",
+      "id": "server_rationale_2774",
       "label": "Step 3: Receive tokenId from Dhan redirect and finalize authentication.",
       "_origin": "ast",
       "community": 6,
@@ -10880,10 +10902,10 @@
       "file_type": "rationale",
       "norm_label": "step 3: receive tokenid from dhan redirect and finalize authentication.",
       "source_file": "server.py",
-      "source_location": "L2780"
+      "source_location": "L2774"
     },
     {
-      "id": "server_rationale_2799",
+      "id": "server_rationale_2793",
       "label": "Renews the current active Dhan access token via POST\u2026",
       "_origin": "ast",
       "community": 6,
@@ -10891,7 +10913,7 @@
       "file_type": "rationale",
       "norm_label": "renews the current active dhan access token via post...",
       "source_file": "server.py",
-      "source_location": "L2799"
+      "source_location": "L2793"
     },
     {
       "id": "server_rationale_448",
@@ -10903,6 +10925,17 @@
       "norm_label": "health check endpoint for monitoring. `feelings_store` is 'ok' (file readable,...",
       "source_file": "server.py",
       "source_location": "L448"
+    },
+    {
+      "id": "server_rationale_550",
+      "label": "Returns the most recent enriched signal for AI pull/re-sync. Requires ?secret=",
+      "_origin": "ast",
+      "community": 6,
+      "community_name": "route",
+      "file_type": "rationale",
+      "norm_label": "returns the most recent enriched signal for ai pull/re-sync. requires ?secret=",
+      "source_file": "server.py",
+      "source_location": "L550"
     },
     {
       "id": "server_rationale_561",
@@ -11037,6 +11070,28 @@
       "source_location": "L1"
     },
     {
+      "id": "server_rationale_1755",
+      "label": "Catch-all endpoint for Dhan Postback notifications. Suggested URL:\u2026",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "server.py",
+      "file_type": "rationale",
+      "norm_label": "catch-all endpoint for dhan postback notifications. suggested url:...",
+      "source_file": "server.py",
+      "source_location": "L1755"
+    },
+    {
+      "id": "server_rationale_2023",
+      "label": "Executes partial scale-out for an active conditional order position.",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "server.py",
+      "file_type": "rationale",
+      "norm_label": "executes partial scale-out for an active conditional order position.",
+      "source_file": "server.py",
+      "source_location": "L2023"
+    },
+    {
       "id": "server_rationale_212",
       "label": "Background thread to monitor conditional index levels.",
       "_origin": "ast",
@@ -11057,17 +11112,6 @@
       "norm_label": "callback from dhan live order update websocket.",
       "source_file": "server.py",
       "source_location": "L242"
-    },
-    {
-      "id": "server_rationale_2691",
-      "label": "Get per-underlying market feeling. Payload: {secret, underlying?} - If\u2026",
-      "_origin": "ast",
-      "community": 7,
-      "community_name": "server.py",
-      "file_type": "rationale",
-      "norm_label": "get per-underlying market feeling. payload: {secret, underlying?} - if...",
-      "source_file": "server.py",
-      "source_location": "L2691"
     },
     {
       "id": "server_rationale_382",
@@ -11101,17 +11145,6 @@
       "norm_label": "atomic write so a mid-write crash never leaves a torn ai context.",
       "source_file": "server.py",
       "source_location": "L439"
-    },
-    {
-      "id": "server_rationale_550",
-      "label": "Returns the most recent enriched signal for AI pull/re-sync. Requires ?secret=",
-      "_origin": "ast",
-      "community": 7,
-      "community_name": "server.py",
-      "file_type": "rationale",
-      "norm_label": "returns the most recent enriched signal for ai pull/re-sync. requires ?secret=",
-      "source_file": "server.py",
-      "source_location": "L550"
     },
     {
       "id": "broker_mock_rationale_278",
@@ -11249,7 +11282,7 @@
       "label": "instrument_resolver.py",
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "code",
       "norm_label": "instrument_resolver.py",
       "source_file": "instrument_resolver.py",
@@ -11260,7 +11293,7 @@
       "label": "Resolves the CALL ITM contract for the given index spot.",
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "rationale",
       "norm_label": "resolves the call itm contract for the given index spot.",
       "source_file": "instrument_resolver.py",
@@ -11271,7 +11304,7 @@
       "label": "Resolves the PUT ITM contract for the given index spot.",
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "rationale",
       "norm_label": "resolves the put itm contract for the given index spot.",
       "source_file": "instrument_resolver.py",
@@ -11282,7 +11315,7 @@
       "label": "Resolves the Index spot price for a given underlying.",
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "rationale",
       "norm_label": "resolves the index spot price for a given underlying.",
       "source_file": "instrument_resolver.py",
@@ -11293,7 +11326,7 @@
       "label": "Returns lot count based on available margin and the real Dhan margin API.\u2026",
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "rationale",
       "norm_label": "returns lot count based on available margin and the real dhan margin api....",
       "source_file": "instrument_resolver.py",
@@ -11304,7 +11337,7 @@
       "label": "Resolve the current ITM option contract for a given underlying and side.\u2026",
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "rationale",
       "norm_label": "resolve the current itm option contract for a given underlying and side....",
       "source_file": "server.py",
@@ -11315,40 +11348,73 @@
       "label": "Returns available balance and per-lot margin for the current ITM option.\u2026",
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "rationale",
       "norm_label": "returns available balance and per-lot margin for the current itm option....",
       "source_file": "server.py",
       "source_location": "L1157"
     },
     {
-      "id": "server_rationale_1698",
+      "id": "server_rationale_1486",
+      "label": "Programmatic/AI entry point for manual UI signals.",
+      "_origin": "ast",
+      "community": 8,
+      "community_name": "conditional_order",
+      "file_type": "rationale",
+      "norm_label": "programmatic/ai entry point for manual ui signals.",
+      "source_file": "server.py",
+      "source_location": "L1486"
+    },
+    {
+      "id": "server_rationale_1692",
       "label": "Dedicated endpoint for level crossings. Triggers the SL trailing logic\u2026",
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "rationale",
       "norm_label": "dedicated endpoint for level crossings. triggers the sl trailing logic...",
       "source_file": "server.py",
-      "source_location": "L1698"
+      "source_location": "L1692"
     },
     {
-      "id": "server_rationale_1836",
+      "id": "server_rationale_1830",
       "label": "Places a Native Super Order (Bracket) with absolute target/SL prices. Intended\u2026",
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "rationale",
       "norm_label": "places a native super order (bracket) with absolute target/sl prices. intended...",
       "source_file": "server.py",
-      "source_location": "L1836"
+      "source_location": "L1830"
+    },
+    {
+      "id": "server_rationale_2151",
+      "label": "Called by Claude when it decides NOT to place an order for a received signal.\u2026",
+      "_origin": "ast",
+      "community": 8,
+      "community_name": "conditional_order",
+      "file_type": "rationale",
+      "norm_label": "called by claude when it decides not to place an order for a received signal....",
+      "source_file": "server.py",
+      "source_location": "L2151"
+    },
+    {
+      "id": "server_rationale_2521",
+      "label": "Route-layer feeling gate. Returns None to allow the entry, or a dict body to\u2026",
+      "_origin": "ast",
+      "community": 8,
+      "community_name": "conditional_order",
+      "file_type": "rationale",
+      "norm_label": "route-layer feeling gate. returns none to allow the entry, or a dict body to...",
+      "source_file": "server.py",
+      "source_location": "L2521"
     },
     {
       "id": "server_rationale_568",
       "label": "Endpoint to receive TradingView Alerts.",
       "_origin": "ast",
       "community": 8,
-      "community_name": "instrument_resolver.py",
+      "community_name": "conditional_order",
       "file_type": "rationale",
       "norm_label": "endpoint to receive tradingview alerts.",
       "source_file": "server.py",
@@ -11620,50 +11686,6 @@
       "source_location": "L84"
     },
     {
-      "id": "server_rationale_2233",
-      "label": "Derive zone from RangeTracker and DySupportResistance positions. ABOVE = price\u2026",
-      "_origin": "ast",
-      "community": 92,
-      "community_name": "_compute_zone",
-      "file_type": "rationale",
-      "norm_label": "derive zone from rangetracker and dysupportresistance positions. above = price...",
-      "source_file": "server.py",
-      "source_location": "L2233"
-    },
-    {
-      "id": "server_rationale_2253",
-      "label": "TradingView alert endpoint for RangeTracker indicator. Stores the price\u2026",
-      "_origin": "ast",
-      "community": 92,
-      "community_name": "_compute_zone",
-      "file_type": "rationale",
-      "norm_label": "tradingview alert endpoint for rangetracker indicator. stores the price...",
-      "source_file": "server.py",
-      "source_location": "L2253"
-    },
-    {
-      "id": "server_rationale_2290",
-      "label": "TradingView alert endpoint for DySupportResistance indicator. Stores the price\u2026",
-      "_origin": "ast",
-      "community": 92,
-      "community_name": "_compute_zone",
-      "file_type": "rationale",
-      "norm_label": "tradingview alert endpoint for dysupportresistance indicator. stores the price...",
-      "source_file": "server.py",
-      "source_location": "L2290"
-    },
-    {
-      "id": "server_rationale_2326",
-      "label": "Returns the current market zone for one or all underlyings. Zone is derived\u2026",
-      "_origin": "ast",
-      "community": 92,
-      "community_name": "_compute_zone",
-      "file_type": "rationale",
-      "norm_label": "returns the current market zone for one or all underlyings. zone is derived...",
-      "source_file": "server.py",
-      "source_location": "L2326"
-    },
-    {
       "id": "tests_test_modular_broker_rationale_61",
       "label": "Verify DhanClient properly delegates to its underlying domain services.",
       "_origin": "ast",
@@ -11717,28 +11739,6 @@
       "norm_label": "the old _close_position smart-exit that modified each bracket leg by type...",
       "source_file": "tests/test_super_order_smart_exit_refined.py",
       "source_location": "L17"
-    },
-    {
-      "id": "server_rationale_2592",
-      "label": "Return a list of warnings if the new feeling contradicts existing PENDING\u2026",
-      "_origin": "ast",
-      "community": 97,
-      "community_name": "set_feeling_route",
-      "file_type": "rationale",
-      "norm_label": "return a list of warnings if the new feeling contradicts existing pending...",
-      "source_file": "server.py",
-      "source_location": "L2592"
-    },
-    {
-      "id": "server_rationale_2623",
-      "label": "Set per-underlying market feeling. Payload: {secret, underlying, value} -\u2026",
-      "_origin": "ast",
-      "community": 97,
-      "community_name": "set_feeling_route",
-      "file_type": "rationale",
-      "norm_label": "set per-underlying market feeling. payload: {secret, underlying, value} -...",
-      "source_file": "server.py",
-      "source_location": "L2623"
     },
     {
       "id": "tests_test_gtt_orders",
@@ -15807,7 +15807,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2396",
+      "source_location": "L2390",
       "weight": 1.0
     },
     {
@@ -15819,7 +15819,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1968",
+      "source_location": "L1962",
       "weight": 1.0
     },
     {
@@ -15831,7 +15831,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1534",
+      "source_location": "L1528",
       "weight": 1.0
     },
     {
@@ -15843,7 +15843,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1540",
+      "source_location": "L1534",
       "weight": 1.0
     },
     {
@@ -15855,7 +15855,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1547",
+      "source_location": "L1541",
       "weight": 1.0
     },
     {
@@ -15867,7 +15867,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1582",
+      "source_location": "L1576",
       "weight": 1.0
     },
     {
@@ -15879,7 +15879,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1587",
+      "source_location": "L1581",
       "weight": 1.0
     },
     {
@@ -15891,7 +15891,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1591",
+      "source_location": "L1585",
       "weight": 1.0
     },
     {
@@ -15903,7 +15903,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1591",
+      "source_location": "L1585",
       "weight": 1.0
     },
     {
@@ -15915,7 +15915,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1596",
+      "source_location": "L1590",
       "weight": 1.0
     },
     {
@@ -15927,7 +15927,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1600",
+      "source_location": "L1594",
       "weight": 1.0
     },
     {
@@ -15939,7 +15939,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1622",
+      "source_location": "L1616",
       "weight": 1.0
     },
     {
@@ -15951,7 +15951,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2606",
+      "source_location": "L2600",
       "weight": 1.0
     },
     {
@@ -15975,7 +15975,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2313",
+      "source_location": "L2307",
       "weight": 1.0
     },
     {
@@ -15987,7 +15987,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2316",
+      "source_location": "L2310",
       "weight": 1.0
     },
     {
@@ -16011,7 +16011,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2088",
+      "source_location": "L2082",
       "weight": 1.0
     },
     {
@@ -16023,7 +16023,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2095",
+      "source_location": "L2089",
       "weight": 1.0
     },
     {
@@ -16035,7 +16035,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2097",
+      "source_location": "L2091",
       "weight": 1.0
     },
     {
@@ -16047,7 +16047,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2100",
+      "source_location": "L2094",
       "weight": 1.0
     },
     {
@@ -16059,7 +16059,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1998",
+      "source_location": "L1992",
       "weight": 1.0
     },
     {
@@ -16071,7 +16071,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2006",
+      "source_location": "L2000",
       "weight": 1.0
     },
     {
@@ -16083,7 +16083,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2009",
+      "source_location": "L2003",
       "weight": 1.0
     },
     {
@@ -16095,7 +16095,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2553",
+      "source_location": "L2547",
       "weight": 1.0
     },
     {
@@ -16107,7 +16107,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2555",
+      "source_location": "L2549",
       "weight": 1.0
     },
     {
@@ -16119,7 +16119,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2514",
+      "source_location": "L2508",
       "weight": 1.0
     },
     {
@@ -16131,7 +16131,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1336",
+      "source_location": "L1330",
       "weight": 1.0
     },
     {
@@ -16179,7 +16179,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2496",
+      "source_location": "L2490",
       "weight": 1.0
     },
     {
@@ -16275,7 +16275,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2186",
+      "source_location": "L2180",
       "weight": 1.0
     },
     {
@@ -16287,7 +16287,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2351",
+      "source_location": "L2345",
       "weight": 1.0
     },
     {
@@ -16335,7 +16335,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1721",
+      "source_location": "L1715",
       "weight": 1.0
     },
     {
@@ -16347,7 +16347,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1722",
+      "source_location": "L1716",
       "weight": 1.0
     },
     {
@@ -16359,7 +16359,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1723",
+      "source_location": "L1717",
       "weight": 1.0
     },
     {
@@ -16407,7 +16407,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2277",
+      "source_location": "L2271",
       "weight": 1.0
     },
     {
@@ -16419,7 +16419,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2280",
+      "source_location": "L2274",
       "weight": 1.0
     },
     {
@@ -16455,7 +16455,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1811",
+      "source_location": "L1805",
       "weight": 1.0
     },
     {
@@ -16467,7 +16467,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2505",
+      "source_location": "L2499",
       "weight": 1.0
     },
     {
@@ -16479,7 +16479,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2653",
+      "source_location": "L2647",
       "weight": 1.0
     },
     {
@@ -16491,7 +16491,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2673",
+      "source_location": "L2667",
       "weight": 1.0
     },
     {
@@ -16503,7 +16503,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2676",
+      "source_location": "L2670",
       "weight": 1.0
     },
     {
@@ -16515,7 +16515,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2455",
+      "source_location": "L2449",
       "weight": 1.0
     },
     {
@@ -16527,7 +16527,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2458",
+      "source_location": "L2452",
       "weight": 1.0
     },
     {
@@ -16539,7 +16539,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2472",
+      "source_location": "L2466",
       "weight": 1.0
     },
     {
@@ -16551,7 +16551,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2475",
+      "source_location": "L2469",
       "weight": 1.0
     },
     {
@@ -16563,7 +16563,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2484",
+      "source_location": "L2478",
       "weight": 1.0
     },
     {
@@ -16575,7 +16575,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1860",
+      "source_location": "L1854",
       "weight": 1.0
     },
     {
@@ -16587,7 +16587,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1872",
+      "source_location": "L1866",
       "weight": 1.0
     },
     {
@@ -16599,7 +16599,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1873",
+      "source_location": "L1867",
       "weight": 1.0
     },
     {
@@ -16611,7 +16611,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1873",
+      "source_location": "L1867",
       "weight": 1.0
     },
     {
@@ -16623,7 +16623,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1880",
+      "source_location": "L1874",
       "weight": 1.0
     },
     {
@@ -16635,7 +16635,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L1898",
+      "source_location": "L1892",
       "weight": 1.0
     },
     {
@@ -16647,7 +16647,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2169",
+      "source_location": "L2163",
       "weight": 1.0
     },
     {
@@ -16659,7 +16659,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server.py",
-      "source_location": "L2171",
+      "source_location": "L2165",
       "weight": 1.0
     },
     {
@@ -19335,7 +19335,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2778",
+      "source_location": "L2772",
       "weight": 1.0
     },
     {
@@ -19347,7 +19347,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2756",
+      "source_location": "L2750",
       "weight": 1.0
     },
     {
@@ -19359,7 +19359,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2797",
+      "source_location": "L2791",
       "weight": 1.0
     },
     {
@@ -19371,7 +19371,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2365",
+      "source_location": "L2359",
       "weight": 1.0
     },
     {
@@ -19383,7 +19383,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1950",
+      "source_location": "L1944",
       "weight": 1.0
     },
     {
@@ -19395,7 +19395,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1490",
+      "source_location": "L1484",
       "weight": 1.0
     },
     {
@@ -19419,7 +19419,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1759",
+      "source_location": "L1753",
       "weight": 1.0
     },
     {
@@ -19443,7 +19443,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2288",
+      "source_location": "L2282",
       "weight": 1.0
     },
     {
@@ -19467,7 +19467,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2060",
+      "source_location": "L2054",
       "weight": 1.0
     },
     {
@@ -19479,7 +19479,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1976",
+      "source_location": "L1970",
       "weight": 1.0
     },
     {
@@ -19491,7 +19491,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1257",
+      "source_location": "L1251",
       "weight": 1.0
     },
     {
@@ -19503,7 +19503,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1347",
+      "source_location": "L1341",
       "weight": 1.0
     },
     {
@@ -19515,7 +19515,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2137",
+      "source_location": "L2131",
       "weight": 1.0
     },
     {
@@ -19527,7 +19527,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2119",
+      "source_location": "L2113",
       "weight": 1.0
     },
     {
@@ -19539,7 +19539,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2508",
+      "source_location": "L2502",
       "weight": 1.0
     },
     {
@@ -19551,7 +19551,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2689",
+      "source_location": "L2683",
       "weight": 1.0
     },
     {
@@ -19563,7 +19563,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2193",
+      "source_location": "L2187",
       "weight": 1.0
     },
     {
@@ -19575,7 +19575,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1326",
+      "source_location": "L1320",
       "weight": 1.0
     },
     {
@@ -19611,7 +19611,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2490",
+      "source_location": "L2484",
       "weight": 1.0
     },
     {
@@ -19659,7 +19659,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2179",
+      "source_location": "L2173",
       "weight": 1.0
     },
     {
@@ -19671,7 +19671,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2324",
+      "source_location": "L2318",
       "weight": 1.0
     },
     {
@@ -19695,7 +19695,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1696",
+      "source_location": "L1690",
       "weight": 1.0
     },
     {
@@ -19719,7 +19719,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1282",
+      "source_location": "L1276",
       "weight": 1.0
     },
     {
@@ -19731,7 +19731,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1305",
+      "source_location": "L1299",
       "weight": 1.0
     },
     {
@@ -19743,7 +19743,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2251",
+      "source_location": "L2245",
       "weight": 1.0
     },
     {
@@ -19755,7 +19755,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1464",
+      "source_location": "L1458",
       "weight": 1.0
     },
     {
@@ -19767,7 +19767,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2027",
+      "source_location": "L2021",
       "weight": 1.0
     },
     {
@@ -19779,7 +19779,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1402",
+      "source_location": "L1396",
       "weight": 1.0
     },
     {
@@ -19791,7 +19791,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1383",
+      "source_location": "L1377",
       "weight": 1.0
     },
     {
@@ -19803,7 +19803,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1789",
+      "source_location": "L1783",
       "weight": 1.0
     },
     {
@@ -19815,7 +19815,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2498",
+      "source_location": "L2492",
       "weight": 1.0
     },
     {
@@ -19827,7 +19827,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2621",
+      "source_location": "L2615",
       "weight": 1.0
     },
     {
@@ -19839,7 +19839,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2446",
+      "source_location": "L2440",
       "weight": 1.0
     },
     {
@@ -19851,7 +19851,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1834",
+      "source_location": "L1828",
       "weight": 1.0
     },
     {
@@ -19863,7 +19863,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2155",
+      "source_location": "L2149",
       "weight": 1.0
     },
     {
@@ -19875,7 +19875,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L1908",
+      "source_location": "L1902",
       "weight": 1.0
     },
     {
@@ -19887,7 +19887,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server.py",
-      "source_location": "L2729",
+      "source_location": "L2723",
       "weight": 1.0
     },
     {
@@ -27005,7 +27005,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1258",
+      "source_location": "L1252",
       "weight": 1.0
     },
     {
@@ -27016,7 +27016,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1283",
+      "source_location": "L1277",
       "weight": 1.0
     },
     {
@@ -27027,7 +27027,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1306",
+      "source_location": "L1300",
       "weight": 1.0
     },
     {
@@ -27038,7 +27038,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1327",
+      "source_location": "L1321",
       "weight": 1.0
     },
     {
@@ -27049,7 +27049,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1348",
+      "source_location": "L1342",
       "weight": 1.0
     },
     {
@@ -27060,7 +27060,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1384",
+      "source_location": "L1378",
       "weight": 1.0
     },
     {
@@ -27071,7 +27071,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1403",
+      "source_location": "L1397",
       "weight": 1.0
     },
     {
@@ -27082,7 +27082,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1465",
+      "source_location": "L1459",
       "weight": 1.0
     },
     {
@@ -27093,7 +27093,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1491",
+      "source_location": "L1485",
       "weight": 1.0
     },
     {
@@ -27115,7 +27115,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1697",
+      "source_location": "L1691",
       "weight": 1.0
     },
     {
@@ -27126,7 +27126,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1760",
+      "source_location": "L1754",
       "weight": 1.0
     },
     {
@@ -27137,7 +27137,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1790",
+      "source_location": "L1784",
       "weight": 1.0
     },
     {
@@ -27148,7 +27148,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1835",
+      "source_location": "L1829",
       "weight": 1.0
     },
     {
@@ -27159,7 +27159,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1909",
+      "source_location": "L1903",
       "weight": 1.0
     },
     {
@@ -27170,7 +27170,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1951",
+      "source_location": "L1945",
       "weight": 1.0
     },
     {
@@ -27181,7 +27181,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1977",
+      "source_location": "L1971",
       "weight": 1.0
     },
     {
@@ -27192,7 +27192,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2028",
+      "source_location": "L2022",
       "weight": 1.0
     },
     {
@@ -27203,7 +27203,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2061",
+      "source_location": "L2055",
       "weight": 1.0
     },
     {
@@ -27225,7 +27225,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2120",
+      "source_location": "L2114",
       "weight": 1.0
     },
     {
@@ -27236,7 +27236,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2138",
+      "source_location": "L2132",
       "weight": 1.0
     },
     {
@@ -27247,7 +27247,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2156",
+      "source_location": "L2150",
       "weight": 1.0
     },
     {
@@ -27258,7 +27258,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2180",
+      "source_location": "L2174",
       "weight": 1.0
     },
     {
@@ -27269,7 +27269,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2194",
+      "source_location": "L2188",
       "weight": 1.0
     },
     {
@@ -27280,7 +27280,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2232",
+      "source_location": "L2226",
       "weight": 1.0
     },
     {
@@ -27291,7 +27291,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2252",
+      "source_location": "L2246",
       "weight": 1.0
     },
     {
@@ -27302,7 +27302,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2289",
+      "source_location": "L2283",
       "weight": 1.0
     },
     {
@@ -27313,7 +27313,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2325",
+      "source_location": "L2319",
       "weight": 1.0
     },
     {
@@ -27324,7 +27324,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2366",
+      "source_location": "L2360",
       "weight": 1.0
     },
     {
@@ -27335,7 +27335,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2404",
+      "source_location": "L2398",
       "weight": 1.0
     },
     {
@@ -27357,7 +27357,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2432",
+      "source_location": "L2426",
       "weight": 1.0
     },
     {
@@ -27368,7 +27368,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2447",
+      "source_location": "L2441",
       "weight": 1.0
     },
     {
@@ -27379,7 +27379,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2491",
+      "source_location": "L2485",
       "weight": 1.0
     },
     {
@@ -27390,7 +27390,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2499",
+      "source_location": "L2493",
       "weight": 1.0
     },
     {
@@ -27401,7 +27401,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2509",
+      "source_location": "L2503",
       "weight": 1.0
     },
     {
@@ -27412,7 +27412,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2526",
+      "source_location": "L2520",
       "weight": 1.0
     },
     {
@@ -27423,7 +27423,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2591",
+      "source_location": "L2585",
       "weight": 1.0
     },
     {
@@ -27434,7 +27434,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2622",
+      "source_location": "L2616",
       "weight": 1.0
     },
     {
@@ -27445,7 +27445,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2690",
+      "source_location": "L2684",
       "weight": 1.0
     },
     {
@@ -27456,7 +27456,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2730",
+      "source_location": "L2724",
       "weight": 1.0
     },
     {
@@ -27467,7 +27467,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2757",
+      "source_location": "L2751",
       "weight": 1.0
     },
     {
@@ -27478,7 +27478,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2779",
+      "source_location": "L2773",
       "weight": 1.0
     },
     {
@@ -27489,7 +27489,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2798",
+      "source_location": "L2792",
       "weight": 1.0
     },
     {
@@ -34577,102 +34577,102 @@
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1259",
+      "source": "server_rationale_1253",
       "target": "server_fund_limit",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1259",
+      "source_location": "L1253",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1284",
+      "source": "server_rationale_1278",
       "target": "server_margin_calculator",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1284",
+      "source_location": "L1278",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1307",
+      "source": "server_rationale_1301",
       "target": "server_margin_calculator_multi",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1307",
+      "source_location": "L1301",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1328",
+      "source": "server_rationale_1322",
       "target": "server_get_history",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1328",
+      "source_location": "L1322",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1349",
+      "source": "server_rationale_1343",
       "target": "server_get_activity_logs",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1349",
+      "source_location": "L1343",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1385",
+      "source": "server_rationale_1379",
       "target": "server_server_logs",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1385",
+      "source_location": "L1379",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1404",
+      "source": "server_rationale_1398",
       "target": "server_scrip_status",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1404",
+      "source_location": "L1398",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1466",
+      "source": "server_rationale_1460",
       "target": "server_reload_scrip",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1466",
+      "source_location": "L1460",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1492",
+      "source": "server_rationale_1486",
       "target": "server_conditional_order",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1492",
+      "source_location": "L1486",
       "weight": 1.0
     },
     {
@@ -34687,102 +34687,113 @@
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1698",
+      "source": "server_rationale_1692",
       "target": "server_level_hit",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1698",
+      "source_location": "L1692",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1761",
+      "source": "server_rationale_1755",
       "target": "server_dhan_postback",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1761",
+      "source_location": "L1755",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1791",
+      "source": "server_rationale_1785",
       "target": "server_set_conditional_index_orders",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1791",
+      "source_location": "L1785",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1836",
+      "source": "server_rationale_1830",
       "target": "server_set_super_order",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1836",
+      "source_location": "L1830",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1910",
+      "source": "server_rationale_1904",
       "target": "server_update_super_order",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1910",
+      "source_location": "L1904",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1952",
+      "source": "server_rationale_1946",
       "target": "server_cancel_super_order",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1952",
+      "source_location": "L1946",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_1978",
+      "source": "server_rationale_1972",
       "target": "server_exit_super_order",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L1978",
+      "source_location": "L1972",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2029",
+      "source": "server_rationale_2023",
       "target": "server_scale_conditional_order",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2029",
+      "source_location": "L2023",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2062",
+      "source": "server_rationale_2056",
       "target": "server_exit_conditional_order",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2062",
+      "source_location": "L2056",
+      "weight": 1.0
+    },
+    {
+      "source": "server_rationale_2115",
+      "target": "server_get_broker_positions",
+      "relation": "rationale_for",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "server.py",
+      "source_location": "L2115",
       "weight": 1.0
     },
     {
@@ -34797,113 +34808,102 @@
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2121",
-      "target": "server_get_broker_positions",
-      "relation": "rationale_for",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "server.py",
-      "source_location": "L2121",
-      "weight": 1.0
-    },
-    {
-      "source": "server_rationale_2139",
+      "source": "server_rationale_2133",
       "target": "server_get_broker_orders",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2139",
+      "source_location": "L2133",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2157",
+      "source": "server_rationale_2151",
       "target": "server_skip_trade",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2157",
+      "source_location": "L2151",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2181",
+      "source": "server_rationale_2175",
       "target": "server_get_trade_feed",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2181",
+      "source_location": "L2175",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2195",
+      "source": "server_rationale_2189",
       "target": "server_get_gtt_orders",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2195",
+      "source_location": "L2189",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2233",
+      "source": "server_rationale_2227",
       "target": "server_compute_zone",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2233",
+      "source_location": "L2227",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2253",
+      "source": "server_rationale_2247",
       "target": "server_range_signal",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2253",
+      "source_location": "L2247",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2290",
+      "source": "server_rationale_2284",
       "target": "server_dy_signal",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2290",
+      "source_location": "L2284",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2326",
+      "source": "server_rationale_2320",
       "target": "server_get_zone",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2326",
+      "source_location": "L2320",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2367",
+      "source": "server_rationale_2361",
       "target": "server_cancel_conditional_orders",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2367",
+      "source_location": "L2361",
       "weight": 1.0
     },
     {
@@ -34918,91 +34918,91 @@
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2527",
+      "source": "server_rationale_2521",
       "target": "server_feeling_block_for_entry",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2527",
+      "source_location": "L2521",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2592",
+      "source": "server_rationale_2586",
       "target": "server_contra_pending_warnings",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2592",
+      "source_location": "L2586",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2623",
+      "source": "server_rationale_2617",
       "target": "server_set_feeling_route",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2623",
+      "source_location": "L2617",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2691",
+      "source": "server_rationale_2685",
       "target": "server_get_feeling_route",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2691",
+      "source_location": "L2685",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2731",
+      "source": "server_rationale_2725",
       "target": "server_update_token",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2731",
+      "source_location": "L2725",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2758",
+      "source": "server_rationale_2752",
       "target": "server_auth_initiate",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2758",
+      "source_location": "L2752",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2780",
+      "source": "server_rationale_2774",
       "target": "server_auth_callback",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2780",
+      "source_location": "L2774",
       "weight": 1.0
     },
     {
-      "source": "server_rationale_2799",
+      "source": "server_rationale_2793",
       "target": "server_auth_renew",
       "relation": "rationale_for",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server.py",
-      "source_location": "L2799",
+      "source_location": "L2793",
       "weight": 1.0
     },
     {
@@ -37090,7 +37090,7 @@
       "confidence_score": 0.85,
       "context": "getattr",
       "source_file": "server.py",
-      "source_location": "L1459",
+      "source_location": "L1453",
       "weight": 1.0
     },
     {
@@ -39692,5 +39692,5 @@
       "confidence_score": 0.95
     }
   ],
-  "built_at_commit": "20125de758de038bec818c544f9e69819090219b"
+  "built_at_commit": "f29d21436a2463e915813b841f3cf5efa0d54c7d"
 }
