@@ -331,6 +331,20 @@ class DhanClient:
     def get_fund_limits(self) -> Dict[str, Any]:
         return self.market_data_service.get_fund_limits()
 
+    def get_limits(self) -> Dict[str, Any]:
+        """Normalized limits interface matching MultiBrokerManager expectations."""
+        fund = self.get_fund_limits()
+        avail = 0.0
+        if isinstance(fund, dict):
+            data = fund.get("data", fund)
+            avail = float(data.get("availabelBalance", data.get("available_margin", 0.0)))
+        return {
+            "available_margin": avail,
+            "used_margin": 0.0,
+            "broker": "dhan",
+            "raw": fund,
+        }
+
     def margin_calculator(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
         return self.market_data_service.margin_calculator(order_data)
 

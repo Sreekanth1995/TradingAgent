@@ -280,7 +280,18 @@ class MultiBrokerManager:
         for b_name in self.enabled_brokers:
             client = self.brokers[b_name]
             try:
-                limits = client.get_limits()
+                if hasattr(client, "get_limits"):
+                    limits = client.get_limits()
+                elif hasattr(client, "get_fund_limits"):
+                    fund = client.get_fund_limits()
+                    avail = 0.0
+                    if isinstance(fund, dict):
+                        data = fund.get("data", fund)
+                        avail = float(data.get("availabelBalance", data.get("available_margin", 0.0)))
+                    limits = {"available_margin": avail, "used_margin": 0.0, "broker": b_name}
+                else:
+                    limits = {"available_margin": 0.0, "used_margin": 0.0, "broker": b_name}
+
                 avail = float(limits.get("available_margin", 0.0))
                 used = float(limits.get("used_margin", 0.0))
                 broker_limits[b_name] = limits
