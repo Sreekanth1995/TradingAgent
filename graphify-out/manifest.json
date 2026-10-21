@@ -510,9 +510,9 @@
     "semantic_hash": ""
   },
   "broker/client.py": {
-    "mtime": 1792610956.7806523,
-    "seen": 1792614647.862858,
-    "ast_hash": "936e6226c69ab79bca9a78466a834304",
+    "mtime": 1792620098.5659568,
+    "seen": 1792620141.451848,
+    "ast_hash": "ca2a0b978d1807709f612a79c003a094",
     "semantic_hash": ""
   },
   "broker/common.py": {
@@ -702,9 +702,9 @@
     "semantic_hash": ""
   },
   "broker/manager.py": {
-    "mtime": 1792616302.3671362,
-    "seen": 1792616467.18164,
-    "ast_hash": "4971eae77bc5d2a5da9ee7f848d1641c",
+    "mtime": 1792620102.8365638,
+    "seen": 1792620141.451862,
+    "ast_hash": "75c79467706461ab1eea190b7a7eec7d",
     "semantic_hash": ""
   },
   "tests/test_admin_dashboard.py": {
