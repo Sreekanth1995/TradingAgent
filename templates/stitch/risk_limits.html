@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container-lowest":"#000f21","background":"#031427","on-background":"#d3e4fe","surface-dim":"#031427","inverse-surface":"#d3e4fe","on-primary-container":"#e1c4ff","on-secondary-fixed-variant":"#005232","error-container":"#93000a","surface-container-highest":"#26364a","on-secondary-container":"#006b43","surface-container-low":"#0b1c30","error":"#ffb4ab","on-tertiary-fixed-variant":"#8f0044","surface-variant":"#26364a","on-tertiary":"#65002e","secondary-container":"#01f5a0","on-secondary-fixed":"#002111","on-error-container":"#ffdad6","tertiary":"#ffb1c4","on-secondary":"#003921","outline-variant":"#4c4354","surface-tint":"#dbb8ff","primary-container":"#7928ca","tertiary-container":"#b00056","on-primary-fixed":"#2b0052","primary":"#dbb8ff","on-primary-fixed-variant":"#6600b7","on-surface-variant":"#cec2d6","surface-container":"#102034","surface-container-high":"#1b2b3f","inverse-primary":"#7f30d0","tertiary-fixed":"#ffd9e1","primary-fixed-dim":"#dbb8ff","primary-fixed":"#efdbff","surface":"#031427","on-tertiary-container":"#ffbece","on-error":"#690005","on-primary":"#470083","on-surface":"#d3e4fe","on-tertiary-fixed":"#3f001a","outline":"#988d9f","secondary-fixed":"#50ffaf","secondary-fixed-dim":"#00e293","tertiary-fixed-dim":"#ffb1c4","secondary":"#ceffdf","surface-bright":"#2a3a4f","inverse-on-surface":"#213145"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"xl":"48px","sm":"8px","gutter":"16px","container-max":"1440px","xs":"4px","lg":"24px","unit":"4px","md":"16px"},"fontFamily":{"headline-lg":["Space Grotesk"],"headline-md":["Space Grotesk"],"headline-lg-mobile":["Space Grotesk"],"label-md":["Space Grotesk"],"body-lg":["Outfit"],"body-md":["Outfit"],"display-lg":["Space Grotesk"],"numeric-data":["Space Grotesk"]},"fontSize":{"headline-lg":["32px",{"lineHeight":"1.2","fontWeight":"600"}],"headline-md":["20px",{"lineHeight":"1.4","fontWeight":"500"}],"headline-lg-mobile":["24px",{"lineHeight":"1.2","fontWeight":"600"}],"label-md":["14px",{"lineHeight":"1","letterSpacing":"0.05em","fontWeight":"500"}],"body-lg":["18px",{"lineHeight":"1.6","fontWeight":"400"}],"body-md":["16px",{"lineHeight":"1.5","fontWeight":"400"}],"display-lg":["48px",{"lineHeight":"1.1","letterSpacing":"-0.02em","fontWeight":"700"}],"numeric-data":["16px",{"lineHeight":"1","letterSpacing":"0.02em","fontWeight":"700"}]}}}}</script></head><body class="bg-background font-body-md text-on-surface min-h-screen"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low/95 backdrop-blur-xl z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.3)]"><div class="flex flex-col"><div class="h-16 px-6 flex items-center gap-3 bg-surface-container-lowest/60"><div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-on-primary-container shadow-[0_0_12px_rgba(121,40,202,0.5)]"><span class="material-symbols-outlined text-[20px]">hub</span></div><div class="flex flex-col"><span class="font-headline-md text-headline-md text-primary tracking-wider leading-none">ANTIGRAVITY</span><span class="font-label-md text-[10px] text-secondary-container tracking-widest leading-tight uppercase">Multi-Broker Admin</span></div></div><div class="px-4 py-3 bg-surface-container-lowest/40 mx-3 mt-3 rounded flex items-center justify-between"><span class="font-label-md text-xs text-on-surface-variant flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>ENGINE CORE</span><span class="font-numeric-data text-xs text-secondary-container">18/18 ACTIVE</span></div><nav class="flex flex-col gap-1 px-3 mt-4" data-active-classes="bg-surface-container-high text-primary font-semibold shadow-[inset_0_0_0_1px_rgba(219,184,255,0.2)]"><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="overview-accounts" href="#"><span class="material-symbols-outlined text-[20px]">grid_view</span><span>Overview / Accounts</span></a><a aria-current="page" class="flex items-center gap-3 px-3 py-2.5 rounded transition-colors bg-surface-container-high text-primary font-semibold shadow-[inset_0_0_0_1px_rgba(219,184,255,0.2)]" data-path="risk-global-limits" href="#"><span class="material-symbols-outlined text-[20px]">security</span><span>Risk &amp; Global Limits</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="multi-signals-algos" href="#"><span class="material-symbols-outlined text-[20px]">sensors</span><span>Multi-Signals &amp; Algos</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="multi-account-execution" href="#"><span class="material-symbols-outlined text-[20px]">rocket_launch</span><span>Multi-Account Execution</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="broker-gateway-auth" href="#"><span class="material-symbols-outlined text-[20px]">key</span><span>Broker Gateway &amp; Auth</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="audit-compliance-logs" href="#"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span>Audit &amp; Compliance Logs</span></a></nav></div><div class="p-4 flex flex-col gap-3 bg-surface-container-lowest/80"><div class="flex items-center justify-between px-2 py-1.5 rounded bg-surface-container/60"><div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span><span class="font-label-md text-xs text-on-surface-variant">NSE Mumbai</span></div><span class="font-numeric-data text-xs text-secondary-container">8ms</span></div><button class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded bg-error-container text-on-error font-label-md text-xs uppercase tracking-wider hover:bg-error hover:text-on-error transition-colors shadow-[0_0_12px_rgba(147,0,10,0.5)]" type="button"><span class="material-symbols-outlined text-[16px]">power_settings_new</span><span>Emergency Master Kill</span></button><div class="flex items-center justify-between text-on-surface-variant font-label-md text-xs px-1"><a class="hover:text-primary transition-colors flex items-center gap-1" href="#"><span class="material-symbols-outlined text-[14px]">help</span>Docs</a><span class="text-[10px] text-outline font-numeric-data">v4.2.0-PRO</span></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-40 px-6 flex items-center justify-between shadow-[0_1px_8px_rgba(0,0,0,0.4)]"><div class="flex items-center gap-4"><div class="flex items-center gap-2 px-3 py-1 rounded bg-surface-container-high/80 text-secondary-container font-label-md text-xs"><span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span><span>CLUSTER_01: ONLINE (18 Nodes)</span></div><nav class="hidden xl:flex items-center gap-2" data-active-classes="text-primary font-semibold bg-surface-container-high rounded px-3 py-1.5"><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="overview-accounts" href="#">Accounts Master</a><a aria-current="page" class="transition-colors text-primary font-semibold bg-surface-container-high rounded px-3 py-1.5" data-path="risk-global-limits" href="#">Risk &amp; Limits</a><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="multi-signals-algos" href="#">Multi-Signals</a><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="multi-account-execution" href="#">Multi-Account Execution</a><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="audit-compliance-logs" href="#">Audit Logs</a></nav></div><div class="flex items-center gap-3"><div class="flex items-center gap-1.5"><button class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-secondary-container hover:bg-secondary-container hover:text-on-secondary-container transition-colors" type="button">Login Dhan</button><button class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-secondary hover:bg-secondary hover:text-on-secondary transition-colors" type="button">Login Groww</button><button class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-primary hover:bg-primary hover:text-on-primary transition-colors" type="button">Login Flattrade</button><button class="px-2.5 py-1 rounded bg-error-container text-on-error font-label-md text-xs hover:bg-error hover:text-on-error transition-colors flex items-center gap-1" type="button"><span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>Kill</button></div><button class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[18px]">notifications</span></button><div class="flex items-center gap-2 pl-2"><div class="flex flex-col text-right"><span class="font-label-md text-xs text-on-surface font-semibold leading-tight">ALPHA_ADMIN</span><span class="font-label-md text-[10px] text-on-surface-variant leading-tight">Prop Lead</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<!-- Top Command Telemetry Strip -->
+<div class="px-6 py-4 bg-surface-container-lowest/70 backdrop-blur-md flex flex-wrap items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-container text-secondary-container font-label-md text-label-md shadow-sm">
+<span class="w-2 h-2 rounded-full bg-secondary-container animate-ping"></span>
+<span>SENTINEL RISK CORE v4.9</span>
+</div>
+<div class="hidden md:flex items-center gap-2 text-on-surface-variant font-label-md text-label-md">
+<span>POLL: 250ms</span>
+<span class="text-outline">/</span>
+<span>AGGREGATE CAPITAL: ₹1,83,40,000</span>
+<span class="text-outline">/</span>
+<span class="text-secondary-container">ALL NODES SYNCHRONIZED</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1.5 px-3 py-1 rounded bg-surface-container-high text-on-surface font-label-md text-label-md">
+<span class="material-symbols-outlined text-[16px] text-secondary">verified_user</span>
+<span>CIRCUIT ARMED</span>
+</div>
+<button class="flex items-center gap-2 px-3 py-1 rounded bg-surface-container-highest text-on-surface hover:bg-primary-container hover:text-on-primary-container transition-all font-label-md text-label-md shadow-sm" id="lockToggleBtn">
+<span class="material-symbols-outlined text-[16px]">lock_open</span>
+<span>CONFIG UNLOCKED</span>
+</button>
+</div>
+</div>
+<div class="p-6 flex flex-col gap-6 max-w-container-max mx-auto w-full">
+<!-- MASTER EMERGENCY CIRCUIT BREAKER SECTION -->
+<div class="relative overflow-hidden rounded-xl bg-gradient-to-r from-error-container/30 via-surface-container-low to-secondary-container/10 backdrop-blur-2xl p-6 shadow-xl">
+<div class="absolute -right-16 -top-16 w-64 h-64 bg-error/10 rounded-full blur-3xl pointer-events-none"></div>
+<div class="absolute -left-16 -bottom-16 w-64 h-64 bg-secondary-container/10 rounded-full blur-3xl pointer-events-none"></div>
+<div class="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+<div class="flex items-start gap-4 max-w-2xl">
+<div class="w-12 h-12 rounded-lg bg-error-container/80 text-on-error flex items-center justify-center shrink-0 shadow-lg shadow-error-container/30 animate-pulse">
+<span class="material-symbols-outlined text-[28px]">gavel</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-3">
+<span class="font-headline-lg text-headline-lg text-on-surface tracking-tight">GLOBAL KILL-SWITCH (ALL BROKERS)</span>
+<span class="px-2 py-0.5 rounded bg-error/20 text-error font-label-md text-xs uppercase tracking-wider">LEVEL 0 MASTER FAILSAFE</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">
+              Instantly market-liquidate all open NIFTY, BANKNIFTY, FINNIFTY intraday long/short options legs across 18 accounts in <strong class="text-on-surface">Dhan</strong>, <strong class="text-on-surface">Groww</strong>, and <strong class="text-on-surface">Flattrade</strong>. Auto-cancel all standing GTT, SL-M, and limit orders immediately.
+            </p>
+</div>
+</div>
+<!-- 2-Step Arm & Slide Trigger -->
+<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 bg-surface-container-lowest/80 p-3 rounded-lg shadow-inner">
+<div class="flex flex-col justify-center px-3">
+<span class="font-label-md text-xs text-on-surface-variant uppercase">Safety Interlock</span>
+<span class="font-label-md text-sm text-secondary-container font-semibold" id="interlockStatus">STAGE 1: DISARMED</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2.5 rounded bg-surface-container-highest text-on-surface font-label-md text-label-md hover:bg-error-container hover:text-on-error transition-all shadow-md flex items-center gap-2" id="armBtn">
+<span class="material-symbols-outlined text-[18px]">emergency_home</span>
+<span id="armBtnText">Arm Failsafe</span>
+</button>
+<!-- Slide to execute -->
+<div class="relative w-64 h-11 bg-surface-container rounded flex items-center px-1 select-none opacity-40 pointer-events-none transition-all" id="sliderWrapper">
+<span class="absolute inset-0 flex items-center justify-center font-label-md text-xs text-on-surface-variant tracking-wider uppercase pointer-events-none" id="sliderInstruction">
+                Slide to Terminate
+              </span>
+<div class="w-9 h-9 rounded bg-error text-on-error flex items-center justify-center cursor-grab active:cursor-grabbing shadow-lg transition-transform z-10" id="sliderThumb">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Emergency Counters -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 bg-surface-container-lowest/40 rounded-lg p-3">
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant">Active Positions</span>
+<span class="font-numeric-data text-numeric-data text-on-surface">142 Legs (₹68.4L Notional)</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant">Pending GTT Orders</span>
+<span class="font-numeric-data text-numeric-data text-secondary-container">39 Trigger Orders</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant">Connected Gateways</span>
+<span class="font-numeric-data text-numeric-data text-primary">3/3 Operational (18 Sub-IDs)</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant">Max Execution Latency</span>
+<span class="font-numeric-data text-numeric-data text-secondary-container">11.4 ms (Colo Rack)</span>
+</div>
+</div>
+</div>
+<!-- GLOBAL AGGREGATE RISK THRESHOLDS (SLIDERS & TELEMETRY) -->
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[24px]">tune</span>
+<span class="font-headline-md text-headline-md text-on-surface">Global Aggregate Risk Thresholds</span>
+</div>
+<span class="font-label-md text-xs text-secondary-container bg-surface-container px-3 py-1 rounded">AUTO-REBALANCING DYNAMIC ENFORCEMENT</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+<!-- Max Portfolio Drawdown Card -->
+<div class="p-5 rounded-lg bg-surface-container-low/80 backdrop-blur-lg flex flex-col justify-between gap-4 shadow-md">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Portfolio Max Drawdown</span>
+<span class="font-headline-lg text-headline-lg text-on-surface mt-1">₹15,00,000</span>
+</div>
+<div class="p-2 rounded bg-surface-container-high text-primary">
+<span class="material-symbols-outlined text-[20px]">trending_down</span>
+</div>
+</div>
+<!-- Gauge Visualization (SVG Arc) -->
+<div class="flex items-center justify-between gap-4">
+<div class="relative w-20 h-20 shrink-0">
+<svg class="w-full h-full transform -rotate-90" viewbox="0 0 36 36">
+<circle class="stroke-surface-container-highest" cx="18" cy="18" fill="none" r="14" stroke-width="3"></circle>
+<circle class="stroke-secondary-container" cx="18" cy="18" fill="none" r="14" stroke-dasharray="87.96" stroke-dashoffset="80.92" stroke-linecap="round" stroke-width="3"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+<span class="font-numeric-data text-xs text-secondary-container font-bold">8.0%</span>
+<span class="font-label-md text-[9px] text-on-surface-variant">USED</span>
+</div>
+</div>
+<div class="flex flex-col text-right">
+<span class="font-label-md text-xs text-on-surface-variant">Current Drawdown</span>
+<span class="font-numeric-data text-numeric-data text-secondary-container">₹1,20,000</span>
+<span class="font-label-md text-[10px] text-outline mt-1">Buffer: ₹13,80,000</span>
+</div>
+</div>
+<!-- Dynamic Slider Control -->
+<div class="flex flex-col gap-1.5 pt-2 bg-surface-container-lowest/50 p-2.5 rounded">
+<div class="flex justify-between font-label-md text-xs">
+<span class="text-on-surface-variant">Ceiling Slider</span>
+<span class="text-primary font-numeric-data" id="drawdownVal">₹15.00L</span>
+</div>
+<input class="w-full h-1.5 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-primary" max="30" min="5" oninput="document.getElementById('drawdownVal').innerText = '₹' + this.value + '.00L'" step="1" type="range" value="15"/>
+<div class="flex justify-between text-[10px] text-outline font-numeric-data">
+<span>₹5L</span>
+<span>₹15L (Target)</span>
+<span>₹30L</span>
+</div>
+</div>
+</div>
+<!-- Margin Deployment Ceiling -->
+<div class="p-5 rounded-lg bg-surface-container-low/80 backdrop-blur-lg flex flex-col justify-between gap-4 shadow-md">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Margin Deployment Ceiling</span>
+<span class="font-headline-lg text-headline-lg text-on-surface mt-1">70.0%</span>
+</div>
+<div class="p-2 rounded bg-surface-container-high text-secondary-container">
+<span class="material-symbols-outlined text-[20px]">pie_chart</span>
+</div>
+</div>
+<!-- Horizontal Multi-tier Bar -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between font-label-md text-xs">
+<span class="text-on-surface-variant">Utilized: <strong class="text-secondary font-numeric-data">31.4%</strong></span>
+<span class="text-outline">Max: 70.0%</span>
+</div>
+<div class="w-full h-3 bg-surface-container-highest rounded-full overflow-hidden flex">
+<div class="h-full bg-secondary-container rounded-full" style="width: 31.4%"></div>
+<div class="h-full bg-surface-container-high" style="width: 38.6%"></div>
+<div class="h-full bg-error-container/40" style="width: 30%"></div>
+</div>
+<div class="flex justify-between text-[10px] text-outline font-label-md">
+<span class="text-secondary-container font-semibold">Active: ₹57.58L</span>
+<span>Headroom: ₹70.80L</span>
+</div>
+</div>
+<!-- Dynamic Slider Control -->
+<div class="flex flex-col gap-1.5 pt-2 bg-surface-container-lowest/50 p-2.5 rounded">
+<div class="flex justify-between font-label-md text-xs">
+<span class="text-on-surface-variant">Lock Cap</span>
+<span class="text-secondary-container font-numeric-data" id="marginVal">70%</span>
+</div>
+<input class="w-full h-1.5 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-secondary-container" max="90" min="40" oninput="document.getElementById('marginVal').innerText = this.value + '%'" step="5" type="range" value="70"/>
+<div class="flex justify-between text-[10px] text-outline font-numeric-data">
+<span>40%</span>
+<span>70% Safe</span>
+<span>90% Max</span>
+</div>
+</div>
+</div>
+<!-- Delta Exposure Limit -->
+<div class="p-5 rounded-lg bg-surface-container-low/80 backdrop-blur-lg flex flex-col justify-between gap-4 shadow-md">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Delta Exposure Limit</span>
+<span class="font-headline-lg text-headline-lg text-on-surface mt-1">±1,500 <span class="text-sm font-label-md text-outline">Units</span></span>
+</div>
+<div class="p-2 rounded bg-surface-container-high text-primary">
+<span class="material-symbols-outlined text-[20px]">change_history</span>
+</div>
+</div>
+<!-- Center-zero Balance Indicator -->
+<div class="flex flex-col gap-2">
+<div class="flex justify-between font-label-md text-xs">
+<span class="text-error">-1,500 Bear</span>
+<span class="text-secondary-container font-numeric-data">+210 Net Bull</span>
+<span class="text-secondary-container">+1,500 Bull</span>
+</div>
+<div class="relative w-full h-3 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="absolute left-1/2 top-0 bottom-0 w-0.5 bg-on-surface/30"></div>
+<!-- +210 offset from 50% center -->
+<div class="absolute top-0 bottom-0 bg-secondary-container rounded-r-sm" style="left: 50%; width: 14%;"></div>
+</div>
+<div class="flex justify-between text-[10px] text-outline font-label-md">
+<span>NIFTY: +180 Δ</span>
+<span>BNF: -40 Δ</span>
+<span>FIN: +70 Δ</span>
+</div>
+</div>
+<!-- Dynamic Slider Control -->
+<div class="flex flex-col gap-1.5 pt-2 bg-surface-container-lowest/50 p-2.5 rounded">
+<div class="flex justify-between font-label-md text-xs">
+<span class="text-on-surface-variant">Symmetric Bound</span>
+<span class="text-primary font-numeric-data" id="deltaVal">±1,500</span>
+</div>
+<input class="w-full h-1.5 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-primary" max="3000" min="500" oninput="document.getElementById('deltaVal').innerText = '±' + this.value" step="100" type="range" value="1500"/>
+<div class="flex justify-between text-[10px] text-outline font-numeric-data">
+<span>±500</span>
+<span>±1,500</span>
+<span>±3,000</span>
+</div>
+</div>
+</div>
+<!-- Strategy Loss & Vega Index Day -->
+<div class="p-5 rounded-lg bg-surface-container-low/80 backdrop-blur-lg flex flex-col justify-between gap-4 shadow-md">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Single-Trade M2M Cap</span>
+<span class="font-headline-lg text-headline-lg text-on-surface mt-1">₹2,50,000</span>
+</div>
+<div class="p-2 rounded bg-surface-container-high text-tertiary">
+<span class="material-symbols-outlined text-[20px]">speed</span>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex justify-between font-label-md text-xs">
+<span class="text-on-surface-variant">Expiry Vega Threshold</span>
+<span class="text-tertiary font-numeric-data">₹45,000 / 1% IV Spike</span>
+</div>
+<div class="p-2.5 rounded bg-surface-container-lowest/60 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<span class="font-label-md text-xs text-on-surface">Theta Decay Influx</span>
+</div>
+<span class="font-numeric-data text-xs text-secondary-container">+₹18,400/hr</span>
+</div>
+</div>
+<!-- Dynamic Slider Control -->
+<div class="flex flex-col gap-1.5 pt-2 bg-surface-container-lowest/50 p-2.5 rounded">
+<div class="flex justify-between font-label-md text-xs">
+<span class="text-on-surface-variant">Loss Trigger Cap</span>
+<span class="text-tertiary font-numeric-data" id="stratVal">₹2.50L</span>
+</div>
+<input class="w-full h-1.5 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-tertiary" max="10" min="1" oninput="document.getElementById('stratVal').innerText = '₹' + parseFloat(this.value).toFixed(2) + 'L'" step="0.5" type="range" value="2.5"/>
+<div class="flex justify-between text-[10px] text-outline font-numeric-data">
+<span>₹1.0L</span>
+<span>₹2.5L Default</span>
+<span>₹10.0L</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- MAIN INTERACTIVE SECTION: PER-ACCOUNT MATRIX & LIVE BREACH STREAM -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- PER-ACCOUNT RISK RULES MATRIX (Col 8) -->
+<div class="lg:col-span-8 flex flex-col gap-4">
+<div class="flex flex-wrap items-center justify-between gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container text-[24px]">shield</span>
+<span class="font-headline-md text-headline-md text-on-surface">Per-Account Risk Rules Matrix</span>
+<span class="px-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-numeric-data text-xs">18 OF 18 ENFORCED</span>
+</div>
+<!-- Filter & Search Controls -->
+<div class="flex items-center gap-2">
+<div class="relative">
+<input class="px-3 py-1.5 pl-8 rounded bg-surface-container text-on-surface font-label-md text-xs outline-none focus:bg-surface-container-high transition-colors w-40 sm:w-52 placeholder-outline" placeholder="Filter Account ID..." type="text"/>
+<span class="material-symbols-outlined text-[16px] text-outline absolute left-2.5 top-2">search</span>
+</div>
+<button class="px-3 py-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface font-label-md text-xs flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">tune</span>
+<span>Preset</span>
+</button>
+</div>
+</div>
+<!-- Glass Table Container -->
+<div class="overflow-x-auto rounded-lg bg-surface-container-low/80 backdrop-blur-xl shadow-lg">
+<table class="w-full text-left font-body-md text-sm border-collapse">
+<thead>
+<tr class="bg-surface-container-lowest/80 text-on-surface-variant font-label-md text-xs uppercase tracking-wider">
+<th class="py-3 px-4">Account ID &amp; Broker</th>
+<th class="py-3 px-3">Status</th>
+<th class="py-3 px-3">Max Daily Loss (Auto-Squareoff)</th>
+<th class="py-3 px-3">Current PnL (M2M)</th>
+<th class="py-3 px-3">Max Lot Cap</th>
+<th class="py-3 px-3">API Throttle</th>
+<th class="py-3 px-4 text-right">Quick Action</th>
+</tr>
+</thead>
+<tbody class="text-on-surface font-body-md">
+<!-- Row 1: Dhan Account Alpha-01 -->
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="py-3 px-4">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-secondary-container/20 text-secondary-container flex items-center justify-center font-bold text-xs">DH</div>
+<div class="flex flex-col">
+<span class="font-numeric-data text-xs font-semibold text-on-surface">ACC-ALPHA-01</span>
+<span class="font-label-md text-[10px] text-secondary-container">Dhan HFT Gateway</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-container font-label-md text-[11px]">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container animate-pulse"></span>
+                    NORMAL
+                  </span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface">
+                  -₹2,00,000
+                </td>
+<td class="py-3 px-3 font-numeric-data text-xs text-secondary-container">
+                  +₹48,920
+                </td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface">
+                  1,800 Qty <span class="text-outline text-[10px]">(36L)</span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface-variant">
+                  25 req/sec
+                </td>
+<td class="py-3 px-4 text-right">
+<button class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-error hover:text-on-error font-label-md text-xs transition-colors">
+                    Halt
+                  </button>
+</td>
+</tr>
+<!-- Row 2: Groww Account Beta-02 -->
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="py-3 px-4">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-secondary/20 text-secondary flex items-center justify-center font-bold text-xs">GW</div>
+<div class="flex flex-col">
+<span class="font-numeric-data text-xs font-semibold text-on-surface">ACC-BETA-02</span>
+<span class="font-label-md text-[10px] text-secondary">Groww Web Node</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-tertiary-container/20 text-tertiary font-label-md text-[11px]">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+                    WARNING
+                  </span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface">
+                  -₹1,50,000
+                </td>
+<td class="py-3 px-3 font-numeric-data text-xs text-error">
+                  -₹1,18,400
+                </td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface">
+                  900 Qty <span class="text-outline text-[10px]">(18L)</span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface-variant">
+                  10 req/sec
+                </td>
+<td class="py-3 px-4 text-right">
+<button class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-error hover:text-on-error font-label-md text-xs transition-colors">
+                    Halt
+                  </button>
+</td>
+</tr>
+<!-- Row 3: Flattrade Account Flat-06 -->
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="py-3 px-4">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">FT</div>
+<div class="flex flex-col">
+<span class="font-numeric-data text-xs font-semibold text-on-surface">ACC-FLAT-06</span>
+<span class="font-label-md text-[10px] text-primary">Flattrade Zero Brokerage</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-container font-label-md text-[11px]">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span>
+                    NORMAL
+                  </span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface">
+                  -₹3,00,000
+                </td>
+<td class="py-3 px-3 font-numeric-data text-xs text-secondary-container">
+                  +₹1,12,350
+                </td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface">
+                  2,400 Qty <span class="text-outline text-[10px]">(48L)</span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface-variant">
+                  30 req/sec
+                </td>
+<td class="py-3 px-4 text-right">
+<button class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-error hover:text-on-error font-label-md text-xs transition-colors">
+                    Halt
+                  </button>
+</td>
+</tr>
+<!-- Row 4: Dhan Scalp-04 -->
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="py-3 px-4">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-secondary-container/20 text-secondary-container flex items-center justify-center font-bold text-xs">DH</div>
+<div class="flex flex-col">
+<span class="font-numeric-data text-xs font-semibold text-on-surface">ACC-DHAN-04</span>
+<span class="font-label-md text-[10px] text-secondary-container">Dhan Sub-Broker Direct</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-error-container/40 text-error font-label-md text-[11px]">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                    RESTRICTED
+                  </span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface">
+                  -₹80,000
+                </td>
+<td class="py-3 px-3 font-numeric-data text-xs text-error">
+                  -₹82,450 <span class="text-[10px] text-error font-label-md font-bold">(HIT)</span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface">
+                  0 Qty <span class="text-error text-[10px]">(LOCKED)</span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface-variant">
+                  0 req/sec
+                </td>
+<td class="py-3 px-4 text-right">
+<button class="px-2.5 py-1 rounded bg-secondary-container text-on-secondary-container hover:bg-secondary font-label-md text-xs transition-colors">
+                    Reset
+                  </button>
+</td>
+</tr>
+<!-- Row 5: Flattrade Scalp-11 -->
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="py-3 px-4">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">FT</div>
+<div class="flex flex-col">
+<span class="font-numeric-data text-xs font-semibold text-on-surface">ACC-FLAT-11</span>
+<span class="font-label-md text-[10px] text-primary">Flattrade Algorithmic</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-container font-label-md text-[11px]">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span>
+                    NORMAL
+                  </span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface">
+                  -₹1,50,000
+                </td>
+<td class="py-3 px-3 font-numeric-data text-xs text-secondary-container">
+                  +₹23,100
+                </td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface">
+                  1,200 Qty <span class="text-outline text-[10px]">(24L)</span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-xs text-on-surface-variant">
+                  20 req/sec
+                </td>
+<td class="py-3 px-4 text-right">
+<button class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-error hover:text-on-error font-label-md text-xs transition-colors">
+                    Halt
+                  </button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Matrix Batch Controls -->
+<div class="p-4 rounded-lg bg-surface-container-low/60 flex flex-wrap items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<span class="font-label-md text-xs text-on-surface-variant">Selected Batch (5 / 18):</span>
+<button class="px-3 py-1 rounded bg-surface-container-high text-on-surface font-label-md text-xs hover:bg-surface-bright transition-colors">Set Daily Stop-Loss -5%</button>
+<button class="px-3 py-1 rounded bg-surface-container-high text-on-surface font-label-md text-xs hover:bg-surface-bright transition-colors">Reduce Max Lots by 50%</button>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+<span class="font-label-md text-xs text-on-surface-variant">SEBI Algo Compliance: Rule 3.4B Compliant</span>
+</div>
+</div>
+</div>
+<!-- REAL-TIME RISK BREACH ALERTS & EVENT LOG (Col 4) -->
+<div class="lg:col-span-4 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[24px]">terminal</span>
+<span class="font-headline-md text-headline-md text-on-surface">Audit &amp; Breach Stream</span>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container font-label-md text-xs text-secondary-container">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container animate-ping"></span>
+<span>LIVE</span>
+</div>
+</div>
+<!-- Terminal Log Box -->
+<div class="p-4 rounded-lg bg-surface-container-lowest/90 backdrop-blur-xl font-numeric-data text-xs flex flex-col gap-3 min-h-[440px] max-h-[580px] overflow-y-auto shadow-inner">
+<!-- Event Item 1: Restrict Trigger -->
+<div class="p-3 rounded bg-error-container/20 text-on-surface flex flex-col gap-1 shadow-sm">
+<div class="flex items-center justify-between font-label-md">
+<span class="text-error font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                BREACH AUTO-SQUAREOFF
+              </span>
+<span class="text-outline text-[10px]">14:28:09.112</span>
+</div>
+<p class="font-body-md text-xs text-on-surface">
+              Account <strong class="text-error">ACC-DHAN-04</strong> breached Daily M2M SL (-₹80,000 threshold). 12 NIFTY 24800 PE lots squared off at market. Trading privileges revoked for session.
+            </p>
+<span class="text-outline text-[10px] font-numeric-data mt-1">Order Ref: ORD_DH_994827104</span>
+</div>
+<!-- Event Item 2: Slippage Check Passed -->
+<div class="p-3 rounded bg-surface-container/60 text-on-surface flex flex-col gap-1">
+<div class="flex items-center justify-between font-label-md">
+<span class="text-secondary-container flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                SLIPPAGE GUARDIAN
+              </span>
+<span class="text-outline text-[10px]">14:27:42.850</span>
+</div>
+<p class="font-body-md text-xs text-on-surface-variant">
+              Flattrade Node 03: Slippage checked on BANKNIFTY 52000 CE spread. Actual: 0.04% (Ceiling: 0.25%). Verification PASSED.
+            </p>
+</div>
+<!-- Event Item 3: Margin Utilization Check -->
+<div class="p-3 rounded bg-surface-container/60 text-on-surface flex flex-col gap-1">
+<div class="flex items-center justify-between font-label-md">
+<span class="text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">info</span>
+                MARGIN ALLOCATION
+              </span>
+<span class="text-outline text-[10px]">14:26:15.004</span>
+</div>
+<p class="font-body-md text-xs text-on-surface-variant">
+              Groww Multi-Node cluster margin check 34.1% utilization across 6 sub-accounts. Headroom ₹44.2L intact.
+            </p>
+</div>
+<!-- Event Item 4: Rate Limit Safe -->
+<div class="p-3 rounded bg-surface-container/60 text-on-surface flex flex-col gap-1">
+<div class="flex items-center justify-between font-label-md">
+<span class="text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">network_check</span>
+                API RATE THROTTLE
+              </span>
+<span class="text-outline text-[10px]">14:25:01.320</span>
+</div>
+<p class="font-body-md text-xs text-on-surface-variant">
+              Dhan Order Router dispatched 18 modifications in 42ms. Zero HTTP 429 errors reported. Peak 21% of TPS quota.
+            </p>
+</div>
+<!-- Event Item 5: Delta Shift -->
+<div class="p-3 rounded bg-surface-container/60 text-on-surface flex flex-col gap-1">
+<div class="flex items-center justify-between font-label-md">
+<span class="text-tertiary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">change_circle</span>
+                EXPOSURE REBALANCE
+              </span>
+<span class="text-outline text-[10px]">14:22:49.771</span>
+</div>
+<p class="font-body-md text-xs text-on-surface-variant">
+              Portfolio net Delta shifted from +140 to +210 following NIFTY 15m breakout bar. Remains safely within ±1,500 bounds.
+            </p>
+</div>
+</div>
+<!-- Telemetry Audit Summary Footer -->
+<div class="p-3 rounded bg-surface-container-high/60 flex items-center justify-between text-on-surface-variant font-label-md text-xs">
+<span>Latency: <strong class="text-secondary-container">1.8ms</strong> internal risk bus</span>
+<a class="text-primary hover:underline flex items-center gap-1" href="#">
+<span>Export CSV</span>
+<span class="material-symbols-outlined text-[14px]">download</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Broker Gateway Latency & Heartbeat Matrix -->
+<div class="p-5 rounded-lg bg-surface-container-low/70 backdrop-blur-md flex flex-col gap-4 shadow-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">hub</span>
+<span class="font-headline-md text-sm text-on-surface uppercase tracking-wider">Broker Live Socket Heartbeat &amp; OMS Link</span>
+</div>
+<span class="font-label-md text-xs text-secondary-container">ALL WEBSOCKETS RE-PINGED &lt; 1s AGO</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Dhan -->
+<div class="p-3 rounded bg-surface-container-lowest/70 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-secondary-container animate-pulse"></div>
+<div class="flex flex-col">
+<span class="font-headline-md text-xs text-on-surface">DHAN HQ DIRECT</span>
+<span class="font-label-md text-[10px] text-on-surface-variant">Auth Token: Valid (Expires in 5h 22m)</span>
+</div>
+</div>
+<div class="text-right flex flex-col">
+<span class="font-numeric-data text-xs text-secondary-container">7.2 ms</span>
+<span class="font-label-md text-[10px] text-outline">8 Accounts</span>
+</div>
+</div>
+<!-- Groww -->
+<div class="p-3 rounded bg-surface-container-lowest/70 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-secondary-container animate-pulse"></div>
+<div class="flex flex-col">
+<span class="font-headline-md text-xs text-on-surface">GROWW TRADE API</span>
+<span class="font-label-md text-[10px] text-on-surface-variant">Auth Token: Valid (Expires in 11h 04m)</span>
+</div>
+</div>
+<div class="text-right flex flex-col">
+<span class="font-numeric-data text-xs text-secondary-container">14.1 ms</span>
+<span class="font-label-md text-[10px] text-outline">4 Accounts</span>
+</div>
+</div>
+<!-- Flattrade -->
+<div class="p-3 rounded bg-surface-container-lowest/70 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-secondary-container animate-pulse"></div>
+<div class="flex flex-col">
+<span class="font-headline-md text-xs text-on-surface">FLATTRADE PI-REST</span>
+<span class="font-label-md text-[10px] text-on-surface-variant">Auth Token: Valid (Expires in 8h 50m)</span>
+</div>
+</div>
+<div class="text-right flex flex-col">
+<span class="font-numeric-data text-xs text-secondary-container">11.8 ms</span>
+<span class="font-label-md text-[10px] text-outline">6 Accounts</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Kill Modal Confirmation Overlay (Hidden by Default) -->
+<div class="fixed inset-0 bg-surface-container-lowest/90 backdrop-blur-2xl z-50 flex items-center justify-center p-4 hidden" id="killModal">
+<div class="max-w-lg w-full bg-surface-container-low rounded-xl p-6 shadow-2xl flex flex-col gap-5">
+<div class="w-14 h-14 rounded-full bg-error-container text-on-error flex items-center justify-center mx-auto shadow-lg shadow-error/40">
+<span class="material-symbols-outlined text-[36px]">crisis_alert</span>
+</div>
+<div class="text-center flex flex-col gap-2">
+<span class="font-headline-lg text-headline-lg text-on-surface">GLOBAL KILL-SWITCH TRIGGERED</span>
+<p class="font-body-md text-body-md text-on-surface-variant">
+          Emergency execution signal transmitted. Liquidating 142 legs across Dhan, Groww, and Flattrade. Cancelling 39 pending GTT orders.
+        </p>
+</div>
+<div class="p-4 rounded bg-surface-container-lowest font-numeric-data text-xs text-secondary-container flex flex-col gap-1">
+<div class="flex justify-between">
+<span class="text-on-surface-variant">BROKER ROUTE:</span>
+<span>MULTI-BROKER CLUSTER (ALL 18 NODES)</span>
+</div>
+<div class="flex justify-between">
+<span class="text-on-surface-variant">ESTIMATED COMPLETION:</span>
+<span>120 ms</span>
+</div>
+</div>
+<button class="w-full py-3 rounded bg-surface-container-highest text-on-surface font-label-md text-label-md hover:bg-surface-bright transition-colors uppercase tracking-wider" id="closeKillModal">
+        Dismiss &amp; View Audit Execution Logs
+      </button>
+</div>
+</div>
+<!-- Inline Micro-Interactions Script -->
+<script>
+    (function initCircuitBreaker() {
+      const armBtn = document.getElementById('armBtn');
+      const armBtnText = document.getElementById('armBtnText');
+      const interlockStatus = document.getElementById('interlockStatus');
+      const sliderWrapper = document.getElementById('sliderWrapper');
+      const sliderThumb = document.getElementById('sliderThumb');
+      const sliderInstruction = document.getElementById('sliderInstruction');
+      const killModal = document.getElementById('killModal');
+      const closeKillModal = document.getElementById('closeKillModal');
+      const lockToggleBtn = document.getElementById('lockToggleBtn');
+
+      let isArmed = false;
+      let isDragging = false;
+      let startX = 0;
+      let maxSlide = 0;
+
+      // Stage 1: Arming mechanism
+      armBtn.addEventListener('click', () => {
+        isArmed = !isArmed;
+        if (isArmed) {
+          armBtnText.innerText = 'Disarm';
+          armBtn.classList.remove('bg-surface-container-highest');
+          armBtn.classList.add('bg-error', 'text-on-error');
+          interlockStatus.innerText = 'STAGE 2: ARMED & READY';
+          interlockStatus.classList.remove('text-secondary-container');
+          interlockStatus.classList.add('text-error', 'animate-pulse');
+          sliderWrapper.classList.remove('opacity-40', 'pointer-events-none');
+          sliderInstruction.innerText = 'Slide Right to Kill All';
+        } else {
+          resetFailsafe();
+        }
+      });
+
+      function resetFailsafe() {
+        isArmed = false;
+        armBtnText.innerText = 'Arm Failsafe';
+        armBtn.classList.add('bg-surface-container-highest');
+        armBtn.classList.remove('bg-error', 'text-on-error');
+        interlockStatus.innerText = 'STAGE 1: DISARMED';
+        interlockStatus.classList.add('text-secondary-container');
+        interlockStatus.classList.remove('text-error', 'animate-pulse');
+        sliderWrapper.classList.add('opacity-40', 'pointer-events-none');
+        sliderThumb.style.transform = 'translateX(0px)';
+        sliderInstruction.innerText = 'Slide to Terminate';
+      }
+
+      // Stage 2: Slider Drag Interaction
+      sliderThumb.addEventListener('mousedown', (e) => {
+        if (!isArmed) return;
+        isDragging = true;
+        startX = e.clientX;
+        maxSlide = sliderWrapper.clientWidth - sliderThumb.clientWidth - 8;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        let delta = e.clientX - startX;
+        if (delta < 0) delta = 0;
+        if (delta > maxSlide) delta = maxSlide;
+        sliderThumb.style.transform = `translateX(${delta}px)`;
+
+        // Confirmation threshold reached (90%)
+        if (delta >= maxSlide * 0.92) {
+          isDragging = false;
+          executeMasterKill();
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        sliderThumb.style.transform = 'translateX(0px)';
+      });
+
+      // Touch events for mobile/tablet responsive testing
+      sliderThumb.addEventListener('touchstart', (e) => {
+        if (!isArmed) return;
+        isDragging = true;
+        startX = e.touches[0].clientX;
+        maxSlide = sliderWrapper.clientWidth - sliderThumb.clientWidth - 8;
+      });
+
+      window.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        let delta = e.touches[0].clientX - startX;
+        if (delta < 0) delta = 0;
+        if (delta > maxSlide) delta = maxSlide;
+        sliderThumb.style.transform = `translateX(${delta}px)`;
+        if (delta >= maxSlide * 0.92) {
+          isDragging = false;
+          executeMasterKill();
+        }
+      });
+
+      window.addEventListener('touchend', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        sliderThumb.style.transform = 'translateX(0px)';
+      });
+
+      function executeMasterKill() {
+        killModal.classList.remove('hidden');
+        resetFailsafe();
+      }
+
+      closeKillModal.addEventListener('click', () => {
+        killModal.classList.add('hidden');
+      });
+
+      // Config lock toggle
+      let isConfigLocked = false;
+      lockToggleBtn.addEventListener('click', () => {
+        isConfigLocked = !isConfigLocked;
+        if (isConfigLocked) {
+          lockToggleBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">lock</span><span>CONFIG LOCKED</span>';
+          lockToggleBtn.classList.replace('text-on-surface', 'text-secondary-container');
+        } else {
+          lockToggleBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">lock_open</span><span>CONFIG UNLOCKED</span>';
+          lockToggleBtn.classList.replace('text-secondary-container', 'text-on-surface');
+        }
+      });
+    })();
+  </script>
+</div></main></div></body></html>

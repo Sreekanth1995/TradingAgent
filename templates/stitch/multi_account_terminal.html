@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container-lowest":"#000f21","background":"#031427","on-background":"#d3e4fe","surface-dim":"#031427","inverse-surface":"#d3e4fe","on-primary-container":"#e1c4ff","on-secondary-fixed-variant":"#005232","error-container":"#93000a","surface-container-highest":"#26364a","on-secondary-container":"#006b43","surface-container-low":"#0b1c30","error":"#ffb4ab","on-tertiary-fixed-variant":"#8f0044","surface-variant":"#26364a","on-tertiary":"#65002e","secondary-container":"#01f5a0","on-secondary-fixed":"#002111","on-error-container":"#ffdad6","tertiary":"#ffb1c4","on-secondary":"#003921","outline-variant":"#4c4354","surface-tint":"#dbb8ff","primary-container":"#7928ca","tertiary-container":"#b00056","on-primary-fixed":"#2b0052","primary":"#dbb8ff","on-primary-fixed-variant":"#6600b7","on-surface-variant":"#cec2d6","surface-container":"#102034","surface-container-high":"#1b2b3f","inverse-primary":"#7f30d0","tertiary-fixed":"#ffd9e1","primary-fixed-dim":"#dbb8ff","primary-fixed":"#efdbff","surface":"#031427","on-tertiary-container":"#ffbece","on-error":"#690005","on-primary":"#470083","on-surface":"#d3e4fe","on-tertiary-fixed":"#3f001a","outline":"#988d9f","secondary-fixed":"#50ffaf","secondary-fixed-dim":"#00e293","tertiary-fixed-dim":"#ffb1c4","secondary":"#ceffdf","surface-bright":"#2a3a4f","inverse-on-surface":"#213145"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"xl":"48px","sm":"8px","gutter":"16px","container-max":"1440px","xs":"4px","lg":"24px","unit":"4px","md":"16px"},"fontFamily":{"headline-lg":["Space Grotesk"],"headline-md":["Space Grotesk"],"headline-lg-mobile":["Space Grotesk"],"label-md":["Space Grotesk"],"body-lg":["Outfit"],"body-md":["Outfit"],"display-lg":["Space Grotesk"],"numeric-data":["Space Grotesk"]},"fontSize":{"headline-lg":["32px",{"lineHeight":"1.2","fontWeight":"600"}],"headline-md":["20px",{"lineHeight":"1.4","fontWeight":"500"}],"headline-lg-mobile":["24px",{"lineHeight":"1.2","fontWeight":"600"}],"label-md":["14px",{"lineHeight":"1","letterSpacing":"0.05em","fontWeight":"500"}],"body-lg":["18px",{"lineHeight":"1.6","fontWeight":"400"}],"body-md":["16px",{"lineHeight":"1.5","fontWeight":"400"}],"display-lg":["48px",{"lineHeight":"1.1","letterSpacing":"-0.02em","fontWeight":"700"}],"numeric-data":["16px",{"lineHeight":"1","letterSpacing":"0.02em","fontWeight":"700"}]}}}}</script></head><body class="bg-background font-body-md text-on-surface min-h-screen"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low/95 backdrop-blur-xl z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.3)]"><div class="flex flex-col"><div class="h-16 px-6 flex items-center gap-3 bg-surface-container-lowest/60"><div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-on-primary-container shadow-[0_0_12px_rgba(121,40,202,0.5)]"><span class="material-symbols-outlined text-[20px]">hub</span></div><div class="flex flex-col"><span class="font-headline-md text-headline-md text-primary tracking-wider leading-none">ANTIGRAVITY</span><span class="font-label-md text-[10px] text-secondary-container tracking-widest leading-tight uppercase">Multi-Broker Admin</span></div></div><div class="px-4 py-3 bg-surface-container-lowest/40 mx-3 mt-3 rounded flex items-center justify-between"><span class="font-label-md text-xs text-on-surface-variant flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>ENGINE CORE</span><span class="font-numeric-data text-xs text-secondary-container">18/18 ACTIVE</span></div><nav class="flex flex-col gap-1 px-3 mt-4" data-active-classes="bg-surface-container-high text-primary font-semibold shadow-[inset_0_0_0_1px_rgba(219,184,255,0.2)]"><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="overview-accounts" href="#"><span class="material-symbols-outlined text-[20px]">grid_view</span><span>Overview / Accounts</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="risk-global-limits" href="#"><span class="material-symbols-outlined text-[20px]">security</span><span>Risk &amp; Global Limits</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="multi-signals-algos" href="#"><span class="material-symbols-outlined text-[20px]">sensors</span><span>Multi-Signals &amp; Algos</span></a><a aria-current="page" class="flex items-center gap-3 px-3 py-2.5 rounded transition-colors bg-surface-container-high text-primary font-semibold shadow-[inset_0_0_0_1px_rgba(219,184,255,0.2)]" data-path="multi-account-execution" href="#"><span class="material-symbols-outlined text-[20px]">rocket_launch</span><span>Multi-Account Execution</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="broker-gateway-auth" href="#"><span class="material-symbols-outlined text-[20px]">key</span><span>Broker Gateway &amp; Auth</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="audit-compliance-logs" href="#"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span>Audit &amp; Compliance Logs</span></a></nav></div><div class="p-4 flex flex-col gap-3 bg-surface-container-lowest/80"><div class="flex items-center justify-between px-2 py-1.5 rounded bg-surface-container/60"><div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span><span class="font-label-md text-xs text-on-surface-variant">NSE Mumbai</span></div><span class="font-numeric-data text-xs text-secondary-container">8ms</span></div><button class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded bg-error-container text-on-error font-label-md text-xs uppercase tracking-wider hover:bg-error hover:text-on-error transition-colors shadow-[0_0_12px_rgba(147,0,10,0.5)]" type="button"><span class="material-symbols-outlined text-[16px]">power_settings_new</span><span>Emergency Master Kill</span></button><div class="flex items-center justify-between text-on-surface-variant font-label-md text-xs px-1"><a class="hover:text-primary transition-colors flex items-center gap-1" href="#"><span class="material-symbols-outlined text-[14px]">help</span>Docs</a><span class="text-[10px] text-outline font-numeric-data">v4.2.0-PRO</span></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-40 px-6 flex items-center justify-between shadow-[0_1px_8px_rgba(0,0,0,0.4)]"><div class="flex items-center gap-4"><div class="flex items-center gap-2 px-3 py-1 rounded bg-surface-container-high/80 text-secondary-container font-label-md text-xs"><span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span><span>CLUSTER_01: ONLINE (18 Nodes)</span></div><nav class="hidden xl:flex items-center gap-2" data-active-classes="text-primary font-semibold bg-surface-container-high rounded px-3 py-1.5"><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="overview-accounts" href="#">Accounts Master</a><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="risk-global-limits" href="#">Risk &amp; Limits</a><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="multi-signals-algos" href="#">Multi-Signals</a><a aria-current="page" class="transition-colors text-primary font-semibold bg-surface-container-high rounded px-3 py-1.5" data-path="multi-account-execution" href="#">Multi-Account Execution</a><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="audit-compliance-logs" href="#">Audit Logs</a></nav></div><div class="flex items-center gap-3"><div class="flex items-center gap-1.5"><button class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-secondary-container hover:bg-secondary-container hover:text-on-secondary-container transition-colors" type="button">Login Dhan</button><button class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-secondary hover:bg-secondary hover:text-on-secondary transition-colors" type="button">Login Groww</button><button class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-primary hover:bg-primary hover:text-on-primary transition-colors" type="button">Login Flattrade</button><button class="px-2.5 py-1 rounded bg-error-container text-on-error font-label-md text-xs hover:bg-error hover:text-on-error transition-colors flex items-center gap-1" type="button"><span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>Kill</button></div><button class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[18px]">notifications</span></button><div class="flex items-center gap-2 pl-2"><div class="flex flex-col text-right"><span class="font-label-md text-xs text-on-surface font-semibold leading-tight">ALPHA_ADMIN</span><span class="font-label-md text-[10px] text-on-surface-variant leading-tight">Prop Lead</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<div class="relative w-full px-6 py-6 flex flex-col gap-6 overflow-hidden">
+<!-- Ambient Cyber Glows -->
+<div class="absolute -top-24 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="absolute top-1/2 -left-20 w-80 h-80 bg-secondary-container/10 rounded-full blur-[100px] pointer-events-none"></div>
+<!-- Top Telemetry & Status Ticker Strip -->
+<div class="w-full bg-surface-container-low/80 backdrop-blur-md rounded-xl p-3 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+<div class="flex items-center gap-6 min-w-0">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary-container animate-ping"></span>
+<span class="font-headline-md text-headline-md text-on-surface tracking-wider">EXECUTION MATRIX // SOR-CORE</span>
+</div>
+<div class="h-4 w-px bg-surface-container-highest"></div>
+<div class="flex items-center gap-2 font-label-md text-label-md text-on-surface-variant">
+<span>CO-LO RACK:</span>
+<span class="font-numeric-data text-numeric-data text-secondary-container">BOMBAY_DC_4B</span>
+</div>
+<div class="hidden md:flex items-center gap-2 font-label-md text-label-md text-on-surface-variant">
+<span>SLICING ENGINE:</span>
+<span class="font-numeric-data text-numeric-data text-primary">HYPER_ICEBERG_v3</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-3 bg-surface-container-lowest/80 px-3 py-1.5 rounded-lg">
+<div class="flex flex-col text-right">
+<span class="font-label-md text-[10px] text-on-surface-variant uppercase">Aggregated Margin Avail</span>
+<span class="font-numeric-data text-numeric-data text-secondary">₹4,82,40,500</span>
+</div>
+<span class="material-symbols-outlined text-secondary-container text-[20px]">account_balance_wallet</span>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-high/60 px-3 py-1.5 rounded-lg">
+<span class="material-symbols-outlined text-error text-[18px]">emergency_home</span>
+<span class="font-label-md text-xs text-on-surface uppercase tracking-wide">Sync Master Armed</span>
+</div>
+</div>
+</div>
+<!-- Section 1: Master Order Slicer & Dispatch Engine -->
+<div class="w-full grid grid-cols-1 xl:grid-cols-12 gap-6">
+<!-- Main Configuration Bar (Left 8 Cols) -->
+<div class="xl:col-span-8 flex flex-col gap-4 bg-surface-container-low/90 backdrop-blur-md rounded-xl p-5 shadow-md">
+<div class="flex flex-wrap items-center justify-between gap-3 pb-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">tune</span>
+<span class="font-headline-md text-headline-md text-on-surface">Master Execution Console</span>
+<span class="px-2 py-0.5 rounded bg-primary-container text-on-primary-container font-label-md text-xs">SLICER_ACTIVE</span>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-lowest px-2 py-1 rounded">
+<button class="px-3 py-1 rounded font-label-md text-label-md bg-secondary-container text-on-secondary-container" type="button">PROPORTIONAL</button>
+<button class="px-3 py-1 rounded font-label-md text-label-md text-on-surface-variant hover:text-on-surface" type="button">EQUAL LOTS</button>
+<button class="px-3 py-1 rounded font-label-md text-label-md text-on-surface-variant hover:text-on-surface" type="button">CUSTOM MATRIX</button>
+</div>
+</div>
+<!-- Input Parameters Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<!-- Instrument -->
+<div class="flex flex-col gap-1.5 md:col-span-2">
+<label class="font-label-md text-label-md text-on-surface-variant flex items-center justify-between">
+<span>TARGET CONTRACT</span>
+<span class="text-secondary-container font-numeric-data">LTP ₹142.45</span>
+</label>
+<div class="relative flex items-center bg-surface-container-lowest rounded-lg p-2.5">
+<span class="material-symbols-outlined text-primary text-[20px] mr-2">show_chart</span>
+<input class="w-full bg-transparent font-numeric-data text-numeric-data text-on-surface outline-none" spellcheck="false" type="text" value="NIFTY 24600 CE - 25 JUL"/>
+<span class="px-1.5 py-0.5 text-[10px] font-label-md bg-surface-container-high rounded text-on-surface-variant">OPTIDX</span>
+</div>
+</div>
+<!-- Order Type -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface-variant">EXECUTION PROTOCOL</label>
+<div class="relative bg-surface-container-lowest rounded-lg p-2.5 flex items-center justify-between">
+<span class="font-label-md text-label-md text-primary font-semibold">ICEBERG SLICING</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">keyboard_arrow_down</span>
+</div>
+</div>
+<!-- Base Lots -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface-variant flex justify-between">
+<span>BASE LOTS</span>
+<span class="text-outline text-xs">1 Lot = 50 Qty</span>
+</label>
+<div class="relative bg-surface-container-lowest rounded-lg p-2.5 flex items-center justify-between">
+<input class="w-full bg-transparent font-numeric-data text-numeric-data text-secondary-container outline-none" type="number" value="60"/>
+<span class="font-numeric-data text-xs text-on-surface-variant whitespace-nowrap">3,000 QTY</span>
+</div>
+</div>
+</div>
+<!-- Slicing Micro Controls -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3 bg-surface-container-lowest/50 p-3 rounded-lg">
+<div class="flex flex-col gap-1">
+<span class="font-label-md text-xs text-on-surface-variant">Iceberg Slice Size</span>
+<div class="flex items-center justify-between">
+<span class="font-numeric-data text-numeric-data text-on-surface">5 Lots (250 Qty)</span>
+<span class="text-xs text-primary font-label-md">12 Slices</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="font-label-md text-xs text-on-surface-variant">Inter-Slice Random Delay</span>
+<div class="flex items-center justify-between">
+<span class="font-numeric-data text-numeric-data text-on-surface">45ms - 120ms</span>
+<span class="text-xs text-secondary-container font-label-md">Jitter Guard</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="font-label-md text-xs text-on-surface-variant">Limit Chaser Aggression</span>
+<div class="flex items-center justify-between">
+<span class="font-numeric-data text-numeric-data text-on-surface">+0.15 Delta Peg</span>
+<span class="text-xs text-tertiary font-label-md">Passive Cross</span>
+</div>
+</div>
+</div>
+<!-- Broker Allocation Weightage Table -->
+<div class="flex flex-col gap-2 pt-2">
+<div class="flex items-center justify-between font-label-md text-xs text-on-surface-variant uppercase tracking-wider px-2">
+<span>Broker Cluster Distribution</span>
+<span>Allocated: 60/60 Lots (100%)</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+<!-- Dhan Accounts Card -->
+<div class="bg-surface-container-lowest p-3 rounded-lg flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary-container"></div>
+<span class="font-label-md text-label-md text-on-surface font-semibold">Dhan Multi-Client</span>
+</div>
+<span class="font-numeric-data text-xs text-secondary-container">20 LOTS</span>
+</div>
+<div class="flex items-center justify-between text-xs text-on-surface-variant">
+<span>Weight: 33.3%</span>
+<span class="font-numeric-data text-on-surface">₹42,750 Margin</span>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-secondary-container h-full w-[33.3%]"></div>
+</div>
+</div>
+<!-- Flattrade Accounts Card -->
+<div class="bg-surface-container-lowest p-3 rounded-lg flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="font-label-md text-label-md text-on-surface font-semibold">Flattrade Prop Desk</span>
+</div>
+<span class="font-numeric-data text-xs text-primary">25 LOTS</span>
+</div>
+<div class="flex items-center justify-between text-xs text-on-surface-variant">
+<span>Weight: 41.7%</span>
+<span class="font-numeric-data text-on-surface">₹53,437 Margin</span>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[41.7%]"></div>
+</div>
+</div>
+<!-- Groww Accounts Card -->
+<div class="bg-surface-container-lowest p-3 rounded-lg flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="font-label-md text-label-md text-on-surface font-semibold">Groww Retain Net</span>
+</div>
+<span class="font-numeric-data text-xs text-tertiary">15 LOTS</span>
+</div>
+<div class="flex items-center justify-between text-xs text-on-surface-variant">
+<span>Weight: 25.0%</span>
+<span class="font-numeric-data text-on-surface">₹32,062 Margin</span>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full w-[25%]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Dual Safety Dispatch Hub (Right 4 Cols) -->
+<div class="xl:col-span-4 flex flex-col justify-between bg-surface-container-low/90 backdrop-blur-md rounded-xl p-5 shadow-md relative overflow-hidden">
+<div class="absolute -top-12 -right-12 w-40 h-40 bg-error-container/20 rounded-full blur-[60px] pointer-events-none"></div>
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between pb-3">
+<span class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container text-[20px]">verified_user</span>
+              Pre-Flight Safety
+            </span>
+<span class="font-numeric-data text-xs text-secondary-container">GATE: CLEAR</span>
+</div>
+<!-- Pre-Flight Checklist Tokens -->
+<div class="flex flex-col gap-2 font-label-md text-xs">
+<div class="flex items-center justify-between p-2 rounded bg-surface-container-lowest">
+<span class="text-on-surface-variant">Token Validity (3 Brokers)</span>
+<span class="text-secondary-container flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> AUTHENTICATED
+              </span>
+</div>
+<div class="flex items-center justify-between p-2 rounded bg-surface-container-lowest">
+<span class="text-on-surface-variant">Max Slippage Threshold</span>
+<span class="text-on-surface font-numeric-data">0.45% Strict Cap</span>
+</div>
+<div class="flex items-center justify-between p-2 rounded bg-surface-container-lowest">
+<span class="text-on-surface-variant">Trailing Volatility Guard</span>
+<span class="text-secondary-container font-numeric-data">DELTA NORMAL</span>
+</div>
+<div class="flex items-center justify-between p-2 rounded bg-surface-container-lowest">
+<span class="text-on-surface-variant">Target Order Value</span>
+<span class="text-primary font-numeric-data text-sm">₹4,27,350.00</span>
+</div>
+</div>
+<!-- Dual Key Safety Confirmation Toggle -->
+<div class="bg-surface-container-lowest/90 p-3 rounded-lg flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface font-semibold">Dual Arming Latch</span>
+<span class="text-[10px] text-on-surface-variant">Confirm multi-client simultaneous execution</span>
+</div>
+<input checked="" class="w-5 h-5 accent-secondary-container cursor-pointer" id="arming-latch" type="checkbox"/>
+</div>
+</div>
+<!-- Big Glowing 'FIRE MULTI-ACCOUNT ORDER' CTA -->
+<div class="flex flex-col gap-3 pt-6">
+<button class="group relative w-full py-4 px-6 rounded-xl bg-gradient-to-r from-primary-container via-primary-container to-secondary-container text-on-surface flex items-center justify-center gap-3 overflow-hidden shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all" type="button">
+<div class="absolute inset-0 bg-secondary-container/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
+<span class="material-symbols-outlined text-[24px] text-secondary-fixed animate-pulse">rocket_launch</span>
+<div class="flex flex-col text-left">
+<span class="font-headline-md text-headline-md tracking-wider font-bold leading-tight">FIRE MULTI-ACCOUNT ORDER</span>
+<span class="font-label-md text-[11px] text-on-primary-container tracking-widest uppercase">Broadcast to 18 Connected Nodes</span>
+</div>
+</button>
+<div class="flex items-center justify-between px-1 text-[11px] font-label-md text-on-surface-variant">
+<span>ROUTE: INSTANT PACKET DIVERGENCE</span>
+<span class="text-secondary-container font-numeric-data">0 REJECT RISK</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 2: Active Brackets & Filling Progress Visualization -->
+<div class="w-full bg-surface-container-low/90 backdrop-blur-md rounded-xl p-5 shadow-md flex flex-col gap-4">
+<div class="flex flex-wrap items-center justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container text-[20px]">timeline</span>
+<span class="font-headline-md text-headline-md text-on-surface">Live Execution Bracket &amp; Dynamic Range</span>
+</div>
+<div class="flex items-center gap-4 text-xs font-label-md">
+<span class="flex items-center gap-1.5 text-error">
+<span class="w-2 h-2 rounded bg-error"></span> SL Peg: ₹136.00 (-4.5%)
+          </span>
+<span class="flex items-center gap-1.5 text-primary">
+<span class="w-2 h-2 rounded bg-primary"></span> Spot Fill: ₹142.45
+          </span>
+<span class="flex items-center gap-1.5 text-secondary-container">
+<span class="w-2 h-2 rounded bg-secondary-container"></span> Target TP: ₹156.00 (+9.5%)
+          </span>
+</div>
+</div>
+<!-- Advanced Bracket Range Gauge -->
+<div class="relative w-full bg-surface-container-lowest p-6 rounded-xl overflow-hidden flex flex-col justify-center">
+<!-- SVG Trajectory Spark -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none opacity-20" preserveaspectratio="none" viewbox="0 0 1000 120">
+<path class="text-secondary-container" d="M0,80 Q250,90 500,40 T1000,20" fill="none" stroke="currentColor" stroke-width="2"></path>
+<path class="text-secondary-container/5" d="M0,80 L1000,20 L1000,120 L0,120 Z" fill="currentColor"></path>
+</svg>
+<div class="relative z-10 flex flex-col gap-3">
+<!-- Labels & Values Above Line -->
+<div class="flex justify-between items-end font-numeric-data text-xs">
+<div class="flex flex-col text-left">
+<span class="text-error font-semibold">STOP LOSS LIMIT</span>
+<span class="text-on-surface text-sm">₹136.00</span>
+<span class="text-on-surface-variant text-[10px]">Trailing Step: 0.50</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-secondary-container font-label-md text-xs font-semibold">
+                ACTIVE IN-MARKET PEG: ₹142.48
+              </span>
+<span class="text-on-surface-variant text-[10px] mt-0.5">Spread: ₹0.05 (Tight)</span>
+</div>
+<div class="flex flex-col text-right">
+<span class="text-secondary-container font-semibold">TAKE PROFIT LIMIT</span>
+<span class="text-on-surface text-sm">₹156.00</span>
+<span class="text-on-surface-variant text-[10px]">R:R Ratio 1:2.11</span>
+</div>
+</div>
+<!-- Visual Bar Indicator with Slider Track -->
+<div class="relative w-full h-6 bg-surface-container rounded-full overflow-hidden flex items-center p-1">
+<!-- SL Zone -->
+<div class="h-full bg-error-container/40 rounded-l-full w-[25%] flex items-center justify-start pl-2">
+<span class="font-label-md text-[10px] text-error">DEFENSE ZONE</span>
+</div>
+<!-- In Between Range -->
+<div class="h-full bg-primary/20 w-[45%] relative flex items-center">
+<!-- Moving Fill Fill Progress Fill -->
+<div class="absolute left-0 top-0 bottom-0 bg-secondary-container/40 w-[60%]"></div>
+</div>
+<!-- Profit Zone -->
+<div class="h-full bg-secondary-container/30 rounded-r-full w-[30%] flex items-center justify-end pr-2">
+<span class="font-label-md text-[10px] text-secondary-container">PROFIT RUN</span>
+</div>
+<!-- Current Spot Pin Indicator (Center Axis) -->
+<div class="absolute left-[54%] top-0 bottom-0 w-1 bg-on-surface shadow-[0_0_10px_#ffffff] z-20 flex items-center justify-center">
+<div class="w-3 h-3 rounded-full bg-primary border-2 border-surface-container-lowest"></div>
+</div>
+</div>
+<div class="flex justify-between items-center text-[11px] font-label-md text-on-surface-variant pt-1">
+<span>Risk Capital: ₹16,125</span>
+<span>Est Slippage Cost: &lt; ₹34.00</span>
+<span>Potential Profit: ₹33,875</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 3 & 4: Two-Column Split (Live Order Book vs. Latency / SOR Engine) -->
+<div class="w-full grid grid-cols-1 xl:grid-cols-12 gap-6">
+<!-- Live Multi-Account Order Book (Left 7 Cols) -->
+<div class="xl:col-span-7 flex flex-col gap-4 bg-surface-container-low/90 backdrop-blur-md rounded-xl p-5 shadow-md">
+<div class="flex items-center justify-between pb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">list_alt</span>
+<span class="font-headline-md text-headline-md text-on-surface">Active Multi-Account Ledger</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-1 rounded bg-surface-container-highest text-secondary-container font-numeric-data text-xs">
+              TOTAL EXECUTED: 57/60 LOTS
+            </span>
+</div>
+</div>
+<!-- Ledger Table -->
+<div class="w-full overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="bg-surface-container-lowest text-on-surface-variant font-label-md text-xs uppercase tracking-wider">
+<th class="p-3 rounded-l">Account / Gateway</th>
+<th class="p-3">Quantity</th>
+<th class="p-3">Fill Price</th>
+<th class="p-3">Status</th>
+<th class="p-3">Latency</th>
+<th class="p-3 text-right rounded-r">Action</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-sm divide-y-0">
+<!-- Item 1: Dhan (Filled) -->
+<tr class="hover:bg-surface-container/40 transition-colors">
+<td class="p-3">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<div class="flex flex-col">
+<span class="font-label-md text-on-surface font-semibold">ACC-ALPHA-01</span>
+<span class="font-label-md text-[10px] text-on-surface-variant">Dhan Direct API</span>
+</div>
+</div>
+</td>
+<td class="p-3 font-numeric-data">20 Lots <span class="text-xs text-on-surface-variant">(1000)</span></td>
+<td class="p-3 font-numeric-data text-secondary-container">₹142.50</td>
+<td class="p-3">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-secondary-container font-label-md text-xs font-semibold">
+                    FILLED
+                  </span>
+</td>
+<td class="p-3 font-numeric-data text-secondary">11ms</td>
+<td class="p-3 text-right">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt</span>
+</button>
+</td>
+</tr>
+<!-- Item 2: Flattrade (Filled) -->
+<tr class="hover:bg-surface-container/40 transition-colors">
+<td class="p-3">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<div class="flex flex-col">
+<span class="font-label-md text-on-surface font-semibold">ACC-FLAT-06</span>
+<span class="font-label-md text-[10px] text-on-surface-variant">Flattrade Colocated</span>
+</div>
+</div>
+</td>
+<td class="p-3 font-numeric-data">25 Lots <span class="text-xs text-on-surface-variant">(1250)</span></td>
+<td class="p-3 font-numeric-data text-secondary-container">₹142.45</td>
+<td class="p-3">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-secondary-container font-label-md text-xs font-semibold">
+                    FILLED
+                  </span>
+</td>
+<td class="p-3 font-numeric-data text-secondary-container font-semibold">9ms</td>
+<td class="p-3 text-right">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt</span>
+</button>
+</td>
+</tr>
+<!-- Item 3: Groww (Partially Filled) -->
+<tr class="hover:bg-surface-container/40 transition-colors">
+<td class="p-3">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<div class="flex flex-col">
+<span class="font-label-md text-on-surface font-semibold">ACC-BETA-02</span>
+<span class="font-label-md text-[10px] text-on-surface-variant">Groww Cloud Node</span>
+</div>
+</div>
+</td>
+<td class="p-3 font-numeric-data">15 Lots <span class="text-xs text-on-surface-variant">(750)</span></td>
+<td class="p-3 font-numeric-data text-tertiary">₹142.60</td>
+<td class="p-3">
+<div class="flex flex-col gap-1">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-tertiary font-label-md text-xs font-semibold whitespace-nowrap">
+                      PARTIAL: 12/15
+                    </span>
+<div class="w-20 bg-surface-container h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full w-[80%]"></div>
+</div>
+</div>
+</td>
+<td class="p-3 font-numeric-data text-on-surface-variant">18ms</td>
+<td class="p-3 text-right">
+<button class="p-1 text-error hover:bg-error/20 rounded transition-colors" title="Cancel Remaining" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</td>
+</tr>
+<!-- Item 4: Additional Dhan Sub-account -->
+<tr class="hover:bg-surface-container/40 transition-colors">
+<td class="p-3">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<div class="flex flex-col">
+<span class="font-label-md text-on-surface font-semibold">ACC-ALPHA-04</span>
+<span class="font-label-md text-[10px] text-on-surface-variant">Dhan Institutional</span>
+</div>
+</div>
+</td>
+<td class="p-3 font-numeric-data">10 Lots <span class="text-xs text-on-surface-variant">(500)</span></td>
+<td class="p-3 font-numeric-data text-secondary-container">₹142.45</td>
+<td class="p-3">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-secondary-container font-label-md text-xs font-semibold">
+                    FILLED
+                  </span>
+</td>
+<td class="p-3 font-numeric-data text-secondary">12ms</td>
+<td class="p-3 text-right">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">receipt</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest rounded-lg font-label-md text-xs">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[16px]">sync_alt</span>
+<span class="text-on-surface-variant">Active Sync Rate: 100 updates/sec</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="text-primary hover:underline" type="button">Re-balance Unfilled</button>
+<button class="text-error hover:underline" type="button">Purge All Active</button>
+</div>
+</div>
+</div>
+<!-- Smart Order Routing (SOR) & Slippage Engine (Right 5 Cols) -->
+<div class="xl:col-span-5 flex flex-col gap-4 bg-surface-container-low/90 backdrop-blur-md rounded-xl p-5 shadow-md">
+<div class="flex items-center justify-between pb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container text-[20px]">speed</span>
+<span class="font-headline-md text-headline-md text-on-surface">SOR &amp; Latency Engine</span>
+</div>
+<span class="font-label-md text-xs text-secondary-container">AUTO-ROUTING: ON</span>
+</div>
+<!-- Latency Bar Comparisons -->
+<div class="flex flex-col gap-3 bg-surface-container-lowest p-4 rounded-xl">
+<span class="font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Gateway Round-Trip RTT</span>
+<!-- Flattrade -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-center text-xs">
+<span class="font-label-md text-on-surface">Flattrade NSE Colocation</span>
+<span class="font-numeric-data text-secondary-container font-semibold">9ms (Optimum)</span>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden">
+<div class="bg-secondary-container h-full w-[25%] rounded-full shadow-[0_0_8px_#01f5a0]"></div>
+</div>
+</div>
+<!-- Dhan -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-center text-xs">
+<span class="font-label-md text-on-surface">Dhan Mumbai POP Direct</span>
+<span class="font-numeric-data text-primary">12ms (+3ms)</span>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[38%] rounded-full"></div>
+</div>
+</div>
+<!-- Groww -->
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-center text-xs">
+<span class="font-label-md text-on-surface">Groww Cloud Direct Gateway</span>
+<span class="font-numeric-data text-tertiary">18ms (+9ms)</span>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full w-[58%] rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Slippage Heatmap & Price Variance -->
+<div class="flex flex-col gap-3 bg-surface-container-lowest p-4 rounded-xl">
+<div class="flex justify-between items-center">
+<span class="font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Cross-Broker Price Variance</span>
+<span class="font-numeric-data text-xs text-secondary-container">Max Δ: ₹0.15</span>
+</div>
+<!-- Visual Bar Chart Representation of Fills -->
+<div class="grid grid-cols-3 gap-2 pt-2 items-end h-28">
+<div class="flex flex-col items-center gap-1.5 h-full justify-end">
+<span class="font-numeric-data text-xs text-secondary-container">₹142.45</span>
+<div class="w-full bg-secondary-container/20 hover:bg-secondary-container/40 rounded-t h-[75%] transition-all flex items-center justify-center">
+<span class="font-label-md text-[10px] text-secondary-container font-semibold">FLAT</span>
+</div>
+</div>
+<div class="flex flex-col items-center gap-1.5 h-full justify-end">
+<span class="font-numeric-data text-xs text-primary">₹142.50</span>
+<div class="w-full bg-primary/20 hover:bg-primary/40 rounded-t h-[85%] transition-all flex items-center justify-center">
+<span class="font-label-md text-[10px] text-primary font-semibold">DHAN</span>
+</div>
+</div>
+<div class="flex flex-col items-center gap-1.5 h-full justify-end">
+<span class="font-numeric-data text-xs text-tertiary">₹142.60</span>
+<div class="w-full bg-tertiary/20 hover:bg-tertiary/40 rounded-t h-[98%] transition-all flex items-center justify-center">
+<span class="font-label-md text-[10px] text-tertiary font-semibold">GROWW</span>
+</div>
+</div>
+</div>
+<div class="p-2.5 rounded bg-surface-container-high/60 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container text-[18px]">psychology</span>
+<span class="text-xs text-on-surface font-body-md">
+              SOR Decision: Routed 60% of pending slices to <strong>Flattrade</strong> to save ~₹150 in total slippage.
+            </span>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 5: Real-time Infrastructure & Session Stream Footer -->
+<div class="w-full grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="bg-surface-container-low/70 p-4 rounded-xl flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-secondary-container/10 flex items-center justify-center text-secondary-container">
+<span class="material-symbols-outlined text-[24px]">call_split</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant">Slicing Efficiency</span>
+<span class="font-numeric-data text-numeric-data text-on-surface">99.82% Target Fill</span>
+</div>
+</div>
+<div class="bg-surface-container-low/70 p-4 rounded-xl flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[24px]">network_check</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant">Aggregate Fill Rate</span>
+<span class="font-numeric-data text-numeric-data text-on-surface">450 Qty / Sec</span>
+</div>
+</div>
+<div class="bg-surface-container-low/70 p-4 rounded-xl flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[24px]">stacked_bar_chart</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant">Realized Impact Cost</span>
+<span class="font-numeric-data text-numeric-data text-secondary-container">0.038% (Ultra-Low)</span>
+</div>
+</div>
+<div class="bg-surface-container-low/70 p-4 rounded-xl flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-[24px]">hub</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface-variant">Active Child Nodes</span>
+<span class="font-numeric-data text-numeric-data text-on-surface">18 Multi-Tenant Sync</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Simple micro-interaction for dual safety trigger toggling visual state
+  document.addEventListener('DOMContentLoaded', () => {
+    const latch = document.getElementById('arming-latch');
+    if (latch) {
+      latch.addEventListener('change', (e) => {
+        const btn = document.querySelector('button .material-symbols-outlined.animate-pulse');
+        if (btn) {
+          if (!e.target.checked) {
+            btn.parentElement.parentElement.classList.add('opacity-50', 'pointer-events-none');
+          } else {
+            btn.parentElement.parentElement.classList.remove('opacity-50', 'pointer-events-none');
+          }
+        }
+      });
+    }
+  });
+</script></main></div></body></html>

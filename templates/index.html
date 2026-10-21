@@ -180,6 +180,10 @@
                 </h1>
                 <nav class="hidden md:flex gap-lg items-center">
                     <a class="text-primary border-b-2 border-primary pb-2 font-bold font-label-md text-label-md" href="#">Dashboard</a>
+                    <a class="text-secondary hover:text-on-surface transition-colors font-label-md text-label-md flex items-center gap-1" href="/admin">
+                        <span class="material-symbols-outlined text-[16px]">hub</span>
+                        <span>Admin Hub</span>
+                    </a>
                     <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Analytics</a>
                     <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Signals</a>
                     <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Backtest</a>
@@ -200,10 +204,13 @@
                     </div>
                     <span class="font-numeric-data text-on-surface-variant text-xs opacity-60">System Node 01</span>
                 </div>
-                <div class="flex items-center gap-md">
-                    <button id="btn-connect-dhan" onclick="authConnect()" class="ml-md px-lg py-sm bg-primary-container text-on-primary-container font-label-md text-label-md rounded-full hover:shadow-[0_0_15px_rgba(121,40,202,0.5)] transition-all active:scale-95">
-                        Connect Dhan
-                    </button>
+                <div class="flex items-center gap-2">
+                    <span id="badge-dhan" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono text-secondary-container">🟢 DHAN</span>
+                    <span id="badge-groww" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono text-secondary">🟢 GROWW</span>
+                    <span id="badge-flat" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono text-primary">🟢 FLAT</span>
+                    <a href="/admin" class="ml-2 px-3 py-1 bg-primary-container text-on-primary-container font-label-md text-xs rounded-full hover:shadow-[0_0_15px_rgba(121,40,202,0.5)] transition-all">
+                        Admin Hub
+                    </a>
                 </div>
             </div>
         </div>
@@ -232,6 +239,10 @@
                 <span class="material-symbols-outlined min-w-[32px]">history</span>
                 <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">History</span>
             </div>
+            <a href="/admin" class="flex items-center px-6 py-3 text-secondary hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+                <span class="material-symbols-outlined min-w-[32px]">hub</span>
+                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Admin Hub</span>
+            </a>
         </div>
         <div class="mt-auto px-6 py-3 border-t border-white/5 text-on-surface-variant hover:text-error hover:bg-white/5 transition-all cursor-pointer">
             <span class="material-symbols-outlined min-w-[32px]">logout</span>

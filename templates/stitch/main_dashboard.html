@@ -1,0 +1,343 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Antigravity Trader | Terminal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Outfit:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        @keyframes ripple {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+        .pulse-indicator {
+            position: relative;
+        }
+        .pulse-indicator::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: inherit;
+            border-radius: 50%;
+            animation: ripple 1.5s infinite;
+        }
+        .glass-panel {
+            background: rgba(20, 20, 28, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .neon-border-bull {
+            border: 1px solid rgba(1, 245, 160, 0.3);
+            box-shadow: 0 0 15px rgba(1, 245, 160, 0.1);
+        }
+        .neon-border-neutral {
+            border: 1px solid rgba(219, 184, 255, 0.3);
+            box-shadow: 0 0 15px rgba(219, 184, 255, 0.1);
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#2a3a4f",
+                        "on-surface": "#d3e4fe",
+                        "error": "#ffb4ab",
+                        "on-secondary-fixed": "#002111",
+                        "surface-container-low": "#0b1c30",
+                        "on-error": "#690005",
+                        "on-tertiary": "#65002e",
+                        "primary-container": "#7928ca",
+                        "surface-container-highest": "#26364a",
+                        "error-container": "#93000a",
+                        "on-secondary": "#003921",
+                        "inverse-on-surface": "#213145",
+                        "primary-fixed-dim": "#dbb8ff",
+                        "surface-container-lowest": "#000f21",
+                        "primary": "#dbb8ff",
+                        "background": "#031427",
+                        "on-background": "#d3e4fe",
+                        "inverse-primary": "#7f30d0",
+                        "on-surface-variant": "#cec2d6",
+                        "on-primary": "#470083",
+                        "on-primary-fixed": "#2b0052",
+                        "surface-dim": "#031427",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-high": "#1b2b3f",
+                        "secondary": "#ceffdf",
+                        "tertiary-fixed-dim": "#ffb1c4",
+                        "on-tertiary-fixed-variant": "#8f0044",
+                        "tertiary-container": "#b00056",
+                        "on-tertiary-fixed": "#3f001a",
+                        "on-secondary-fixed-variant": "#005232",
+                        "on-primary-fixed-variant": "#6600b7",
+                        "on-tertiary-container": "#ffbece",
+                        "outline": "#988d9f",
+                        "secondary-fixed-dim": "#00e293",
+                        "surface-tint": "#dbb8ff",
+                        "primary-fixed": "#efdbff",
+                        "surface-container": "#102034",
+                        "secondary-fixed": "#50ffaf",
+                        "surface-variant": "#26364a",
+                        "on-primary-container": "#e1c4ff",
+                        "tertiary-fixed": "#ffd9e1",
+                        "secondary-container": "#01f5a0",
+                        "outline-variant": "#4c4354",
+                        "surface": "#031427",
+                        "inverse-surface": "#d3e4fe",
+                        "on-secondary-container": "#006b43",
+                        "tertiary": "#ffb1c4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "unit": "4px",
+                        "container-max": "1440px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "xl": "48px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Space Grotesk"],
+                        "label-md": ["Space Grotesk"],
+                        "body-md": ["Outfit"],
+                        "numeric-data": ["Space Grotesk"],
+                        "headline-lg": ["Space Grotesk"],
+                        "headline-md": ["Space Grotesk"],
+                        "body-lg": ["Outfit"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen overflow-x-hidden selection:bg-primary selection:text-on-primary">
+<!-- Background Shader -->
+
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-surface-container-low/60 backdrop-blur-xl border-b border-white/10 px-lg py-md shadow-2xl shadow-primary/5">
+<div class="max-w-container-max mx-auto flex justify-between items-center">
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-sm"><h1 class="font-display-lg text-headline-md tracking-tighter text-primary drop-shadow-[0_0_8px_rgba(219,184,255,0.4)]">Antigravity Admin</h1><span class="bg-primary-container/20 border border-primary/30 text-primary text-[10px] font-label-md px-2 py-0.5 rounded tracking-widest uppercase">ADMIN COMMAND</span></div>
+<nav class="hidden md:flex gap-lg items-center"><a class="text-primary border-b-2 border-primary pb-2 font-bold font-label-md text-label-md" href="#">Accounts Master</a><a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Risk &amp; Limits</a><a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Multi-Signals</a><a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Audit Logs</a></nav>
+</div>
+<div class="flex items-center gap-lg">
+<div class="flex flex-col items-end px-md border-r border-white/10">
+<div class="flex items-center gap-sm">
+<div class="w-2 h-2 rounded-full bg-secondary-container pulse-indicator"></div>
+<span class="font-label-md text-label-md text-secondary tracking-widest uppercase">WS: Connected</span>
+</div>
+<span class="font-numeric-data text-on-surface-variant text-xs opacity-60">Master Cluster: 12 Nodes Online</span>
+</div>
+<div class="flex items-center gap-md">
+<button class="p-sm hover:bg-white/5 transition-all rounded-lg active:scale-95">
+<span class="material-symbols-outlined text-on-surface-variant">account_balance_wallet</span>
+</button>
+<button class="p-sm hover:bg-white/5 transition-all rounded-lg active:scale-95">
+<span class="material-symbols-outlined text-on-surface-variant">settings</span>
+</button>
+<button class="p-sm hover:bg-white/5 transition-all rounded-lg active:scale-95">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+</button>
+<div class="flex items-center gap-xs"><button class="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary font-label-md text-xs rounded-full flex items-center gap-1.5 transition-all shadow-sm active:scale-95"><span class="w-2 h-2 rounded-full bg-primary"></span><span class="">Login Dhan</span></button><button class="px-3 py-1.5 bg-secondary/10 hover:bg-secondary/20 border border-secondary/30 text-secondary font-label-md text-xs rounded-full flex items-center gap-1.5 transition-all shadow-sm active:scale-95"><span class="w-2 h-2 rounded-full bg-secondary-container"></span><span class="">Login Groww</span></button><button class="px-3 py-1.5 bg-tertiary/10 hover:bg-tertiary-container/20 border border-tertiary/20 text-tertiary font-label-md text-xs rounded-full flex items-center gap-1.5 transition-all shadow-sm active:scale-95"><span class="w-2 h-2 rounded-full bg-tertiary"></span><span class="">Login Flattrade</span></button></div><button class="ml-md px-lg py-sm bg-primary-container text-on-primary-container font-label-md text-label-md rounded-full hover:shadow-[0_0_15px_rgba(121,40,202,0.5)] transition-all active:scale-95">Execute All Armed</button>
+</div>
+</div>
+</div>
+</header>
+<!-- Side Navigation Bar -->
+<aside class="fixed left-0 top-0 h-full z-40 bg-surface-container-lowest/40 backdrop-blur-2xl border-r border-white/5 w-20 hover:w-64 transition-all duration-500 overflow-hidden group flex flex-col pt-24 pb-md">
+<div class="flex-1 flex flex-col gap-sm">
+<div class="flex items-center px-6 py-3 bg-primary-container/20 text-primary border-r-4 border-primary">
+<span class="material-symbols-outlined min-w-[32px]">terminal</span>
+<span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Command</span>
+</div>
+<div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+<span class="material-symbols-outlined min-w-[32px]">analytics</span>
+<span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Terminal</span>
+</div>
+<div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+<span class="material-symbols-outlined min-w-[32px]">monitoring</span>
+<span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Markets</span>
+</div>
+<div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+<span class="material-symbols-outlined min-w-[32px]">psychology</span>
+<span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Algorithms</span>
+</div>
+<div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
+<span class="material-symbols-outlined min-w-[32px]">history</span>
+<span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">History</span>
+</div>
+</div>
+<div class="mt-auto px-6 py-3 border-t border-white/5 text-on-surface-variant hover:text-error hover:bg-white/5 transition-all cursor-pointer">
+<span class="material-symbols-outlined min-w-[32px]">logout</span>
+<span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Logout</span>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="pt-24 pl-20 pr-md pb-md max-w-container-max mx-auto">
+<!-- Account KPIs Banner -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-md mb-lg"><div class="glass-panel p-md rounded-xl flex flex-col justify-between"><div class="flex justify-between items-start"><span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Total Aggregated Equity</span><span class="bg-secondary/10 text-secondary text-[10px] px-2 py-0.5 rounded font-numeric-data font-bold border border-secondary/20">12 Active</span></div><span class="font-display-lg text-headline-lg text-on-surface font-bold font-numeric-data mt-1">₹1,48,50,000.00</span></div><div class="glass-panel p-md rounded-xl flex flex-col justify-between"><div class="flex justify-between items-start"><span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Total Utilised Margin</span><span class="text-[10px] font-numeric-data text-primary font-bold bg-primary/10 px-2 py-0.5 rounded border border-primary/20">28.8% Deployed</span></div><span class="font-display-lg text-headline-lg text-on-surface font-bold font-numeric-data mt-1">₹42,80,000.00</span></div><div class="glass-panel p-md rounded-xl flex flex-col col-span-1 md:col-span-2 justify-between"><div class="flex justify-between items-center"><span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Aggregated Net Realised PnL</span><span class="text-xs font-numeric-data text-on-surface-variant/70">Unrealised: <span class="text-secondary">+₹2,10,450.00</span></span></div><div class="flex items-baseline gap-md mt-1"><span class="font-display-lg text-headline-lg text-secondary-fixed font-bold font-numeric-data">+₹14,25,800.00</span><span class="font-headline-md text-secondary-fixed-dim bg-secondary/10 px-2 rounded font-numeric-data">+10.62%</span></div></div></section>
+<!-- Dashboard Grid Layout -->
+<div class="grid grid-cols-12 gap-lg">
+<!-- Left: Market Feeling -->
+<section class="col-span-12 lg:col-span-3 flex flex-col gap-md">
+<div class="flex items-center justify-between px-xs">
+<h2 class="font-headline-md text-on-surface flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">psychology</span>
+                        MARKET FEELING
+                    </h2>
+</div>
+<div class="glass-panel p-md rounded-xl neon-border-bull">
+<div class="flex justify-between items-start mb-md">
+<div>
+<h3 class="font-headline-md text-on-surface">NIFTY 50</h3>
+<span class="text-xs font-numeric-data text-secondary">24,550.25 (-0.12%)</span>
+</div>
+<span class="bg-secondary/20 text-secondary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Bullish Bias</span>
+</div>
+<div class="flex gap-1">
+<button class="flex-1 py-2 bg-secondary text-on-secondary-fixed text-[10px] font-bold rounded flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">trending_up</span> BULL
+                        </button>
+<button class="flex-1 py-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded">BEAR</button>
+<button class="flex-1 py-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded">INSIDE</button>
+</div>
+</div>
+<div class="glass-panel p-md rounded-xl neon-border-neutral">
+<div class="flex justify-between items-start mb-md">
+<div>
+<h3 class="font-headline-md text-on-surface">BANKNIFTY</h3>
+<span class="text-xs font-numeric-data text-on-surface-variant/60">52,340.10 (+0.45%)</span>
+</div>
+<span class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Inside Range</span>
+</div>
+<div class="flex gap-1">
+<button class="flex-1 py-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded">BULL</button>
+<button class="flex-1 py-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded">BEAR</button>
+<button class="flex-1 py-2 bg-primary/20 text-primary border border-primary/30 text-[10px] font-bold rounded flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[14px]">view_agenda</span> INSIDE
+                        </button>
+</div>
+</div>
+<div class="glass-panel p-md rounded-xl opacity-60 hover:opacity-100 transition-opacity">
+<div class="flex justify-between items-start mb-md">
+<div>
+<h3 class="font-headline-md text-on-surface">FINNIFTY</h3>
+<span class="text-xs font-numeric-data text-on-surface-variant/60">23,110.55 (+0.02%)</span>
+</div>
+<span class="bg-white/10 text-on-surface-variant text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Neutral</span>
+</div>
+<div class="flex gap-1">
+<button class="flex-1 py-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded">BULL</button>
+<button class="flex-1 py-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded">BEAR</button>
+<button class="flex-1 py-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded">INSIDE</button>
+</div>
+</div>
+</section>
+<!-- Middle: Orders & Positions -->
+<section class="col-span-12 lg:col-span-5 flex flex-col gap-lg"><div class="flex flex-col gap-md"><div class="flex flex-col gap-2 px-xs"><div class="flex items-center justify-between"><h2 class="font-headline-md text-on-surface flex items-center gap-sm"><span class="material-symbols-outlined text-primary">group_work</span> MANAGED ACCOUNTS OVERVIEW</h2><div class="flex items-center gap-sm"><span class="text-[11px] font-label-md text-on-surface-variant/70">12 Connected</span><button class="px-2.5 py-1 bg-primary text-on-primary font-label-md text-xs font-bold rounded flex items-center gap-1 hover:shadow-[0_0_12px_rgba(219,184,255,0.6)] active:scale-95 transition-all"><span class="material-symbols-outlined text-sm">add_link</span>+ Link Account</button></div></div><div class="glass-panel p-2 rounded-lg flex flex-wrap items-center justify-between gap-2 border border-white/10 bg-surface-container-lowest/40"><div class="flex items-center gap-3 text-[11px] font-label-md"><div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary"><span class="w-1.5 h-1.5 rounded-full bg-primary pulse-indicator"></span><span class="font-bold">Dhan API v2:</span><span class="text-on-surface-variant">Connected (4 Sessions)</span></div><div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-secondary/10 border border-secondary/20 text-secondary"><span class="w-1.5 h-1.5 rounded-full bg-secondary-container pulse-indicator"></span><span class="font-bold">Groww Invest API:</span><span class="text-on-surface-variant">Active (3 Sessions)</span></div><div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-tertiary/10 border border-tertiary/20 text-tertiary"><span class="w-1.5 h-1.5 rounded-full bg-tertiary pulse-indicator"></span><span class="font-bold">Flattrade Pi API:</span><span class="text-on-surface-variant">Active (5 Sessions)</span></div></div><div class="flex items-center gap-1.5"><button class="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-label-md text-primary border border-primary/20 rounded flex items-center gap-1"><span class="material-symbols-outlined text-xs">key</span>Dhan TOTP</button><button class="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-label-md text-secondary border border-secondary/20 rounded flex items-center gap-1"><span class="material-symbols-outlined text-xs">fingerprint</span>Groww OAuth</button><button class="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-label-md text-tertiary border border-tertiary/20 rounded flex items-center gap-1"><span class="material-symbols-outlined text-xs">token</span>Flattrade Token</button></div></div></div><div class="glass-panel rounded-xl overflow-hidden flex flex-col border border-white/10"><div class="overflow-x-auto scrollbar-hide"><table class="w-full text-left border-collapse"><thead class="bg-white/5 border-b border-white/10"><tr><th class="px-md py-sm font-label-md text-[10px] text-on-surface-variant uppercase tracking-widest">Account &amp; Strategy</th><th class="px-md py-sm font-label-md text-[10px] text-on-surface-variant uppercase tracking-widest">Status</th><th class="px-md py-sm font-label-md text-[10px] text-on-surface-variant uppercase tracking-widest">Equity Balance</th><th class="px-md py-sm font-label-md text-[10px] text-on-surface-variant uppercase tracking-widest">Utilised Margin</th><th class="px-md py-sm font-label-md text-[10px] text-on-surface-variant uppercase tracking-widest">Realised PnL</th><th class="px-md py-sm font-label-md text-[10px] text-on-surface-variant uppercase tracking-widest text-right">Actions</th></tr></thead><tbody class="divide-y divide-white/5 font-numeric-data"><tr class="hover:bg-white/5 transition-colors group"><td class="px-md py-sm"><div class="flex items-center gap-1.5"><div class="font-label-md text-xs text-on-surface font-bold">ACC-ALPHA-01</div><span class="bg-primary/20 text-primary text-[9px] px-1.5 py-0.2 rounded font-bold border border-primary/30 tracking-tight">DHAN</span></div><span class="text-[10px] text-primary">Prop Desk Arbitrage</span></td><td class="px-md py-sm"><span class="bg-secondary/10 text-secondary text-[10px] px-2 py-0.5 rounded-full border border-secondary/20 font-bold uppercase">RUNNING</span></td><td class="px-md py-sm text-xs text-on-surface">₹50,00,000.00</td><td class="px-md py-sm text-xs text-on-surface-variant/80">₹15,20,000.00 <span class="text-[10px] text-primary">(30.4%)</span></td><td class="px-md py-sm text-xs text-secondary-fixed font-bold">+₹5,40,250.00 <span class="text-[10px] text-secondary">(+12.1%)</span></td><td class="px-md py-sm text-right"><button class="px-2 py-1 bg-white/5 hover:bg-white/10 text-primary text-[10px] font-label-md rounded border border-white/10 active:scale-95 transition-all">Inspect</button></td></tr><tr class="hover:bg-white/5 transition-colors group"><td class="px-md py-sm"><div class="flex items-center gap-1.5"><div class="font-label-md text-xs text-on-surface font-bold">ACC-BETA-02</div><span class="bg-secondary/20 text-secondary text-[9px] px-1.5 py-0.2 rounded font-bold border border-secondary/30 tracking-tight">GROWW</span></div><span class="text-[10px] text-on-surface-variant/70">Momentum Breakout</span></td><td class="px-md py-sm"><span class="bg-secondary/10 text-secondary text-[10px] px-2 py-0.5 rounded-full border border-secondary/20 font-bold uppercase">ARMED</span></td><td class="px-md py-sm text-xs text-on-surface">₹25,00,000.00</td><td class="px-md py-sm text-xs text-on-surface-variant/80">₹7,80,000.00 <span class="text-[10px] text-primary">(31.2%)</span></td><td class="px-md py-sm text-xs text-secondary-fixed font-bold">+₹2,84,100.00 <span class="text-[10px] text-secondary">(+11.4%)</span></td><td class="px-md py-sm text-right"><button class="px-2 py-1 bg-white/5 hover:bg-white/10 text-primary text-[10px] font-label-md rounded border border-white/10 active:scale-95 transition-all">Inspect</button></td></tr><tr class="hover:bg-white/5 transition-colors group"><td class="px-md py-sm"><div class="flex items-center gap-1.5"><div class="font-label-md text-xs text-on-surface font-bold">ACC-GAMMA-03</div><span class="bg-primary/20 text-primary text-[9px] px-1.5 py-0.2 rounded font-bold border border-primary/30 tracking-tight">DHAN</span></div><span class="text-[10px] text-tertiary">Index GTT Multi-Leg</span></td><td class="px-md py-sm"><span class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded-full border border-primary/20 font-bold uppercase">RUNNING</span></td><td class="px-md py-sm text-xs text-on-surface">₹30,00,000.00</td><td class="px-md py-sm text-xs text-on-surface-variant/80">₹11,40,000.00 <span class="text-[10px] text-primary">(38.0%)</span></td><td class="px-md py-sm text-xs text-secondary-fixed font-bold">+₹3,92,450.00 <span class="text-[10px] text-secondary">(+13.1%)</span></td><td class="px-md py-sm text-right"><button class="px-2 py-1 bg-white/5 hover:bg-white/10 text-primary text-[10px] font-label-md rounded border border-white/10 active:scale-95 transition-all">Inspect</button></td></tr><tr class="hover:bg-white/5 transition-colors group"><td class="px-md py-sm"><div class="flex items-center gap-1.5"><div class="font-label-md text-xs text-on-surface font-bold">ACC-DELTA-04</div><span class="bg-secondary/20 text-secondary text-[9px] px-1.5 py-0.2 rounded font-bold border border-secondary/30 tracking-tight">GROWW</span></div><span class="text-[10px] text-on-surface-variant/70">Delta Neutral Hedge</span></td><td class="px-md py-sm"><span class="bg-white/10 text-on-surface-variant text-[10px] px-2 py-0.5 rounded-full border border-white/20 font-bold uppercase">HEDGED</span></td><td class="px-md py-sm text-xs text-on-surface">₹25,00,000.00</td><td class="px-md py-sm text-xs text-on-surface-variant/80">₹5,10,000.00 <span class="text-[10px] text-primary">(20.4%)</span></td><td class="px-md py-sm text-xs text-secondary-fixed font-bold">+₹1,65,000.00 <span class="text-[10px] text-secondary">(+6.6%)</span></td><td class="px-md py-sm text-right"><button class="px-2 py-1 bg-white/5 hover:bg-white/10 text-primary text-[10px] font-label-md rounded border border-white/10 active:scale-95 transition-all">Inspect</button></td></tr><tr class="hover:bg-white/5 transition-colors group opacity-75"><td class="px-md py-sm"><div class="flex items-center gap-1.5"><div class="font-label-md text-xs text-on-surface font-bold">ACC-ZETA-05</div><span class="bg-primary/20 text-primary text-[9px] px-1.5 py-0.2 rounded font-bold border border-primary/30 tracking-tight">DHAN</span></div><span class="text-[10px] text-error">Retail VIP Discretionary</span></td><td class="px-md py-sm"><span class="bg-tertiary-container/20 text-tertiary text-[10px] px-2 py-0.5 rounded-full border border-tertiary/20 font-bold uppercase">PAUSED</span></td><td class="px-md py-sm text-xs text-on-surface">₹18,50,000.00</td><td class="px-md py-sm text-xs text-on-surface-variant/80">₹3,30,000.00 <span class="text-[10px] text-primary">(17.8%)</span></td><td class="px-md py-sm text-xs text-error font-bold">-₹44,000.00 <span class="text-[10px] text-error">(-2.3%)</span></td><td class="px-md py-sm text-right"><button class="px-2 py-1 bg-white/5 hover:bg-white/10 text-primary text-[10px] font-label-md rounded border border-white/10 active:scale-95 transition-all">Inspect</button></td></tr><tr class="hover:bg-white/5 transition-colors group"><td class="px-md py-sm"><div class="flex items-center gap-1.5"><div class="font-label-md text-xs text-on-surface font-bold">ACC-FLAT-06</div><span class="bg-tertiary/20 text-tertiary text-[9px] px-1.5 py-0.2 rounded font-bold border border-tertiary/20 tracking-tight">FLATTRADE</span></div><span class="text-[10px] text-tertiary">HFT Scalper</span></td><td class="px-md py-sm"><span class="bg-secondary/10 text-secondary text-[10px] px-2 py-0.5 rounded-full border border-secondary/20 font-bold uppercase">RUNNING</span></td><td class="px-md py-sm text-xs text-on-surface">₹35,00,000.00</td><td class="px-md py-sm text-xs text-on-surface-variant/80">₹12,00,000.00 <span class="text-[10px] text-primary">(34.3%)</span></td><td class="px-md py-sm text-xs text-secondary-fixed font-bold">+₹1,95,400.00 <span class="text-[10px] text-secondary">(+5.6%)</span></td><td class="px-md py-sm text-right"><button class="px-2 py-1 bg-white/5 hover:bg-white/10 text-primary text-[10px] font-label-md rounded border border-white/10 active:scale-95 transition-all">Inspect</button></td></tr></tbody></table></div></div></div><div class="glass-panel p-md rounded-xl border border-white/10"><div class="flex justify-between items-center mb-sm"><span class="font-label-md text-xs text-primary uppercase tracking-wider flex items-center gap-1"><span class="material-symbols-outlined text-sm">tune</span> Multi-Account Margin Utilization</span><span class="text-[10px] font-numeric-data text-on-surface-variant">Overall: 28.8% / Limit 70.0%</span></div><div class="w-full h-2 bg-white/5 rounded-full overflow-hidden relative"><div class="h-full bg-primary shadow-[0_0_10px_rgba(219,184,255,0.8)] w-[28.8%] transition-all duration-1000"></div></div></div></section>
+<!-- Right: Feed & Logs -->
+<section class="col-span-12 lg:col-span-4 flex flex-col gap-lg">
+<div class="flex-1 flex flex-col min-h-0">
+<h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-md px-xs"><span class="material-symbols-outlined text-primary">hub</span> MULTI-ACCOUNT TRADE FEED</h2>
+<div class="glass-panel flex-1 rounded-xl overflow-hidden flex flex-col">
+<div class="overflow-x-auto scrollbar-hide">
+<table class="w-full text-left border-collapse">
+<thead class="bg-white/5 border-b border-white/10">
+<tr>
+<th class="px-md py-sm font-label-md text-[10px] text-on-surface-variant uppercase tracking-widest">Time</th>
+<th class="px-md py-sm font-label-md text-[10px] text-on-surface-variant uppercase tracking-widest">Instrument</th>
+<th class="px-md py-sm font-label-md text-[10px] text-on-surface-variant uppercase tracking-widest">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/5"><tr class="hover:bg-white/5 transition-colors group"><td class="px-md py-md font-numeric-data text-xs text-on-surface-variant/80">14:22:10</td><td class="px-md py-md"><div class="font-label-md text-xs text-on-surface">NIFTY24500CE</div><span class="text-[10px] text-primary">ACC-ALPHA-01</span></td><td class="px-md py-md"><span class="bg-secondary/10 text-secondary text-[10px] px-2 py-0.5 rounded-full border border-secondary/20">COMPLETED</span></td></tr><tr class="hover:bg-white/5 transition-colors group"><td class="px-md py-md font-numeric-data text-xs text-on-surface-variant/80">14:15:02</td><td class="px-md py-md"><div class="font-label-md text-xs text-on-surface">BNIFTY52000PE</div><span class="text-[10px] text-on-surface-variant/70">ACC-BETA-02</span></td><td class="px-md py-md"><span class="bg-tertiary-container/20 text-tertiary text-[10px] px-2 py-0.5 rounded-full border border-tertiary/20">SKIPPED</span></td></tr><tr class="hover:bg-white/5 transition-colors group"><td class="px-md py-md font-numeric-data text-xs text-on-surface-variant/80">14:05:44</td><td class="px-md py-md"><div class="font-label-md text-xs text-on-surface">NIFTY24650CE</div><span class="text-[10px] text-secondary">ACC-GAMMA-03</span></td><td class="px-md py-md"><span class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded-full border border-primary/20">ARMED</span></td></tr><tr class="hover:bg-white/5 transition-colors group opacity-60"><td class="px-md py-md font-numeric-data text-xs text-on-surface-variant/80">13:58:21</td><td class="px-md py-md"><div class="font-label-md text-xs text-on-surface">FIN23100PE</div><span class="text-[10px] text-error">ACC-ZETA-05</span></td><td class="px-md py-md"><span class="bg-white/10 text-on-surface-variant text-[10px] px-2 py-0.5 rounded-full border border-white/20">CLOSED_SL</span></td></tr><tr class="hover:bg-white/5 transition-colors group"><td class="px-md py-sm"><div class="flex items-center gap-1.5"><div class="font-label-md text-xs text-on-surface font-bold">ACC-FLAT-06</div><span class="bg-tertiary/20 text-tertiary text-[9px] px-1.5 py-0.2 rounded font-bold border border-tertiary/20 tracking-tight">FLATTRADE</span></div><span class="text-[10px] text-tertiary">HFT Scalper</span></td><td class="px-md py-sm"><span class="bg-secondary/10 text-secondary text-[10px] px-2 py-0.5 rounded-full border border-secondary/20 font-bold uppercase">RUNNING</span></td><td class="px-md py-sm text-xs text-on-surface">₹35,00,000.00</td><td class="px-md py-sm text-xs text-on-surface-variant/80">₹12,00,000.00 <span class="text-[10px] text-primary">(34.3%)</span></td><td class="px-md py-sm text-xs text-secondary-fixed font-bold">+₹1,95,400.00 <span class="text-[10px] text-secondary">(+5.6%)</span></td><td class="px-md py-sm text-right"><button class="px-2 py-1 bg-white/5 hover:bg-white/10 text-primary text-[10px] font-label-md rounded border border-white/10 active:scale-95 transition-all">Inspect</button></td></tr></tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="h-48 flex flex-col">
+<h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-md px-xs">
+<span class="material-symbols-outlined text-on-surface-variant">terminal</span>
+                        SYSTEM DEBUG LOG
+                    </h2>
+<div class="glass-panel flex-1 rounded-xl bg-black/40 p-md font-mono text-[10px] leading-relaxed text-secondary-fixed-dim/70 overflow-y-auto scrollbar-hide"><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Margin requirements re-calculated: Nominal</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Margin requirements re-calculated: Nominal</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Syncing order book with clearing node...</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Syncing order book with clearing node...</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Margin requirements re-calculated: Nominal</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Auto-trailing SL updated for NIFTY-JUL-CE</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Syncing order book with clearing node...</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Auto-trailing SL updated for NIFTY-JUL-CE</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Syncing order book with clearing node...</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Syncing order book with clearing node...</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Margin requirements re-calculated: Nominal</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Margin requirements re-calculated: Nominal</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Margin requirements re-calculated: Nominal</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Syncing order book with clearing node...</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Auto-trailing SL updated for NIFTY-JUL-CE</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Margin requirements re-calculated: Nominal</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Auto-trailing SL updated for NIFTY-JUL-CE</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Auto-trailing SL updated for NIFTY-JUL-CE</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Auto-trailing SL updated for NIFTY-JUL-CE</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Auto-trailing SL updated for NIFTY-JUL-CE</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Syncing order book with clearing node...</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Margin requirements re-calculated: Nominal</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> GTT Trigger armed for 24,650 spot level</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Syncing order book with clearing node...</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Auto-trailing SL updated for NIFTY-JUL-CE</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Auto-trailing SL updated for NIFTY-JUL-CE</div><div class="mb-1"><span class="text-primary">[SYSTEM]</span> Delta neutral hedge adjusted: +0.05</div></div>
+</div>
+</section>
+</div>
+</main>
+<!-- Floating Action Button for Emergency -->
+<div class="fixed bottom-lg right-lg z-50">
+<button class="w-16 h-16 rounded-full bg-error text-on-error flex items-center justify-center shadow-[0_0_30px_rgba(255,180,171,0.4)] hover:scale-110 active:scale-90 transition-all duration-300 group">
+<span class="material-symbols-outlined text-3xl font-bold group-hover:animate-spin">emergency_home</span>
+<div class="absolute -top-12 right-0 bg-error text-on-error px-3 py-1 rounded text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap uppercase tracking-tighter">Kill All Accounts Positions</div>
+</button>
+</div>
+<!-- Background Atmospheric Elements -->
+<div class="fixed top-[20%] left-[10%] w-[400px] h-[400px] bg-primary/10 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="fixed bottom-[10%] right-[5%] w-[500px] h-[500px] bg-secondary/5 rounded-full blur-[150px] pointer-events-none"></div>
+<script>
+        // Micro-interaction for numerical flickering data simulation
+        function simulateData() {
+            const dataElements = document.querySelectorAll('.font-numeric-data');
+            dataElements.forEach(el => {
+                if (Math.random() > 0.8) {
+                    const originalText = el.innerText;
+                    if (originalText.includes('$') || originalText.includes('%')) {
+                        // Just a subtle flicker of the number
+                        el.classList.add('opacity-70');
+                        setTimeout(() => el.classList.remove('opacity-70'), 50);
+                    }
+                }
+            });
+        }
+        setInterval(simulateData, 1500);
+
+        // Simple terminal typing effect for log
+        const log = document.querySelector('.font-mono');
+        function addLog(text, type = 'SYSTEM') {
+            const div = document.createElement('div');
+            div.className = 'mb-1';
+            const color = type === 'SYSTEM' ? 'text-primary' : 'text-secondary';
+            div.innerHTML = `<span class="${color}">[${type}]</span> ${text}`;
+            log.insertBefore(div, log.firstChild);
+            if (log.children.length > 50) log.removeChild(log.lastChild);
+        }
+
+        // Randomly add system logs
+        const logPool = [
+            "Syncing order book with clearing node...",
+            "Delta neutral hedge adjusted: +0.05",
+            "Auto-trailing SL updated for NIFTY-JUL-CE",
+            "Margin requirements re-calculated: Nominal",
+            "GTT Trigger armed for 24,650 spot level"
+        ];
+        setInterval(() => {
+            if (Math.random() > 0.7) {
+                addLog(logPool[Math.floor(Math.random() * logPool.length)]);
+            }
+        }, 5000);
+    </script>
+
+
+
+
+
+
+
+
+
+
+</body></html>

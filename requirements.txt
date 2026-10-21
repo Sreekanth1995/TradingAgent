@@ -29,3 +29,7 @@ websockets==15.0.1
 Werkzeug==3.1.4
 mcp
 httpx
+growwapi>=1.5.0
+NorenRestApiPy>=0.0.22
+websocket-client>=1.9.2
+

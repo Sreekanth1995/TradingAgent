@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container-lowest":"#000f21","background":"#031427","on-background":"#d3e4fe","surface-dim":"#031427","inverse-surface":"#d3e4fe","on-primary-container":"#e1c4ff","on-secondary-fixed-variant":"#005232","error-container":"#93000a","surface-container-highest":"#26364a","on-secondary-container":"#006b43","surface-container-low":"#0b1c30","error":"#ffb4ab","on-tertiary-fixed-variant":"#8f0044","surface-variant":"#26364a","on-tertiary":"#65002e","secondary-container":"#01f5a0","on-secondary-fixed":"#002111","on-error-container":"#ffdad6","tertiary":"#ffb1c4","on-secondary":"#003921","outline-variant":"#4c4354","surface-tint":"#dbb8ff","primary-container":"#7928ca","tertiary-container":"#b00056","on-primary-fixed":"#2b0052","primary":"#dbb8ff","on-primary-fixed-variant":"#6600b7","on-surface-variant":"#cec2d6","surface-container":"#102034","surface-container-high":"#1b2b3f","inverse-primary":"#7f30d0","tertiary-fixed":"#ffd9e1","primary-fixed-dim":"#dbb8ff","primary-fixed":"#efdbff","surface":"#031427","on-tertiary-container":"#ffbece","on-error":"#690005","on-primary":"#470083","on-surface":"#d3e4fe","on-tertiary-fixed":"#3f001a","outline":"#988d9f","secondary-fixed":"#50ffaf","secondary-fixed-dim":"#00e293","tertiary-fixed-dim":"#ffb1c4","secondary":"#ceffdf","surface-bright":"#2a3a4f","inverse-on-surface":"#213145"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"xl":"48px","sm":"8px","gutter":"16px","container-max":"1440px","xs":"4px","lg":"24px","unit":"4px","md":"16px"},"fontFamily":{"headline-lg":["Space Grotesk"],"headline-md":["Space Grotesk"],"headline-lg-mobile":["Space Grotesk"],"label-md":["Space Grotesk"],"body-lg":["Outfit"],"body-md":["Outfit"],"display-lg":["Space Grotesk"],"numeric-data":["Space Grotesk"]},"fontSize":{"headline-lg":["32px",{"lineHeight":"1.2","fontWeight":"600"}],"headline-md":["20px",{"lineHeight":"1.4","fontWeight":"500"}],"headline-lg-mobile":["24px",{"lineHeight":"1.2","fontWeight":"600"}],"label-md":["14px",{"lineHeight":"1","letterSpacing":"0.05em","fontWeight":"500"}],"body-lg":["18px",{"lineHeight":"1.6","fontWeight":"400"}],"body-md":["16px",{"lineHeight":"1.5","fontWeight":"400"}],"display-lg":["48px",{"lineHeight":"1.1","letterSpacing":"-0.02em","fontWeight":"700"}],"numeric-data":["16px",{"lineHeight":"1","letterSpacing":"0.02em","fontWeight":"700"}]}}}}</script></head><body class="bg-background font-body-md text-on-surface min-h-screen"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low/95 backdrop-blur-xl z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.3)]"><div class="flex flex-col"><div class="h-16 px-6 flex items-center gap-3 bg-surface-container-lowest/60"><div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-on-primary-container shadow-[0_0_12px_rgba(121,40,202,0.5)]"><span class="material-symbols-outlined text-[20px]">hub</span></div><div class="flex flex-col"><span class="font-headline-md text-headline-md text-primary tracking-wider leading-none">ANTIGRAVITY</span><span class="font-label-md text-[10px] text-secondary-container tracking-widest leading-tight uppercase">Multi-Broker Admin</span></div></div><div class="px-4 py-3 bg-surface-container-lowest/40 mx-3 mt-3 rounded flex items-center justify-between"><span class="font-label-md text-xs text-on-surface-variant flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>ENGINE CORE</span><span class="font-numeric-data text-xs text-secondary-container">18/18 ACTIVE</span></div><nav class="flex flex-col gap-1 px-3 mt-4" data-active-classes="bg-surface-container-high text-primary font-semibold shadow-[inset_0_0_0_1px_rgba(219,184,255,0.2)]"><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="overview-accounts" href="#"><span class="material-symbols-outlined text-[20px]">grid_view</span><span>Overview / Accounts</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="risk-global-limits" href="#"><span class="material-symbols-outlined text-[20px]">security</span><span>Risk &amp; Global Limits</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="multi-signals-algos" href="#"><span class="material-symbols-outlined text-[20px]">sensors</span><span>Multi-Signals &amp; Algos</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="multi-account-execution" href="#"><span class="material-symbols-outlined text-[20px]">rocket_launch</span><span>Multi-Account Execution</span></a><a aria-current="page" class="flex items-center gap-3 px-3 py-2.5 rounded transition-colors bg-surface-container-high text-primary font-semibold shadow-[inset_0_0_0_1px_rgba(219,184,255,0.2)]" data-path="broker-gateway-auth" href="#"><span class="material-symbols-outlined text-[20px]">key</span><span>Broker Gateway &amp; Auth</span></a><a class="flex items-center gap-3 px-3 py-2.5 rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" data-path="audit-compliance-logs" href="#"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span>Audit &amp; Compliance Logs</span></a></nav></div><div class="p-4 flex flex-col gap-3 bg-surface-container-lowest/80"><div class="flex items-center justify-between px-2 py-1.5 rounded bg-surface-container/60"><div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span><span class="font-label-md text-xs text-on-surface-variant">NSE Mumbai</span></div><span class="font-numeric-data text-xs text-secondary-container">8ms</span></div><button class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded bg-error-container text-on-error font-label-md text-xs uppercase tracking-wider hover:bg-error hover:text-on-error transition-colors shadow-[0_0_12px_rgba(147,0,10,0.5)]" type="button"><span class="material-symbols-outlined text-[16px]">power_settings_new</span><span>Emergency Master Kill</span></button><div class="flex items-center justify-between text-on-surface-variant font-label-md text-xs px-1"><a class="hover:text-primary transition-colors flex items-center gap-1" href="#"><span class="material-symbols-outlined text-[14px]">help</span>Docs</a><span class="text-[10px] text-outline font-numeric-data">v4.2.0-PRO</span></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-40 px-6 flex items-center justify-between shadow-[0_1px_8px_rgba(0,0,0,0.4)]"><div class="flex items-center gap-4"><div class="flex items-center gap-2 px-3 py-1 rounded bg-surface-container-high/80 text-secondary-container font-label-md text-xs"><span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span><span>CLUSTER_01: ONLINE (18 Nodes)</span></div><nav class="hidden xl:flex items-center gap-2" data-active-classes="text-primary font-semibold bg-surface-container-high rounded px-3 py-1.5"><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="overview-accounts" href="#">Accounts Master</a><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="risk-global-limits" href="#">Risk &amp; Limits</a><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="multi-signals-algos" href="#">Multi-Signals</a><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="multi-account-execution" href="#">Multi-Account Execution</a><a class="font-label-md text-sm text-on-surface-variant hover:text-on-surface px-3 py-1.5 transition-colors" data-path="audit-compliance-logs" href="#">Audit Logs</a></nav></div><div class="flex items-center gap-3"><div class="flex items-center gap-1.5"><button class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-secondary-container hover:bg-secondary-container hover:text-on-secondary-container transition-colors" type="button">Login Dhan</button><button class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-secondary hover:bg-secondary hover:text-on-secondary transition-colors" type="button">Login Groww</button><button class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-primary hover:bg-primary hover:text-on-primary transition-colors" type="button">Login Flattrade</button><button class="px-2.5 py-1 rounded bg-error-container text-on-error font-label-md text-xs hover:bg-error hover:text-on-error transition-colors flex items-center gap-1" type="button"><span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>Kill</button></div><button class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[18px]">notifications</span></button><div class="flex items-center gap-2 pl-2"><div class="flex flex-col text-right"><span class="font-label-md text-xs text-on-surface font-semibold leading-tight">ALPHA_ADMIN</span><span class="font-label-md text-[10px] text-on-surface-variant leading-tight">Prop Lead</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<div class="px-6 py-6 flex flex-col gap-6 max-w-[1440px] mx-auto w-full">
+<!-- Top System Pulse & Meta Ribbon -->
+<div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-surface-container-low/80 backdrop-blur-md p-4 rounded-xl shadow-lg relative overflow-hidden">
+<div class="absolute -right-20 -top-20 w-64 h-64 bg-primary-container/20 rounded-full blur-3xl pointer-events-none"></div>
+<div class="flex flex-wrap items-center gap-6 min-w-0">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary shadow-[0_0_15px_rgba(219,184,255,0.25)]">
+<span class="material-symbols-outlined text-[24px]">vpn_key</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-md text-headline-md text-on-surface leading-tight tracking-tight">Broker Gateway &amp; Auth Hub</span>
+<span class="font-body-md text-xs text-on-surface-variant">Multi-Tenant Quantitative Engine • Session Handshake &amp; Heartbeat Matrix</span>
+</div>
+</div>
+<div class="h-8 w-[1px] bg-outline-variant/30 hidden lg:block"></div>
+<div class="flex items-center gap-6">
+<div class="flex flex-col">
+<span class="font-label-md text-[10px] text-outline uppercase tracking-widest">Active Gateways</span>
+<span class="font-numeric-data text-numeric-data text-secondary-container flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+              3 / 3 CONNECTED
+            </span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-[10px] text-outline uppercase tracking-widest">Prop Execution Desks</span>
+<span class="font-numeric-data text-numeric-data text-on-surface">18 Client Nodes</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-[10px] text-outline uppercase tracking-widest">Aggregate Latency</span>
+<span class="font-numeric-data text-numeric-data text-secondary">15.0ms (Avg)</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-3.5 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center gap-2 shadow-sm transition-all hover:scale-[1.02]" onclick="testAllGateways()" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary-container">sync_alt</span>
+<span>Broadcast Ping (All)</span>
+</button>
+<button class="px-4 py-2 rounded-lg bg-primary-container text-on-primary-container font-label-md text-label-md flex items-center gap-2 shadow-[0_0_15px_rgba(121,40,202,0.4)] hover:shadow-[0_0_20px_rgba(121,40,202,0.65)] hover:scale-[1.02] transition-all" onclick="openAddNodeModal()" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span>+ Add New Broker Node</span>
+</button>
+</div>
+</div>
+<!-- Broker Gateway Cards & Upcoming Pipeline -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+<!-- Card 1: Flattrade (Pi Connect) -->
+<div class="flex flex-col justify-between bg-surface-container-low/90 backdrop-blur-xl rounded-xl p-4 shadow-md relative group hover:shadow-[0_0_20px_rgba(1,245,160,0.15)] transition-all">
+<div class="flex flex-col gap-3">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center text-primary font-bold text-xs tracking-wider">
+                FT
+              </div>
+<div class="flex flex-col">
+<span class="font-headline-md text-sm text-on-surface font-semibold tracking-wide">Flattrade</span>
+<span class="font-label-md text-[11px] text-on-surface-variant">Python API / Pi Connect</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-container font-label-md text-[11px] flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container animate-pulse"></span> Live Connected
+            </span>
+</div>
+<div class="grid grid-cols-2 gap-2 p-2.5 rounded bg-surface-container-lowest/80 text-xs">
+<div>
+<span class="font-label-md text-[10px] text-outline block">CLIENT USER ID</span>
+<span class="font-numeric-data text-xs text-on-surface font-bold">FT028491</span>
+</div>
+<div>
+<span class="font-label-md text-[10px] text-outline block">AUTH KEY</span>
+<span class="font-numeric-data text-xs text-on-surface">****382a</span>
+</div>
+<div>
+<span class="font-label-md text-[10px] text-outline block">SESSION EXPIRES</span>
+<span class="font-numeric-data text-xs text-secondary-fixed">07h 42m</span>
+</div>
+<div>
+<span class="font-label-md text-[10px] text-outline block">PING / RATE</span>
+<span class="font-numeric-data text-xs text-secondary-container">12ms • 18/s</span>
+</div>
+</div>
+<!-- Micro Sparkline SVG -->
+<div class="flex items-center justify-between px-1">
+<span class="font-label-md text-[10px] text-on-surface-variant uppercase">Latency History (60s)</span>
+<svg class="w-24 h-5 text-secondary-container" fill="none" viewbox="0 0 100 20">
+<path d="M0 12 L15 11 L30 14 L45 8 L60 10 L75 9 L90 7 L100 8" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"></path>
+</svg>
+</div>
+</div>
+<div class="pt-4 mt-2 flex flex-col gap-2">
+<div class="grid grid-cols-2 gap-1.5">
+<button class="py-1.5 px-2 rounded bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-[11px] flex items-center justify-center gap-1 transition-colors" onclick="quickReauth('FT028491')" type="button">
+<span class="material-symbols-outlined text-[14px] text-secondary">token</span>
+<span>Re-Auth TOTP</span>
+</button>
+<button class="py-1.5 px-2 rounded bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-[11px] flex items-center justify-center gap-1 transition-colors" onclick="testFeed('Flattrade')" type="button">
+<span class="material-symbols-outlined text-[14px] text-primary">sensors</span>
+<span>Feed Test</span>
+</button>
+</div>
+<button class="w-full py-1.5 rounded bg-surface-container-lowest hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface font-label-md text-[11px] flex items-center justify-center gap-1 transition-colors" onclick="showGatewaySettings('FT028491')" type="button">
+<span class="material-symbols-outlined text-[14px]">tune</span>
+<span>Config Rate Limits &amp; Parameters</span>
+</button>
+</div>
+</div>
+<!-- Card 2: Dhan (SuperFast API v2) -->
+<div class="flex flex-col justify-between bg-surface-container-low/90 backdrop-blur-xl rounded-xl p-4 shadow-md relative group hover:shadow-[0_0_20px_rgba(219,184,255,0.15)] transition-all">
+<div class="flex flex-col gap-3">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center text-secondary font-bold text-xs tracking-wider">
+                DH
+              </div>
+<div class="flex flex-col">
+<span class="font-headline-md text-sm text-on-surface font-semibold tracking-wide">Dhan HQ</span>
+<span class="font-label-md text-[11px] text-on-surface-variant">SuperFast API v2</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-container font-label-md text-[11px] flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container animate-pulse"></span> Live Connected
+            </span>
+</div>
+<div class="grid grid-cols-2 gap-2 p-2.5 rounded bg-surface-container-lowest/80 text-xs">
+<div>
+<span class="font-label-md text-[10px] text-outline block">MASTER CLIENT ID</span>
+<span class="font-numeric-data text-xs text-on-surface font-bold">1100482910</span>
+</div>
+<div>
+<span class="font-label-md text-[10px] text-outline block">LINKED DESKS</span>
+<span class="font-numeric-data text-xs text-primary font-bold">4 Prop Desks</span>
+</div>
+<div>
+<span class="font-label-md text-[10px] text-outline block">SLICE MAX LOTS</span>
+<span class="font-numeric-data text-xs text-secondary-fixed">1,800 Lots</span>
+</div>
+<div>
+<span class="font-label-md text-[10px] text-outline block">FEED PING</span>
+<span class="font-numeric-data text-xs text-secondary-container">14ms • 25/s</span>
+</div>
+</div>
+<div class="flex items-center justify-between px-1">
+<span class="font-label-md text-[10px] text-on-surface-variant uppercase">Order Slice Ratio</span>
+<span class="font-numeric-data text-[11px] text-primary">99.98% Fill Rate</span>
+</div>
+</div>
+<div class="pt-4 mt-2 flex flex-col gap-2">
+<div class="grid grid-cols-2 gap-1.5">
+<button class="py-1.5 px-2 rounded bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-[11px] flex items-center justify-center gap-1 transition-colors" onclick="testFeed('Dhan')" type="button">
+<span class="material-symbols-outlined text-[14px] text-secondary">refresh</span>
+<span>Refresh Feed</span>
+</button>
+<button class="py-1.5 px-2 rounded bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-[11px] flex items-center justify-center gap-1 transition-colors" onclick="showGatewaySettings('Dhan')" type="button">
+<span class="material-symbols-outlined text-[14px] text-primary">key</span>
+<span>Manage Keys</span>
+</button>
+</div>
+<button class="w-full py-1.5 rounded bg-surface-container-lowest hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface font-label-md text-[11px] flex items-center justify-center gap-1 transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">view_timeline</span>
+<span>Slice Config &amp; Desk Allocations</span>
+</button>
+</div>
+</div>
+<!-- Card 3: Groww (Invest API v1.4) -->
+<div class="flex flex-col justify-between bg-surface-container-low/90 backdrop-blur-xl rounded-xl p-4 shadow-md relative group hover:shadow-[0_0_20px_rgba(206,255,223,0.15)] transition-all">
+<div class="flex flex-col gap-3">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center text-secondary-fixed font-bold text-xs tracking-wider">
+                GW
+              </div>
+<div class="flex flex-col">
+<span class="font-headline-md text-sm text-on-surface font-semibold tracking-wide">Groww</span>
+<span class="font-label-md text-[11px] text-on-surface-variant">Invest API v1.4</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-container font-label-md text-[11px] flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container animate-pulse"></span> Live Connected
+            </span>
+</div>
+<div class="grid grid-cols-2 gap-2 p-2.5 rounded bg-surface-container-lowest/80 text-xs">
+<div>
+<span class="font-label-md text-[10px] text-outline block">ACCOUNTS LINKED</span>
+<span class="font-numeric-data text-xs text-on-surface font-bold">3 Retail Desks</span>
+</div>
+<div>
+<span class="font-label-md text-[10px] text-outline block">OAUTH STATUS</span>
+<span class="font-numeric-data text-xs text-secondary font-bold">Auto-Refreshed</span>
+</div>
+<div>
+<span class="font-label-md text-[10px] text-outline block">WEBHOOK RELAY</span>
+<span class="font-numeric-data text-xs text-secondary-container">ACTIVE</span>
+</div>
+<div>
+<span class="font-label-md text-[10px] text-outline block">LATENCY</span>
+<span class="font-numeric-data text-xs text-on-surface">19ms • 10/s</span>
+</div>
+</div>
+<div class="flex items-center justify-between px-1">
+<span class="font-label-md text-[10px] text-on-surface-variant uppercase">Sync Pulse</span>
+<span class="font-numeric-data text-[11px] text-secondary-fixed">Portfolio Sync 30s</span>
+</div>
+</div>
+<div class="pt-4 mt-2 flex flex-col gap-2">
+<div class="grid grid-cols-2 gap-1.5">
+<button class="py-1.5 px-2 rounded bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-[11px] flex items-center justify-center gap-1 transition-colors" onclick="oauthHandshakeGroww()" type="button">
+<span class="material-symbols-outlined text-[14px] text-secondary-container">bolt</span>
+<span>OAuth Sync</span>
+</button>
+<button class="py-1.5 px-2 rounded bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-[11px] flex items-center justify-center gap-1 transition-colors" onclick="syncPortfoliosGroww()" type="button">
+<span class="material-symbols-outlined text-[14px] text-primary">account_balance_wallet</span>
+<span>Holdings</span>
+</button>
+</div>
+<button class="w-full py-1.5 rounded bg-surface-container-lowest hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface font-label-md text-[11px] flex items-center justify-center gap-1 transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">cable</span>
+<span>Inspect Connection Headers</span>
+</button>
+</div>
+</div>
+<!-- Card 4: Upcoming / Deploy Node Trigger -->
+<div class="flex flex-col justify-between bg-surface-container-lowest/70 border-dashed border-2 border-outline-variant/30 rounded-xl p-4 hover:border-primary/50 transition-all cursor-pointer group" onclick="openAddNodeModal()">
+<div class="flex flex-col items-center justify-center text-center py-6 gap-2">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-primary group-hover:scale-110 group-hover:shadow-[0_0_15px_rgba(219,184,255,0.3)] transition-all">
+<span class="material-symbols-outlined text-[28px]">add</span>
+</div>
+<span class="font-headline-md text-sm text-on-surface font-semibold mt-1">Deploy Broker Adapter</span>
+<p class="font-body-md text-xs text-on-surface-variant max-w-[200px]">
+            Ready-to-configure connectors for Zerodha Kite Connect, Angel One SmartAPI &amp; Fyers 3.0
+          </p>
+</div>
+<div class="flex flex-wrap items-center justify-center gap-1.5 pt-2">
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-outline font-label-md text-[10px]">ZERODHA KITE</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-outline font-label-md text-[10px]">ANGEL SMARTAPI</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-outline font-label-md text-[10px]">FYERS v3</span>
+</div>
+</div>
+</div>
+<!-- Middle Bento Grid: Fast Token Generator Widget + System Auth Architecture Visual -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Interactive Widget: Flattrade Quick Token & Session Generator -->
+<div class="lg:col-span-7 bg-surface-container-low/90 backdrop-blur-xl rounded-xl p-5 shadow-lg flex flex-col gap-4 relative overflow-hidden">
+<div class="flex items-center justify-between pb-3 border-b border-surface-container-highest/60">
+<div class="flex items-center gap-2.5">
+<div class="w-7 h-7 rounded bg-primary/20 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">lock_reset</span>
+</div>
+<div>
+<span class="font-headline-md text-sm text-on-surface font-semibold">Flattrade Quick Token &amp; Session Generator</span>
+<span class="font-body-md text-xs text-on-surface-variant block">Zero-manual browser login • Automatic SHA-256 Request Token handshake</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-secondary-container font-numeric-data text-xs">
+            SHA-256 Digest: OK
+          </span>
+</div>
+<!-- Form Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-xs text-on-surface-variant">User ID / Client Code</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest text-on-surface font-numeric-data text-xs rounded px-3 py-2 pl-8 focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" id="ft-user" type="text" value="FT028491"/>
+<span class="material-symbols-outlined absolute left-2 top-2 text-outline text-[16px]">person</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-xs text-on-surface-variant">Password</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest text-on-surface font-numeric-data text-xs rounded px-3 py-2 pl-8 focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" id="ft-pass" type="password" value="••••••••••••"/>
+<span class="material-symbols-outlined absolute left-2 top-2 text-outline text-[16px]">key</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-xs text-on-surface-variant">API Key (Vendor Code)</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest text-on-surface font-numeric-data text-xs rounded px-3 py-2 pl-8 focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" id="ft-apikey" type="text" value="FT_API_83920_ALPHA"/>
+<span class="material-symbols-outlined absolute left-2 top-2 text-outline text-[16px]">terminal</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-xs text-on-surface-variant">API Secret</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest text-on-surface font-numeric-data text-xs rounded px-3 py-2 pl-8 focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" id="ft-secret" type="password" value="84c98f9810ef8a8291f098ba4e8"/>
+<span class="material-symbols-outlined absolute left-2 top-2 text-outline text-[16px]">security</span>
+</div>
+</div>
+<div class="sm:col-span-2 flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-xs text-on-surface-variant">TOTP Code (or Base32 TOTP Secret for automated rollover)</label>
+<button class="font-label-md text-[11px] text-primary hover:underline flex items-center gap-1" onclick="autoGenerateTOTP()" type="button">
+<span class="material-symbols-outlined text-[12px]">cycle</span> Auto-compute from Vault
+              </button>
+</div>
+<div class="flex gap-2">
+<div class="relative flex-1">
+<input class="w-full bg-surface-container-lowest text-secondary-container font-numeric-data text-xs rounded px-3 py-2 pl-8 focus:outline-none focus:ring-1 focus:ring-secondary-container shadow-inner" id="ft-totp" placeholder="Enter 6-digit TOTP (e.g. 849201) or Base32 Key" type="text" value="JBSWY3DPEHPK3PXP"/>
+<span class="material-symbols-outlined absolute left-2 top-2 text-outline text-[16px]">pin</span>
+</div>
+<button class="px-4 py-2 bg-primary hover:bg-inverse-primary text-on-primary font-label-md text-xs rounded flex items-center gap-2 whitespace-nowrap shadow-[0_0_15px_rgba(219,184,255,0.4)] transition-all" id="btn-gen-token" onclick="generateFlattradeToken()" type="button">
+<span class="material-symbols-outlined text-[16px]">bolt</span>
+<span>Generate Daily Session</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Session Response Terminal Snippet -->
+<div class="mt-1 p-3 rounded bg-surface-container-lowest text-xs flex flex-col gap-1 font-numeric-data">
+<div class="flex items-center justify-between text-[11px] text-outline pb-1 border-b border-surface-container-high/40">
+<span class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span>
+              Live Gateway Terminal Log
+            </span>
+<span id="terminal-timestamp">10:34:12 IST</span>
+</div>
+<div class="text-[11px] text-on-surface-variant flex flex-col gap-0.5 pt-1" id="terminal-feed">
+<div><span class="text-secondary">[REST 200]</span> POST https://authapi.flattrade.in/trade/api/v2/handshake • RequestToken generated</div>
+<div><span class="text-primary">[CRYPTO]</span> SHA-256(api_key + request_token + secret) evaluated in 0.42ms</div>
+<div><span class="text-secondary-container">[SESSION]</span> Daily Pi Connect Token active: <span class="text-on-surface">d98a0f8b...e104f (Valid till 23:59 IST)</span></div>
+</div>
+</div>
+</div>
+<!-- Right Bento Column: Cluster Health & Visual Architecture -->
+<div class="lg:col-span-5 flex flex-col gap-4">
+<!-- Live Authentication Pulse Diagnostic -->
+<div class="bg-surface-container-low/90 backdrop-blur-xl rounded-xl p-5 shadow-lg flex flex-col justify-between flex-1">
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<span class="font-headline-md text-sm text-on-surface font-semibold">Cluster Auth Health</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-secondary-fixed text-[11px] font-numeric-data">100% OPERATIONAL</span>
+</div>
+<p class="font-body-md text-xs text-on-surface-variant leading-relaxed">
+              Real-time TLS handshake validation, round-trip order routing telemetry, and automatic token expiry surveillance across NSE co-located subnets.
+            </p>
+<div class="space-y-2 mt-1">
+<div>
+<div class="flex justify-between font-label-md text-[11px] text-on-surface mb-1">
+<span>Flattrade API Quota (18 / 20 req/sec)</span>
+<span class="text-secondary-container font-numeric-data">90% Capacity</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+<div class="h-full bg-secondary-container rounded-full" style="width: 90%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between font-label-md text-[11px] text-on-surface mb-1">
+<span>Dhan Multi-Tenant Slice Buffer</span>
+<span class="text-primary font-numeric-data">Safe (14% Load)</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 14%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between font-label-md text-[11px] text-on-surface mb-1">
+<span>Token Time-To-Live Watchdog</span>
+<span class="text-secondary-fixed font-numeric-data">Next Rollover: 05:30 IST</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+<div class="h-full bg-secondary-fixed rounded-full" style="width: 68%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Security Switchers -->
+<div class="pt-4 border-t border-surface-container-highest/60 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">verified_user</span>
+<span class="font-label-md text-xs text-on-surface">Auto-Refresh TOTP Daemon</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-background after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary-container"></div>
+</label>
+</div>
+</div>
+<!-- Emergency Gateway Isolation Trigger -->
+<div class="bg-surface-container-low/90 backdrop-blur-xl rounded-xl p-4 shadow-lg flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded bg-error-container/40 text-error flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">cloud_off</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-md text-xs text-on-surface font-semibold">Isolate Broker Feed</span>
+<span class="font-body-md text-[11px] text-on-surface-variant">Revoke all broker sessions in one atomic tick</span>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded bg-error-container hover:bg-error text-on-error font-label-md text-xs tracking-wider uppercase transition-colors" onclick="confirmGatewaySever()" type="button">
+            Sever Auth
+          </button>
+</div>
+</div>
+</div>
+<!-- Active Multi-Tenancy Mapping Matrix Table -->
+<div class="bg-surface-container-low/90 backdrop-blur-xl rounded-xl p-5 shadow-lg flex flex-col gap-4">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded bg-secondary-container/20 text-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+</div>
+<div>
+<span class="font-headline-md text-sm text-on-surface font-semibold">Active Account Multi-Tenancy Mapping</span>
+<span class="font-body-md text-xs text-on-surface-variant block">Desk allocation, algorithmic trading linkages, and individual auth heartbeat</span>
+</div>
+</div>
+<!-- Filter / Quick Search -->
+<div class="flex items-center gap-2">
+<div class="relative">
+<input class="bg-surface-container-lowest text-xs text-on-surface rounded px-3 py-1.5 pl-7 focus:outline-none focus:ring-1 focus:ring-primary w-56 font-numeric-data" placeholder="Filter Account ID / Strategy..." type="text"/>
+<span class="material-symbols-outlined absolute left-2 top-2 text-outline text-[14px]">search</span>
+</div>
+<button class="p-1.5 rounded bg-surface-container-highest text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+</button>
+</div>
+</div>
+<!-- Data Table -->
+<div class="overflow-x-auto">
+<table class="w-full text-left text-xs border-collapse">
+<thead>
+<tr class="text-outline font-label-md text-[11px] uppercase tracking-wider border-b border-surface-container-highest/60 pb-2">
+<th class="py-2.5 px-3">Account ID / Alias</th>
+<th class="py-2.5 px-3">Broker</th>
+<th class="py-2.5 px-3">Strategy Attached</th>
+<th class="py-2.5 px-3">Auth Mode</th>
+<th class="py-2.5 px-3">Session Token Status</th>
+<th class="py-2.5 px-3">Ping</th>
+<th class="py-2.5 px-3 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-highest/40 font-body-md" id="account-table-body">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container/40 transition-colors group">
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary-container"></div>
+<div class="flex flex-col">
+<span class="font-numeric-data text-xs text-on-surface font-bold">FT028491-PROP-A</span>
+<span class="font-label-md text-[10px] text-outline">Internal Alpha Desk 01</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded bg-surface-container text-primary font-label-md text-[11px]">Flattrade</span>
+</td>
+<td class="py-3 px-3">
+<span class="font-numeric-data text-xs text-on-surface">NIFTY_DELTA_NEUTRAL_v4</span>
+</td>
+<td class="py-3 px-3">
+<span class="font-label-md text-xs text-on-surface-variant">Daily Session (TOTP)</span>
+</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-container font-label-md text-[11px] inline-flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span> Valid (07h 42m)
+                </span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-secondary-container">12ms</td>
+<td class="py-3 px-3 text-right">
+<div class="flex items-center justify-end gap-1.5">
+<button class="p-1 rounded bg-surface-container-high hover:bg-surface-container text-on-surface transition-colors" onclick="testOrderTick('FT028491-PROP-A')" title="Test synthetic order tick" type="button">
+<span class="material-symbols-outlined text-[16px] text-secondary">play_arrow</span>
+</button>
+<button class="p-1 rounded bg-surface-container-high hover:bg-surface-container text-on-surface transition-colors" onclick="quickReauth('FT028491-PROP-A')" title="Re-authenticate session" type="button">
+<span class="material-symbols-outlined text-[16px] text-primary">sync</span>
+</button>
+<button class="p-1 rounded bg-surface-container-high hover:bg-error-container text-outline hover:text-on-error transition-colors" onclick="revokeAccount('FT028491-PROP-A')" title="Revoke desk session" type="button">
+<span class="material-symbols-outlined text-[16px]">cancel</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container/40 transition-colors group">
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary-container"></div>
+<div class="flex flex-col">
+<span class="font-numeric-data text-xs text-on-surface font-bold">1100482910-CL-01</span>
+<span class="font-label-md text-[10px] text-outline">High-Net Prop Pool</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded bg-surface-container text-secondary font-label-md text-[11px]">Dhan HQ</span>
+</td>
+<td class="py-3 px-3">
+<span class="font-numeric-data text-xs text-on-surface">BANKNIFTY_MOMENTUM_EXP</span>
+</td>
+<td class="py-3 px-3">
+<span class="font-label-md text-xs text-on-surface-variant">OAuth 2.0 (Persistent)</span>
+</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-container font-label-md text-[11px] inline-flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span> Valid (Permanent)
+                </span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-secondary-container">14ms</td>
+<td class="py-3 px-3 text-right">
+<div class="flex items-center justify-end gap-1.5">
+<button class="p-1 rounded bg-surface-container-high hover:bg-surface-container text-on-surface transition-colors" onclick="testOrderTick('1100482910-CL-01')" title="Test synthetic order tick" type="button">
+<span class="material-symbols-outlined text-[16px] text-secondary">play_arrow</span>
+</button>
+<button class="p-1 rounded bg-surface-container-high hover:bg-surface-container text-on-surface transition-colors" onclick="quickReauth('1100482910-CL-01')" title="Re-authenticate session" type="button">
+<span class="material-symbols-outlined text-[16px] text-primary">sync</span>
+</button>
+<button class="p-1 rounded bg-surface-container-high hover:bg-error-container text-outline hover:text-on-error transition-colors" onclick="revokeAccount('1100482910-CL-01')" title="Revoke desk session" type="button">
+<span class="material-symbols-outlined text-[16px]">cancel</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container/40 transition-colors group">
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary-container"></div>
+<div class="flex flex-col">
+<span class="font-numeric-data text-xs text-on-surface font-bold">1100482910-CL-02</span>
+<span class="font-label-md text-[10px] text-outline">Straddle Automation Desk</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded bg-surface-container text-secondary font-label-md text-[11px]">Dhan HQ</span>
+</td>
+<td class="py-3 px-3">
+<span class="font-numeric-data text-xs text-on-surface">FINNIFTY_GAMMA_SCALP</span>
+</td>
+<td class="py-3 px-3">
+<span class="font-label-md text-xs text-on-surface-variant">OAuth 2.0 (Persistent)</span>
+</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-container font-label-md text-[11px] inline-flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span> Valid (Permanent)
+                </span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-secondary-container">15ms</td>
+<td class="py-3 px-3 text-right">
+<div class="flex items-center justify-end gap-1.5">
+<button class="p-1 rounded bg-surface-container-high hover:bg-surface-container text-on-surface transition-colors" onclick="testOrderTick('1100482910-CL-02')" title="Test synthetic order tick" type="button">
+<span class="material-symbols-outlined text-[16px] text-secondary">play_arrow</span>
+</button>
+<button class="p-1 rounded bg-surface-container-high hover:bg-surface-container text-on-surface transition-colors" onclick="quickReauth('1100482910-CL-02')" title="Re-authenticate session" type="button">
+<span class="material-symbols-outlined text-[16px] text-primary">sync</span>
+</button>
+<button class="p-1 rounded bg-surface-container-high hover:bg-error-container text-outline hover:text-on-error transition-colors" onclick="revokeAccount('1100482910-CL-02')" title="Revoke desk session" type="button">
+<span class="material-symbols-outlined text-[16px]">cancel</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container/40 transition-colors group">
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<div class="flex flex-col">
+<span class="font-numeric-data text-xs text-on-surface font-bold">GW-892019-RT</span>
+<span class="font-label-md text-[10px] text-outline">Retail Managed Sub-01</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded bg-surface-container text-secondary-fixed font-label-md text-[11px]">Groww</span>
+</td>
+<td class="py-3 px-3">
+<span class="font-numeric-data text-xs text-on-surface">EQUITY_SWING_INDEX_LONG</span>
+</td>
+<td class="py-3 px-3">
+<span class="font-label-md text-xs text-on-surface-variant">OAuth Refresh</span>
+</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded-full bg-tertiary-container/40 text-tertiary font-label-md text-[11px] inline-flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span> Expiring (00h 19m)
+                </span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-on-surface">19ms</td>
+<td class="py-3 px-3 text-right">
+<div class="flex items-center justify-end gap-1.5">
+<button class="p-1 rounded bg-surface-container-high hover:bg-surface-container text-on-surface transition-colors" onclick="testOrderTick('GW-892019-RT')" title="Test synthetic order tick" type="button">
+<span class="material-symbols-outlined text-[16px] text-secondary">play_arrow</span>
+</button>
+<button class="p-1 rounded bg-surface-container-high hover:bg-surface-container text-on-surface transition-colors" onclick="quickReauth('GW-892019-RT')" title="Re-authenticate session" type="button">
+<span class="material-symbols-outlined text-[16px] text-primary">sync</span>
+</button>
+<button class="p-1 rounded bg-surface-container-high hover:bg-error-container text-outline hover:text-on-error transition-colors" onclick="revokeAccount('GW-892019-RT')" title="Revoke desk session" type="button">
+<span class="material-symbols-outlined text-[16px]">cancel</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container/40 transition-colors group">
+<td class="py-3 px-3">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+<div class="flex flex-col">
+<span class="font-numeric-data text-xs text-on-surface font-bold">FT028499-TEST</span>
+<span class="font-label-md text-[10px] text-outline">Paper Sandbox Sandbox Node</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded bg-surface-container text-primary font-label-md text-[11px]">Flattrade</span>
+</td>
+<td class="py-3 px-3">
+<span class="font-numeric-data text-xs text-outline">Unassigned (Staged)</span>
+</td>
+<td class="py-3 px-3">
+<span class="font-label-md text-xs text-on-surface-variant">Daily Session (TOTP)</span>
+</td>
+<td class="py-3 px-3">
+<span class="px-2 py-0.5 rounded-full bg-error-container/40 text-error font-label-md text-[11px] inline-flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span> Session Expired
+                </span>
+</td>
+<td class="py-3 px-3 font-numeric-data text-outline">--</td>
+<td class="py-3 px-3 text-right">
+<div class="flex items-center justify-end gap-1.5">
+<button class="p-1 rounded bg-surface-container-high/40 text-outline cursor-not-allowed" disabled="" title="Test synthetic order tick" type="button">
+<span class="material-symbols-outlined text-[16px]">play_arrow</span>
+</button>
+<button class="p-1 rounded bg-primary-container text-on-primary-container hover:scale-105 transition-all" onclick="quickReauth('FT028499-TEST')" title="Re-authenticate session" type="button">
+<span class="material-symbols-outlined text-[16px]">vpn_key</span>
+</button>
+<button class="p-1 rounded bg-surface-container-high hover:bg-error-container text-outline hover:text-on-error transition-colors" onclick="revokeAccount('FT028499-TEST')" title="Revoke desk session" type="button">
+<span class="material-symbols-outlined text-[16px]">cancel</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="flex items-center justify-between text-xs text-on-surface-variant pt-2 border-t border-surface-container-highest/40 font-label-md">
+<span>Showing 5 active mapping entities of 18 cluster units</span>
+<div class="flex items-center gap-1.5">
+<button class="px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high text-on-surface text-xs" type="button">Previous</button>
+<span class="px-2 text-primary font-numeric-data">Page 1 / 4</span>
+<button class="px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high text-on-surface text-xs" type="button">Next</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal: + Add New Broker Node (Initially Hidden) -->
+<div class="fixed inset-0 z-50 bg-background/80 backdrop-blur-md hidden items-center justify-center p-4" id="add-node-modal">
+<div class="bg-surface-container-low/95 border border-primary/20 rounded-xl p-6 w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)] relative flex flex-col gap-4">
+<div class="flex items-center justify-between pb-3 border-b border-surface-container-highest/60">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded bg-primary/20 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">add_box</span>
+</div>
+<div>
+<span class="font-headline-md text-base text-on-surface font-semibold">Deploy New Broker Adapter Node</span>
+<span class="font-body-md text-xs text-on-surface-variant block">Configure algorithmic order routing credentials</span>
+</div>
+</div>
+<button class="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-outline hover:text-on-surface transition-colors" onclick="closeAddNodeModal()" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="flex flex-col gap-3 font-body-md text-xs">
+<div>
+<label class="font-label-md text-xs text-on-surface-variant block mb-1">Select Broker Architecture</label>
+<select class="w-full bg-surface-container-lowest text-on-surface font-numeric-data text-xs rounded px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" id="modal-broker-type">
+<option value="kite">Zerodha (Kite Connect v3 REST &amp; WebSocket)</option>
+<option value="angel">Angel One (SmartAPI TOTP Gateway)</option>
+<option value="fyers">Fyers (Data 3.0 &amp; Order API)</option>
+<option value="flattrade">Flattrade (Pi Connect Secondary Node)</option>
+<option value="dhan">Dhan HQ (Sub-Account Slice Desk)</option>
+</select>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="font-label-md text-xs text-on-surface-variant block mb-1">Node Identifier / Alias</label>
+<input class="w-full bg-surface-container-lowest text-on-surface font-numeric-data text-xs rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" placeholder="e.g. ALPHA-MOMENTUM-03" type="text"/>
+</div>
+<div>
+<label class="font-label-md text-xs text-on-surface-variant block mb-1">API Key / App ID</label>
+<input class="w-full bg-surface-container-lowest text-on-surface font-numeric-data text-xs rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" placeholder="api_key_xxxxxxxx" type="text"/>
+</div>
+</div>
+<div>
+<label class="font-label-md text-xs text-on-surface-variant block mb-1">API Secret / Encryption Salt</label>
+<input class="w-full bg-surface-container-lowest text-on-surface font-numeric-data text-xs rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" placeholder="••••••••••••••••••••••••" type="password"/>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="font-label-md text-xs text-on-surface-variant block mb-1">Authentication Handshake</label>
+<select class="w-full bg-surface-container-lowest text-on-surface font-numeric-data text-xs rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary shadow-inner">
+<option>Automated TOTP Daemon</option>
+<option>OAuth 2.0 Webhook Callback</option>
+<option>Static Access Token</option>
+</select>
+</div>
+<div>
+<label class="font-label-md text-xs text-on-surface-variant block mb-1">Max Orders / Sec (Throttle)</label>
+<input class="w-full bg-surface-container-lowest text-on-surface font-numeric-data text-xs rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" type="number" value="15"/>
+</div>
+</div>
+<div class="p-3 rounded bg-surface-container-lowest/90 border border-outline-variant/30 flex items-start gap-2.5">
+<span class="material-symbols-outlined text-primary text-[18px]">verified</span>
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-on-surface">Zero-Clearance Memory Key Storage</span>
+<span class="text-[11px] text-on-surface-variant leading-tight">Secret keys are decrypted strictly within ephemeral RAM enclaves and purged every midnight IST.</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-end gap-2 pt-3 border-t border-surface-container-highest/60">
+<button class="px-4 py-2 rounded bg-surface-container text-on-surface font-label-md text-xs hover:bg-surface-container-high transition-colors" onclick="closeAddNodeModal()" type="button">
+          Cancel
+        </button>
+<button class="px-4 py-2 rounded bg-primary text-on-primary font-label-md text-xs flex items-center gap-1.5 shadow-[0_0_15px_rgba(219,184,255,0.4)] transition-all" onclick="deployNewNode()" type="button">
+<span class="material-symbols-outlined text-[16px]">bolt</span>
+<span>Deploy &amp; Handshake</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Inline Micro-Interactions Script -->
+<script>
+    function openAddNodeModal() {
+      const modal = document.getElementById('add-node-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeAddNodeModal() {
+      const modal = document.getElementById('add-node-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function autoGenerateTOTP() {
+      const totpField = document.getElementById('ft-totp');
+      const randomCode = Math.floor(100000 + Math.random() * 900000);
+      totpField.value = randomCode;
+      
+      const feed = document.getElementById('terminal-feed');
+      const entry = document.createElement('div');
+      entry.innerHTML = '<span class="text-secondary">[VAULT]</span> Auto-computed TOTP from Base32 secret: <span class="text-on-surface">' + randomCode + '</span> (Valid for 28s)';
+      feed.appendChild(entry);
+    }
+
+    function generateFlattradeToken() {
+      const btn = document.getElementById('btn-gen-token');
+      const feed = document.getElementById('terminal-feed');
+      const originalText = btn.innerHTML;
+      
+      btn.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span><span>Handshaking...</span>';
+      btn.classList.add('opacity-75');
+
+      setTimeout(() => {
+        btn.innerHTML = '<span class="material-symbols-outlined text-[16px] text-secondary-container">check_circle</span><span>Token Generated!</span>';
+        btn.classList.remove('opacity-75');
+        
+        const now = new Date();
+        const timeStr = now.toTimeString().split(' ')[0] + ' IST';
+        
+        const line1 = document.createElement('div');
+        line1.innerHTML = '<span class="text-secondary-container">[REST 200]</span> Client FT028491 SHA-256 Auth Handshake verified at ' + timeStr;
+        feed.appendChild(line1);
+
+        const line2 = document.createElement('div');
+        line2.innerHTML = '<span class="text-primary">[TOKEN]</span> Bearer pi_conn_' + Math.random().toString(36).substring(2, 12) + ' active for 8h 00m';
+        feed.appendChild(line2);
+
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+        }, 3000);
+      }, 700);
+    }
+
+    function testFeed(brokerName) {
+      alert('Triggered live quote & DOM feed check for ' + brokerName + '.\nPing response: OK (NSE Mumbai: 11.8ms)');
+    }
+
+    function quickReauth(accountId) {
+      alert('Prompted zero-touch re-auth for ' + accountId + '.\nFetching fresh TOTP and refreshing daily cryptographic session.');
+    }
+
+    function testOrderTick(accountId) {
+      alert('Dispatched synthetic zero-volume limit order test on ' + accountId + '.\nBroker Gateway Ack received in 13ms.');
+    }
+
+    function revokeAccount(accountId) {
+      if (confirm('Revoke active token session for ' + accountId + '? Algos will halt order flow immediately.')) {
+        alert('Session killed for ' + accountId);
+      }
+    }
+
+    function showGatewaySettings(id) {
+      alert('Displaying advanced rate limiter & WebSocket subscription settings for node ' + id);
+    }
+
+    function testAllGateways() {
+      alert('Broadcasting telemetry ping to Flattrade, Dhan HQ, and Groww nodes...\nAll 3 nodes answered within SLA (<20ms).');
+    }
+
+    function oauthHandshakeGroww() {
+      alert('Groww Invest API OAuth token refreshed successfully. Next automated renewal in 23h 59m.');
+    }
+
+    function syncPortfoliosGroww() {
+      alert('Synchronizing margin collaterals and holdings across 3 Groww retail nodes.');
+    }
+
+    function confirmGatewaySever() {
+      if (confirm('CRITICAL ACTION: Sever all 3 broker connections and nullify session keys? All running automated strategies will be placed in risk-safe halt.')) {
+        alert('Master kill executed. Broker connections severed.');
+      }
+    }
+
+    function deployNewNode() {
+      const broker = document.getElementById('modal-broker-type').value;
+      alert('Deploying adapter for ' + broker.toUpperCase() + '...\nHandshake initialized successfully. Node online.');
+      closeAddNodeModal();
+    }
+  </script>
+</div></main></div></body></html>

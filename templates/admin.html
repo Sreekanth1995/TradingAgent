@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Antigravity Trader | Multi-Broker Admin Hub</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    
+    <style>
+        @layer base {
+            html, body { margin: 0; padding: 0; }
+            body { overscroll-behavior: none; }
+        }
+        ::-webkit-scrollbar { display: none; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-lowest": "#000f21",
+                        "background": "#031427",
+                        "on-background": "#d3e4fe",
+                        "surface-dim": "#031427",
+                        "surface": "#031427",
+                        "surface-container": "#102034",
+                        "surface-container-low": "#0b1c30",
+                        "surface-container-high": "#1b2b3f",
+                        "surface-container-highest": "#26364a",
+                        "surface-bright": "#2a3a4f",
+                        "primary": "#dbb8ff",
+                        "primary-container": "#7928ca",
+                        "on-primary": "#470083",
+                        "on-primary-container": "#e1c4ff",
+                        "secondary": "#ceffdf",
+                        "secondary-container": "#01f5a0",
+                        "on-secondary": "#003921",
+                        "on-secondary-container": "#006b43",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a",
+                        "on-error": "#690005",
+                        "outline": "#988d9f",
+                        "outline-variant": "#4c4354"
+                    },
+                    fontFamily: {
+                        "headline-lg": ["Space Grotesk"],
+                        "headline-md": ["Space Grotesk"],
+                        "label-md": ["Space Grotesk"],
+                        "body-lg": ["Outfit"],
+                        "body-md": ["Outfit"],
+                        "numeric-data": ["Space Grotesk"]
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="bg-background font-body-md text-on-surface min-h-screen">
+    <!-- Sidebar Navigation -->
+    <aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low/95 backdrop-blur-xl z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.3)] border-r border-outline-variant/20">
+        <div class="flex flex-col">
+            <!-- Brand -->
+            <div class="h-16 px-6 flex items-center gap-3 bg-surface-container-lowest/60 border-b border-outline-variant/20">
+                <div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-on-primary-container shadow-[0_0_12px_rgba(121,40,202,0.5)]">
+                    <span class="material-symbols-outlined text-[20px]">hub</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-headline-md text-md text-primary tracking-wider leading-none">ANTIGRAVITY</span>
+                    <span class="font-label-md text-[10px] text-secondary-container tracking-widest leading-tight uppercase">Multi-Broker Admin</span>
+                </div>
+            </div>
+
+            <!-- Pulse status -->
+            <div class="px-4 py-3 bg-surface-container-lowest/40 mx-3 mt-3 rounded flex items-center justify-between border border-outline-variant/10">
+                <span class="font-label-md text-xs text-on-surface-variant flex items-center gap-2">
+                    <span id="engine-status-dot" class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+                    ENGINE MULTI-CORE
+                </span>
+                <span id="active-brokers-badge" class="font-numeric-data text-xs text-secondary-container">3/3 ACTIVE</span>
+            </div>
+
+            <!-- Nav tabs -->
+            <nav class="flex flex-col gap-1 px-3 mt-4" id="admin-nav">
+                <button onclick="switchTab('gateway')" class="tab-btn active w-full flex items-center gap-3 px-3 py-2.5 rounded text-left font-label-md text-sm text-primary font-semibold bg-surface-container-high transition-colors" data-tab="gateway">
+                    <span class="material-symbols-outlined text-[20px]">vpn_key</span>
+                    <span>Broker Gateway &amp; Auth</span>
+                </button>
+                <button onclick="switchTab('execution')" class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded text-left font-label-md text-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-tab="execution">
+                    <span class="material-symbols-outlined text-[20px]">layers</span>
+                    <span>Multi-Account Execution</span>
+                </button>
+                <button onclick="switchTab('risk')" class="tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded text-left font-label-md text-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-tab="risk">
+                    <span class="material-symbols-outlined text-[20px]">shield</span>
+                    <span>Risk &amp; Global Limits</span>
+                </button>
+                <a href="/" class="w-full flex items-center gap-3 px-3 py-2.5 rounded text-left font-label-md text-sm text-secondary hover:text-on-surface hover:bg-surface-container transition-colors mt-2">
+                    <span class="material-symbols-outlined text-[20px]">terminal</span>
+                    <span>Return to Live Terminal</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Sidebar footer -->
+        <div class="p-4 flex flex-col gap-3 bg-surface-container-lowest/80 border-t border-outline-variant/20">
+            <button onclick="triggerEmergencyKill('all')" class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded bg-error-container text-on-error font-label-md text-xs uppercase tracking-wider hover:bg-error hover:text-on-error transition-colors shadow-[0_0_12px_rgba(147,0,10,0.5)]" type="button">
+                <span class="material-symbols-outlined text-[16px]">power_settings_new</span>
+                <span>Emergency Master Kill</span>
+            </button>
+            <div class="flex items-center justify-between text-on-surface-variant font-label-md text-xs px-1">
+                <span>Multi-Broker Mode</span>
+                <span class="text-[10px] text-secondary font-numeric-data">v0.5.0-PRO</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content wrapper -->
+    <div class="pl-72">
+        <!-- Top App Bar -->
+        <header class="fixed top-0 left-72 right-0 h-16 bg-surface/90 backdrop-blur-xl z-40 px-6 flex items-center justify-between shadow-[0_1px_8px_rgba(0,0,0,0.4)] border-b border-outline-variant/20">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 px-3 py-1 rounded bg-surface-container-high/80 text-secondary-container font-label-md text-xs border border-outline-variant/20">
+                    <span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+                    <span id="gateway-cluster-status">MULTI-TENANT ROUTER ONLINE</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-1.5">
+                    <button onclick="loginBroker('dhan')" class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-secondary-container hover:bg-secondary-container hover:text-on-secondary-container transition-colors" type="button">Login Dhan</button>
+                    <button onclick="loginBroker('groww')" class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-secondary hover:bg-secondary hover:text-on-secondary transition-colors" type="button">Login Groww</button>
+                    <button onclick="loginBroker('flattrade')" class="px-2.5 py-1 rounded bg-surface-container font-label-md text-xs text-primary hover:bg-primary hover:text-on-primary transition-colors" type="button">Login FlatTrade</button>
+                    <button onclick="triggerEmergencyKill('all')" class="px-2.5 py-1 rounded bg-error-container text-on-error font-label-md text-xs hover:bg-error hover:text-on-error transition-colors flex items-center gap-1" type="button">
+                        <span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>Master Kill
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Body -->
+        <main class="w-full pt-16 min-h-screen">
+            <div class="px-6 py-6 flex flex-col gap-6 max-w-[1440px] mx-auto w-full">
+
+                <!-- Notifications / Alerts banner -->
+                <div id="admin-alert" class="hidden p-3 rounded-lg text-sm font-label-md flex items-center justify-between"></div>
+
+                <!-- ================= TAB 1: Broker Gateway & Auth Hub ================= -->
+                <div id="tab-gateway" class="tab-content active flex flex-col gap-6">
+                    <!-- Top Summary Ribbon -->
+                    <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-surface-container-low/80 backdrop-blur-md p-4 rounded-xl shadow-lg border border-outline-variant/20">
+                        <div class="flex items-center gap-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary shadow-[0_0_15px_rgba(219,184,255,0.25)]">
+                                    <span class="material-symbols-outlined text-[24px]">vpn_key</span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="font-headline-md text-headline-md text-on-surface leading-tight">Broker Gateway &amp; Auth Hub</span>
+                                    <span class="font-body-md text-xs text-on-surface-variant">Multi-Broker Handshake Matrix • Independent Lot Multipliers &amp; Session Health</span>
+                                </div>
+                            </div>
+                            <div class="h-8 w-[1px] bg-outline-variant/30 hidden lg:block"></div>
+                            <div class="flex items-center gap-6">
+                                <div>
+                                    <span class="font-label-md text-[10px] text-outline uppercase tracking-widest block">Active Gateways</span>
+                                    <span id="stat-gateways" class="font-numeric-data text-secondary-container">3 CONNECTED</span>
+                                </div>
+                                <div>
+                                    <span class="font-label-md text-[10px] text-outline uppercase tracking-widest block">Total Available Margin</span>
+                                    <span id="stat-total-margin" class="font-numeric-data text-on-surface">₹ --</span>
+                                </div>
+                                <div>
+                                    <span class="font-label-md text-[10px] text-outline uppercase tracking-widest block">Broadcast Status</span>
+                                    <span id="stat-broadcast" class="font-numeric-data text-secondary">PARALLEL ROUTING</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <button onclick="pingAllGateways()" class="px-3.5 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-xs flex items-center gap-2 border border-outline-variant/20 transition-all">
+                                <span class="material-symbols-outlined text-[18px] text-secondary-container">sync_alt</span>
+                                <span>Broadcast Ping (All)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Broker Cards Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Dhan Card -->
+                        <div class="flex flex-col justify-between bg-surface-container-low/90 backdrop-blur-xl rounded-xl p-5 shadow-md border border-outline-variant/20 hover:border-primary/40 transition-all">
+                            <div class="flex flex-col gap-4">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-lg bg-primary-container/20 flex items-center justify-center text-primary font-bold text-sm">DH</div>
+                                        <div class="flex flex-col">
+                                            <span class="font-headline-md text-base text-on-surface font-semibold">Dhan HQ</span>
+                                            <span class="font-label-md text-xs text-on-surface-variant">SuperFast API v2</span>
+                                        </div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="toggle-dhan" onchange="toggleBroker('dhan', this.checked)" class="sr-only peer" checked>
+                                        <div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-container"></div>
+                                    </label>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-2 p-3 rounded bg-surface-container-lowest/80 text-xs">
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">UCC / CLIENT</span>
+                                        <span id="dhan-ucc" class="font-numeric-data text-xs font-bold text-on-surface">110034...</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">LOT MULTIPLIER</span>
+                                        <input type="number" id="mult-dhan" min="1" max="100" value="1" onchange="updateLotMultiplier('dhan', this.value)" class="w-16 px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant/30 text-xs font-numeric-data text-on-surface">
+                                    </div>
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">STATUS</span>
+                                        <span id="dhan-status" class="font-numeric-data text-xs text-secondary-container">ONLINE</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">AVAILABLE MARGIN</span>
+                                        <span id="dhan-margin" class="font-numeric-data text-xs text-primary font-bold">₹ --</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-4 flex items-center gap-2">
+                                <button onclick="loginBroker('dhan')" class="flex-1 py-1.5 px-2 rounded bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-xs flex items-center justify-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px] text-primary">key</span>
+                                    <span>Auth / Consent</span>
+                                </button>
+                                <button onclick="triggerEmergencyKill('dhan')" class="py-1.5 px-3 rounded bg-error-container/60 hover:bg-error-container text-on-error font-label-md text-xs flex items-center justify-center gap-1">
+                                    <span>Kill</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Groww Card -->
+                        <div class="flex flex-col justify-between bg-surface-container-low/90 backdrop-blur-xl rounded-xl p-5 shadow-md border border-outline-variant/20 hover:border-secondary-container/40 transition-all">
+                            <div class="flex flex-col gap-4">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-lg bg-secondary-container/20 flex items-center justify-center text-secondary-container font-bold text-sm">GW</div>
+                                        <div class="flex flex-col">
+                                            <span class="font-headline-md text-base text-on-surface font-semibold">Groww</span>
+                                            <span class="font-label-md text-xs text-on-surface-variant">growwapi SDK v1.5</span>
+                                        </div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="toggle-groww" onchange="toggleBroker('groww', this.checked)" class="sr-only peer" checked>
+                                        <div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-container"></div>
+                                    </label>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-2 p-3 rounded bg-surface-container-lowest/80 text-xs">
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">UCC / CLIENT</span>
+                                        <span id="groww-ucc" class="font-numeric-data text-xs font-bold text-on-surface">GROWW_USER</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">LOT MULTIPLIER</span>
+                                        <input type="number" id="mult-groww" min="1" max="100" value="1" onchange="updateLotMultiplier('groww', this.value)" class="w-16 px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant/30 text-xs font-numeric-data text-on-surface">
+                                    </div>
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">STATUS</span>
+                                        <span id="groww-status" class="font-numeric-data text-xs text-secondary-container">READY (TOTP)</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">AVAILABLE MARGIN</span>
+                                        <span id="groww-margin" class="font-numeric-data text-xs text-secondary-container font-bold">₹ --</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-4 flex items-center gap-2">
+                                <button onclick="loginBroker('groww')" class="flex-1 py-1.5 px-2 rounded bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-xs flex items-center justify-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px] text-secondary">token</span>
+                                    <span>Auto-Auth TOTP</span>
+                                </button>
+                                <button onclick="triggerEmergencyKill('groww')" class="py-1.5 px-3 rounded bg-error-container/60 hover:bg-error-container text-on-error font-label-md text-xs flex items-center justify-center gap-1">
+                                    <span>Kill</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- FlatTrade Card -->
+                        <div class="flex flex-col justify-between bg-surface-container-low/90 backdrop-blur-xl rounded-xl p-5 shadow-md border border-outline-variant/20 hover:border-secondary/40 transition-all">
+                            <div class="flex flex-col gap-4">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary font-bold text-sm">FT</div>
+                                        <div class="flex flex-col">
+                                            <span class="font-headline-md text-base text-on-surface font-semibold">FlatTrade</span>
+                                            <span class="font-label-md text-xs text-on-surface-variant">NorenRestApi Pi v2</span>
+                                        </div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="toggle-flattrade" onchange="toggleBroker('flattrade', this.checked)" class="sr-only peer" checked>
+                                        <div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-container"></div>
+                                    </label>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-2 p-3 rounded bg-surface-container-lowest/80 text-xs">
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">UCC / CLIENT</span>
+                                        <span id="flattrade-ucc" class="font-numeric-data text-xs font-bold text-on-surface">FT_USER</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">LOT MULTIPLIER</span>
+                                        <input type="number" id="mult-flattrade" min="1" max="100" value="1" onchange="updateLotMultiplier('flattrade', this.value)" class="w-16 px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant/30 text-xs font-numeric-data text-on-surface">
+                                    </div>
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">STATUS</span>
+                                        <span id="flattrade-status" class="font-numeric-data text-xs text-secondary-container">READY (SHA256)</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-label-md text-[10px] text-outline block">AVAILABLE MARGIN</span>
+                                        <span id="flattrade-margin" class="font-numeric-data text-xs text-primary font-bold">₹ --</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-4 flex items-center gap-2">
+                                <button onclick="loginBroker('flattrade')" class="flex-1 py-1.5 px-2 rounded bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-xs flex items-center justify-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px] text-primary">key</span>
+                                    <span>Generate Token</span>
+                                </button>
+                                <button onclick="triggerEmergencyKill('flattrade')" class="py-1.5 px-3 rounded bg-error-container/60 hover:bg-error-container text-on-error font-label-md text-xs flex items-center justify-center gap-1">
+                                    <span>Kill</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= TAB 2: Multi-Account Execution ================= -->
+                <div id="tab-execution" class="tab-content flex flex-col gap-6">
+                    <div class="bg-surface-container-low/80 backdrop-blur-md p-5 rounded-xl border border-outline-variant/20 shadow-md">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="font-headline-md text-lg text-on-surface">Open Multi-Account Positions</span>
+                            <button onclick="refreshData()" class="px-3 py-1 rounded bg-surface-container-high hover:bg-surface-container text-xs font-label-md flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">refresh</span>
+                                <span>Refresh</span>
+                            </button>
+                        </div>
+
+                        <!-- Positions Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="border-b border-outline-variant/20 text-on-surface-variant font-label-md">
+                                        <th class="py-2 px-3">BROKER</th>
+                                        <th class="py-2 px-3">SYMBOL</th>
+                                        <th class="py-2 px-3">NET QTY</th>
+                                        <th class="py-2 px-3">AVG PRICE</th>
+                                        <th class="py-2 px-3">REALIZED P&amp;L</th>
+                                        <th class="py-2 px-3">UNREALIZED P&amp;L</th>
+                                        <th class="py-2 px-3">ACTION</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="positions-body">
+                                    <tr>
+                                        <td colspan="7" class="py-6 text-center text-on-surface-variant font-label-md">No open positions across active brokers.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= TAB 3: Risk & Global Limits ================= -->
+                <div id="tab-risk" class="tab-content flex flex-col gap-6">
+                    <div class="bg-surface-container-low/80 backdrop-blur-md p-5 rounded-xl border border-outline-variant/20 shadow-md">
+                        <span class="font-headline-md text-lg text-on-surface block mb-4">Global Multi-Broker Risk Controls</span>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="p-4 rounded-lg bg-surface-container border border-outline-variant/20">
+                                <span class="font-label-md text-xs text-outline block mb-1">AGGREGATE KILL SWITCH</span>
+                                <p class="text-xs text-on-surface-variant mb-3">Cancels all live brackets &amp; market flattens open positions across Dhan, Groww, and FlatTrade simultaneously.</p>
+                                <button onclick="triggerEmergencyKill('all')" class="w-full py-2 rounded bg-error-container hover:bg-error text-on-error font-label-md text-xs uppercase tracking-wider transition-colors">
+                                    Trigger Master Kill
+                                </button>
+                            </div>
+                            <div class="p-4 rounded-lg bg-surface-container border border-outline-variant/20">
+                                <span class="font-label-md text-xs text-outline block mb-1">FEELING GATE SENTIMENT</span>
+                                <p class="text-xs text-on-surface-variant mb-2">Automated sentiment filter before order broadcast.</p>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span id="feeling-state" class="px-2.5 py-1 rounded bg-secondary-container/20 text-secondary-container font-label-md text-xs font-bold">ACTIVE</span>
+                                </div>
+                            </div>
+                            <div class="p-4 rounded-lg bg-surface-container border border-outline-variant/20">
+                                <span class="font-label-md text-xs text-outline block mb-1">FAIL-SAFE ISOLATION</span>
+                                <p class="text-xs text-on-surface-variant mb-2">Thread-pool parallel isolation is active. An API reject on any individual broker account will not abort sibling accounts.</p>
+                                <span class="text-xs font-numeric-data text-secondary-container">ENABLED (FAIL-CLOSED)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Client Script -->
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('text-primary', 'font-semibold', 'bg-surface-container-high');
+                el.classList.add('text-on-surface-variant');
+            });
+            
+            const target = document.getElementById('tab-' + tabId);
+            if (target) target.classList.add('active');
+
+            const activeBtn = document.querySelector(`[data-tab="${tabId}"]`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-on-surface-variant');
+                activeBtn.classList.add('text-primary', 'font-semibold', 'bg-surface-container-high');
+            }
+        }
+
+        function showAlert(msg, isError = false) {
+            const el = document.getElementById('admin-alert');
+            el.className = `p-3 rounded-lg text-xs font-label-md flex items-center justify-between ${isError ? 'bg-error-container text-on-error' : 'bg-secondary-container/20 text-secondary-container border border-secondary-container/30'}`;
+            el.innerHTML = `<span>${msg}</span><button onclick="this.parentElement.classList.add('hidden')" class="ml-4 font-bold">×</button>`;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 5000);
+        }
+
+        async function fetchAccounts() {
+            try {
+                const res = await fetch('/api/accounts');
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                // Update total margin
+                if (data.margins && data.margins.total_available !== undefined) {
+                    document.getElementById('stat-total-margin').innerText = '₹ ' + Number(data.margins.total_available).toLocaleString('en-IN');
+                }
+
+                // Update accounts
+                if (data.accounts) {
+                    let activeCount = 0;
+                    data.accounts.forEach(acc => {
+                        if (acc.enabled) activeCount++;
+                        const broker = acc.broker.toLowerCase();
+                        
+                        const toggle = document.getElementById(`toggle-${broker}`);
+                        if (toggle) toggle.checked = acc.enabled;
+
+                        const mult = document.getElementById(`mult-${broker}`);
+                        if (mult) mult.value = acc.lot_multiplier;
+
+                        const ucc = document.getElementById(`${broker}-ucc`);
+                        if (ucc) ucc.innerText = acc.ucc || 'N/A';
+
+                        const status = document.getElementById(`${broker}-status`);
+                        if (status) {
+                            status.innerText = acc.is_active ? 'ONLINE' : 'AUTH REQ';
+                            status.className = acc.is_active ? 'font-numeric-data text-xs text-secondary-container' : 'font-numeric-data text-xs text-error';
+                        }
+
+                        // Margin per broker
+                        if (data.margins && data.margins.brokers && data.margins.brokers[broker]) {
+                            const bMargin = data.margins.brokers[broker].available_margin || 0;
+                            const elMargin = document.getElementById(`${broker}-margin`);
+                            if (elMargin) elMargin.innerText = '₹ ' + Number(bMargin).toLocaleString('en-IN');
+                        }
+                    });
+                    document.getElementById('stat-gateways').innerText = `${activeCount} / ${data.accounts.length} CONNECTED`;
+                    document.getElementById('active-brokers-badge').innerText = `${activeCount}/${data.accounts.length} ACTIVE`;
+                }
+
+                // Render positions
+                const posBody = document.getElementById('positions-body');
+                if (data.positions && data.positions.length > 0) {
+                    posBody.innerHTML = data.positions.map(p => `
+                        <tr class="border-b border-outline-variant/10 hover:bg-surface-container-high/40">
+                            <td class="py-2.5 px-3 uppercase font-bold text-primary">${p.broker || 'DHAN'}</td>
+                            <td class="py-2.5 px-3 font-semibold text-on-surface">${p.tradingSymbol || p.symbol || '--'}</td>
+                            <td class="py-2.5 px-3 font-numeric-data">${p.netQty || p.quantity || 0}</td>
+                            <td class="py-2.5 px-3 font-numeric-data">₹ ${Number(p.costPrice || p.averagePrice || 0).toFixed(2)}</td>
+                            <td class="py-2.5 px-3 font-numeric-data ${(p.realizedProfit || 0) >= 0 ? 'text-secondary-container' : 'text-error'}">₹ ${Number(p.realizedProfit || 0).toFixed(2)}</td>
+                            <td class="py-2.5 px-3 font-numeric-data ${(p.unrealizedProfit || 0) >= 0 ? 'text-secondary-container' : 'text-error'}">₹ ${Number(p.unrealizedProfit || 0).toFixed(2)}</td>
+                            <td class="py-2.5 px-3">
+                                <button onclick="triggerEmergencyKill('${p.broker || 'all'}')" class="px-2 py-0.5 rounded bg-error-container/40 hover:bg-error-container text-on-error text-[11px]">Flatten</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    posBody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-on-surface-variant font-label-md">No open positions across active brokers.</td></tr>';
+                }
+            } catch (err) {
+                console.error("fetchAccounts error:", err);
+            }
+        }
+
+        async function toggleBroker(broker, enabled) {
+            try {
+                const res = await fetch('/api/accounts/toggle', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({broker: broker, enabled: enabled})
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showAlert(`Broker ${broker.toUpperCase()} is now ${enabled ? 'ENABLED' : 'DISABLED'}`);
+                    fetchAccounts();
+                } else {
+                    showAlert(data.message || 'Toggle failed', true);
+                }
+            } catch (e) {
+                showAlert(e.message, true);
+            }
+        }
+
+        async function updateLotMultiplier(broker, val) {
+            try {
+                const res = await fetch('/api/accounts/lot-multiplier', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({broker: broker, multiplier: parseInt(val, 10)})
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showAlert(`${broker.toUpperCase()} lot multiplier set to ${val}x`);
+                }
+            } catch (e) {
+                showAlert(e.message, true);
+            }
+        }
+
+        async function loginBroker(broker) {
+            try {
+                showAlert(`Initiating auth handshake for ${broker.toUpperCase()}...`);
+                const res = await fetch(`/api/accounts/login/${broker}`, {method: 'POST'});
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showAlert(`Authentication successful for ${broker.toUpperCase()}!`);
+                    fetchAccounts();
+                } else {
+                    showAlert(data.message || `Auth failed for ${broker}`, true);
+                }
+            } catch (e) {
+                showAlert(e.message, true);
+            }
+        }
+
+        async function triggerEmergencyKill(broker) {
+            if (!confirm(`Are you sure you want to trigger EMERGENCY KILL for ${broker.toUpperCase()}? This will flatten all positions!`)) return;
+            try {
+                showAlert(`Triggering kill switch for ${broker}...`);
+                const res = await fetch(`/api/accounts/kill/${broker}`, {method: 'POST'});
+                const data = await res.json();
+                showAlert(`Kill switch executed for ${broker}!`);
+                fetchAccounts();
+            } catch (e) {
+                showAlert(e.message, true);
+            }
+        }
+
+        async function pingAllGateways() {
+            try {
+                const res = await fetch('/api/accounts/ping');
+                const data = await res.json();
+                showAlert(`Gateway Ping Broadcast: ${JSON.stringify(data.latencies || 'All gateways responsive')}`);
+            } catch (e) {
+                showAlert("Ping broadcast failed", true);
+            }
+        }
+
+        function refreshData() {
+            fetchAccounts();
+        }
+
+        // Auto poll every 10s
+        fetchAccounts();
+        setInterval(fetchAccounts, 10000);
+    </script>
+</body>
+</html>
