@@ -70,5 +70,16 @@ Plans:
 - [ ] Phase 20: Groww Broker & Multi-Account Support
     - **Goal**: Expand the terminal to support multiple concurrent accounts across brokers, integrating Groww Trading API for authentication, instrument lookup, and order placement alongside existing Dhan accounts without regression.
     - **Depends on**: Phase 19
+- [ ] Phase 21: FlatTrade Broker Integration
+    - **Goal**: Integrate FlatTrade API (Shoonya/Finvasia-derived Open API) into the multi-broker architecture, enabling zero-brokerage multi-account order execution alongside Dhan and Groww.
+    - **Depends on**: Phase 20
 
+### Phase 21: FlatTrade Broker Integration
 
+**Goal:** Integrate FlatTrade API (Shoonya/Finvasia-derived Open API) into the multi-broker architecture, enabling zero-brokerage multi-account order execution alongside Dhan and Groww.
+**Requirements**: TBD
+**Depends on:** Phase 20
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 21 to break down)

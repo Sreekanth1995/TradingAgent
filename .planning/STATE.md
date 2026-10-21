@@ -11,8 +11,15 @@
   - [x] Phase 17: Zero-Downtime Atomic Scrip Reload & Lot Map Guard
   - [x] Phase 18: Kill Switch Super Order Leg Cancellation
   - [x] Phase 19: Approach C Autonomous Reconciliation Safety Net
-- [ ] Milestone 0.5.0: Multi-Broker & Multi-Account Architecture (Phase 20)
+- [ ] Milestone 0.5.0: Multi-Broker & Multi-Account Architecture (Phase 20 - 21)
   - [ ] Phase 20: Groww Broker & Multi-Account Support
+  - [ ] Phase 21: FlatTrade Broker Integration
+
+## Accumulated Context
+
+### Roadmap Evolution
+- Phase 20 added: Groww Broker & Multi-Account Support
+- Phase 21 added: FlatTrade Broker Integration
 
 
 
