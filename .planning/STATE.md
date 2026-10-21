@@ -1,7 +1,7 @@
 # State: TradingAgent
 
-**Milestone**: 0.4.0 (Critical Safety Hardening & Autonomous Reconciliation) - Completed
-**Active Phase**: Milestone 0.4.0 Complete (Ready for Next Feature Milestone)
+**Milestone**: 0.5.0 (Multi-Broker & Multi-Account Architecture) - In Progress
+**Active Phase**: Phase 20: Groww Broker & Multi-Account Support
 
 ## Roadmap Progress
 - [x] Milestone 0.1.0: Foundation (Phases 1 - 11) Completed
@@ -11,6 +11,9 @@
   - [x] Phase 17: Zero-Downtime Atomic Scrip Reload & Lot Map Guard
   - [x] Phase 18: Kill Switch Super Order Leg Cancellation
   - [x] Phase 19: Approach C Autonomous Reconciliation Safety Net
+- [ ] Milestone 0.5.0: Multi-Broker & Multi-Account Architecture (Phase 20)
+  - [ ] Phase 20: Groww Broker & Multi-Account Support
+
 
 
 ## Recent Decisions

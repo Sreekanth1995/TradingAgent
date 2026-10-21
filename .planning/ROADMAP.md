@@ -65,3 +65,10 @@ Plans:
     - **Goal**: Implement redundant positions polling in `ConditionalOrderEngine` for filled-but-unprotected orders with idempotent bracket arming and fail-closed alarms.
     - **Depends on**: Phase 18
 
+## Milestone 0.5.0: Multi-Broker & Multi-Account Architecture
+
+- [ ] Phase 20: Groww Broker & Multi-Account Support
+    - **Goal**: Expand the terminal to support multiple concurrent accounts across brokers, integrating Groww Trading API for authentication, instrument lookup, and order placement alongside existing Dhan accounts without regression.
+    - **Depends on**: Phase 19
+
+
