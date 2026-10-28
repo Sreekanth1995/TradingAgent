@@ -1595,7 +1595,13 @@ def conditional_order():
         if entry_index is not None:
             ok, trig = derive_entry_trigger(entry_index, spot_index)
             if not ok:
-                return jsonify({"status": "error", "message": trig['reason']}), 400
+                if abs(float(entry_index) - float(spot_index)) <= 0.5:
+                    logger.info(f"/conditional-order: entry_index {entry_index} is at spot {spot_index} — falling back to immediate market entry")
+                    entry_index = None
+                else:
+                    return jsonify({"status": "error", "message": trig['reason']}), 400
+
+        if entry_index is not None:
             entry_lvl = trig['comparing_value']
             # Validate SL/Target against the ENTRY level, not current spot.
             v_ok, v_reason = validate_sl_target(side, entry_lvl, sl_idx_val, tgt_idx_val)

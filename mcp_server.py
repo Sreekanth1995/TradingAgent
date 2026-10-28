@@ -235,6 +235,28 @@ async def exit_conditional_order(underlying: str):
     return await _call("/exit-conditional-order", {"underlying": underlying})
 
 
+@mcp.tool()
+async def scale_conditional_order(underlying: str = "NIFTY", scale_lots: int = 1, new_sl: float = None, new_target: float = None):
+    """
+    Executes a partial scale-out for an active conditional order position.
+
+    Args:
+        underlying: Index of the active position (NIFTY, BANKNIFTY, FINNIFTY).
+        scale_lots: Number of lots to scale out / close partially.
+        new_sl: Optional new index SL level to set on the remaining position.
+        new_target: Optional new index Target level.
+    """
+    payload = {
+        "underlying": underlying,
+        "scale_quantity": scale_lots
+    }
+    if new_sl is not None:
+        payload["new_sl"] = new_sl
+    if new_target is not None:
+        payload["new_target"] = new_target
+    return await _call("/scale-conditional-order", payload)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # BROKER STATE — Positions & Orders
 # ─────────────────────────────────────────────────────────────────────────────
