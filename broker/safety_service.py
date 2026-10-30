@@ -98,8 +98,15 @@ class DhanSafetyService:
 
         # Step 3: Cancel active conditional (GTT) alerts if available
         try:
-            if self.conditional_order_service and hasattr(self.conditional_order_service, 'get_conditional_orders'):
-                gtt_orders = self.conditional_order_service.get_conditional_orders() or []
+            get_gtts_fn = None
+            if self.conditional_order_service:
+                if hasattr(self.conditional_order_service, 'get_all_gtt_orders'):
+                    get_gtts_fn = self.conditional_order_service.get_all_gtt_orders
+                elif hasattr(self.conditional_order_service, 'get_conditional_orders'):
+                    get_gtts_fn = self.conditional_order_service.get_conditional_orders
+
+            if get_gtts_fn:
+                gtt_orders = get_gtts_fn() or []
                 for gtt in gtt_orders:
                     alert_id = gtt.get('alertId') or gtt.get('id')
                     if alert_id:
