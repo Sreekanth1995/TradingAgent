@@ -1275,6 +1275,28 @@ class DhanClient:
             logger.error(f"Kill Switch: {err}")
             results["errors"].append(err)
 
+        # --- Step 3: Cancel active conditional (GTT) alerts ---
+        try:
+            if hasattr(self, 'get_all_gtt_orders'):
+                gtt_orders = self.get_all_gtt_orders() or []
+                for gtt in gtt_orders:
+                    status = gtt.get('alertStatus', '').upper()
+                    if status in ('ACTIVE', 'PENDING', 'UNTRIGGERED'):
+                        alert_id = gtt.get('alertId') or gtt.get('id')
+                        if alert_id:
+                            logger.warning(f"Kill Switch: Cancelling GTT alert rule {alert_id}")
+                            resp = self.cancel_conditional_order(alert_id)
+                            if resp.get('success'):
+                                results.setdefault("cancelled_conditional", []).append({"alert_id": alert_id})
+                            else:
+                                err = f"Cancel GTT alert failed for {alert_id}: {resp.get('error')}"
+                                logger.error(err)
+                                results["errors"].append(err)
+        except Exception as e:
+            err = f"Conditional order cancel sweep failed: {e}"
+            logger.error(f"Kill Switch: {err}")
+            results["errors"].append(err)
+
         logger.warning(
             f"Kill Switch complete — squared_off={len(results['squaredoff'])}, "
             f"cancelled={len(results['cancelled'])}, errors={len(results['errors'])}"

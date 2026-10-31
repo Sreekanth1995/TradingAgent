@@ -2103,7 +2103,19 @@ def exit_conditional_order():
         state = conditional_engine._get_state(underlying)
         side = state.get('side', 'NONE')
         if side == 'NONE':
-            return jsonify({"status": "error", "message": f"No active conditional position for {underlying}"}), 400
+            # Fallback cleanup: Even if local state is NONE, ensure any lingering GTT alerts are wiped
+            try:
+                get_gtts = getattr(broker, 'get_all_gtt_orders', None)
+                if get_gtts:
+                    for gtt in (get_gtts() or []):
+                        status = gtt.get('alertStatus', '').upper()
+                        if status in ('ACTIVE', 'PENDING', 'UNTRIGGERED'):
+                            aid = gtt.get('alertId')
+                            if aid:
+                                broker.cancel_conditional_order(aid)
+            except Exception as fe:
+                logger.warning(f"Exit fallback GTT cleanup failed: {fe}")
+            return jsonify({"status": "success", "message": f"No active conditional position for {underlying} (all GTT alerts cleared)"}), 200
         
         feed_id = state.get('trade_feed_id')
         entry_price = float(state.get('entry_price') or 0)
@@ -2397,9 +2409,9 @@ def get_zone():
 def cancel_conditional_orders():
     """
     Cancels active GTT conditional orders for a position.
-    Payload: { secret, underlying }
+    Payload: { secret, underlying, alert_id, alert_ids }
     """
-    if not broker or not super_order_engine:
+    if not broker:
         return jsonify({"status": "error", "message": "System not initialized"}), 503
 
     data = request.get_json(force=True, silent=True)
@@ -2408,22 +2420,57 @@ def cancel_conditional_orders():
 
     underlying = data.get('underlying', 'NIFTY')
     try:
-        state = super_order_engine._get_state(underlying)
-        tgt_id = state.get('conditional_target_alert_id')
-        sl_id = state.get('conditional_sl_alert_id')
+        alert_ids_to_cancel = set()
+
+        # 1. Directly specified alert IDs in payload
+        if data.get('alert_id'):
+            alert_ids_to_cancel.add(str(data.get('alert_id')))
+        if data.get('alert_ids') and isinstance(data.get('alert_ids'), list):
+            for aid in data.get('alert_ids'):
+                if aid:
+                    alert_ids_to_cancel.add(str(aid))
+
+        # 2. Alerts from super_order_engine state
+        if super_order_engine:
+            state = super_order_engine._get_state(underlying)
+            tgt_id = state.get('conditional_target_alert_id')
+            sl_id = state.get('conditional_sl_alert_id')
+            for aid in filter(None, [tgt_id, sl_id]):
+                alert_ids_to_cancel.add(str(aid))
+            for key in ('conditional_target_alert_id', 'conditional_sl_alert_id',
+                        'conditional_target_price', 'conditional_sl_price'):
+                state.pop(key, None)
+            super_order_engine._set_state(underlying, state)
+
+        # 3. Alerts from conditional_engine state
+        if conditional_engine:
+            cond_state = conditional_engine._get_state(underlying)
+            for k in ('idx_target_alert_id', 'idx_sl_alert_id', 'conditional_target_alert_id', 'conditional_sl_alert_id'):
+                aid = cond_state.get(k)
+                if aid:
+                    alert_ids_to_cancel.add(str(aid))
+            conditional_engine.cancel_active_conditional_orders(underlying, cond_state)
+
+        # 4. Fallback sweep: Check active GTT orders at broker for any remaining alerts
+        try:
+            get_gtts_fn = getattr(broker, 'get_all_gtt_orders', None)
+            if get_gtts_fn:
+                all_gtts = get_gtts_fn() or []
+                for gtt in all_gtts:
+                    status = gtt.get('alertStatus', '').upper()
+                    if status in ('ACTIVE', 'PENDING', 'UNTRIGGERED'):
+                        aid = gtt.get('alertId')
+                        if aid:
+                            alert_ids_to_cancel.add(str(aid))
+        except Exception as ge:
+            logger.warning(f"GTT sweep check warning: {ge}")
 
         results = []
-        for alert_id in filter(None, [tgt_id, sl_id]):
+        for alert_id in alert_ids_to_cancel:
             r = broker.cancel_conditional_order(alert_id)
             results.append({"alert_id": alert_id, "cancelled": r.get("success")})
 
-        # Clear from state
-        for key in ('conditional_target_alert_id', 'conditional_sl_alert_id',
-                    'conditional_target_price', 'conditional_sl_price'):
-            state.pop(key, None)
-        super_order_engine._set_state(underlying, state)
-
-        msg = f"GTT orders cancelled for {underlying}"
+        msg = f"GTT orders cancelled for {underlying} ({len(results)} alerts)"
         _add_activity_log(msg, "❌ ")
 
         return jsonify({"status": "success", "cancelled": results}), 200

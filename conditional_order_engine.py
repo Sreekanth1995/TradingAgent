@@ -278,6 +278,22 @@ class ConditionalOrderEngine:
                     sym = state.get('symbol')
                     qty_lots = state.get('quantity', 1)
 
+                    # Check broker net open position before placing market sell order
+                    broker_net_qty = None
+                    try:
+                        broker_positions = self.broker.get_positions() or []
+                        for bp in broker_positions:
+                            if str(bp.get('securityId')) == str(sec_id) or bp.get('tradingSymbol') == sym:
+                                broker_net_qty = int(bp.get('netQty', 0))
+                                break
+                    except Exception as e:
+                        logger.warning(f"Failed to check broker positions during exit: {e}")
+
+                    if broker_net_qty is not None and broker_net_qty <= 0:
+                        logger.info(f"Position for {underlying} ({sym}) already squared off at broker (netQty={broker_net_qty}). Skipping exit order and wiping state.")
+                        self._clear_state(underlying)
+                        return {"status": "success", "action": f"CLOSED_CONDITIONAL_{target_side}", "message": "Position was already closed at broker; GTTs cancelled and state cleared."}
+
                     order_payload = {
                         'security_id': sec_id,
                         'quantity': qty_lots,
@@ -287,6 +303,11 @@ class ConditionalOrderEngine:
                     }
                     exit_resp = self.broker.place_order(sym, order_payload)
                     if not (exit_resp.get('success') or exit_resp.get('order_id')):
+                        err_str = str(exit_resp.get('error', '')).lower()
+                        if any(w in err_str for w in ('insufficient', 'holding', 'zero', 'not found', 'does not exist')):
+                            logger.warning(f"Exit order rejected as position likely already closed: {exit_resp.get('error')}. Clearing state.")
+                            self._clear_state(underlying)
+                            return {"status": "success", "action": f"CLOSED_CONDITIONAL_{target_side}", "message": "Position already closed at broker"}
                         logger.error(f"Exit order failed for {underlying}: {exit_resp.get('error')}")
                         return {"status": "error", "message": f"Exit order failed: {exit_resp.get('error')}"}
 
