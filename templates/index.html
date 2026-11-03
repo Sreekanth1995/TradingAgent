@@ -8,7 +8,7 @@
     
     <!-- Tailwind CSS & Google Fonts -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     
     <style>
         @keyframes ripple {
@@ -27,60 +27,87 @@
             border-radius: 50%;
             animation: ripple 1.5s infinite;
         }
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum" 1, "zero" 1;
+        }
+        .font-mono {
+            font-family: 'Fira Code', ui-monospace, monospace;
+        }
         .glass-panel {
-            background: rgba(20, 20, 28, 0.6);
+            background: rgba(11, 17, 32, 0.82);
             backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
         }
-        .neon-border-bull {
-            border: 1px solid rgba(1, 245, 160, 0.3);
-            box-shadow: 0 0 15px rgba(1, 245, 160, 0.1);
+        .glow-bull {
+            border: 1px solid rgba(0, 245, 160, 0.35) !important;
+            box-shadow: 0 0 20px -5px rgba(0, 245, 160, 0.2) !important;
         }
-        .neon-border-neutral {
-            border: 1px solid rgba(219, 184, 255, 0.3);
-            box-shadow: 0 0 15px rgba(219, 184, 255, 0.1);
+        .glow-bear {
+            border: 1px solid rgba(255, 75, 85, 0.35) !important;
+            box-shadow: 0 0 20px -5px rgba(255, 75, 85, 0.2) !important;
+        }
+        .glow-neutral {
+            border: 1px solid rgba(219, 184, 255, 0.35) !important;
+            box-shadow: 0 0 20px -5px rgba(219, 184, 255, 0.2) !important;
         }
         .scrollbar-hide::-webkit-scrollbar {
             display: none;
         }
+        .custom-terminal-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-terminal-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        .custom-terminal-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        .custom-terminal-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
         
-        /* Feeling badge legacy colors for compatibility */
-        .feeling-badge.BULLISH { background: rgba(1, 245, 160, 0.15) !important; color: #00e293 !important; }
-        .feeling-badge.BEARISH { background: rgba(255, 116, 116, 0.15) !important; color: #ffb4ab !important; }
-        .feeling-badge.INSIDE { background: rgba(219, 184, 255, 0.15) !important; color: #dbb8ff !important; }
-        .feeling-badge.NONE { background: rgba(255, 255, 255, 0.05) !important; color: #cec2d6 !important; }
+        /* Feeling badge high-contrast colors */
+        .feeling-badge.BULLISH { background: rgba(0, 245, 160, 0.18) !important; color: #00F5A0 !important; border: 1px solid rgba(0, 245, 160, 0.35) !important; }
+        .feeling-badge.BEARISH { background: rgba(255, 75, 85, 0.18) !important; color: #FF4B55 !important; border: 1px solid rgba(255, 75, 85, 0.35) !important; }
+        .feeling-badge.INSIDE { background: rgba(245, 158, 11, 0.18) !important; color: #F59E0B !important; border: 1px solid rgba(245, 158, 11, 0.35) !important; }
+        .feeling-badge.NONE { background: rgba(255, 255, 255, 0.05) !important; color: #94A3B8 !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; }
 
-        /* Legacy feeling button active styling */
-        .feeling-btn.active.btn-bullish { background: #01f5a0 !important; color: #002111 !important; font-weight: bold; }
-        .feeling-btn.active.btn-bearish { background: #ffb4ab !important; color: #690005 !important; font-weight: bold; }
-        .feeling-btn.active.btn-inside { background: #dbb8ff !important; color: #2b0052 !important; font-weight: bold; }
-        .feeling-btn.active.btn-clear { background: rgba(255, 255, 255, 0.2) !important; color: #fff !important; }
+        /* Feeling button active styling */
+        .feeling-btn.active.btn-bullish { background: #00F5A0 !important; color: #022013 !important; font-weight: 700; box-shadow: 0 0 12px rgba(0, 245, 160, 0.5); }
+        .feeling-btn.active.btn-bearish { background: #FF4B55 !important; color: #350005 !important; font-weight: 700; box-shadow: 0 0 12px rgba(255, 75, 85, 0.5); }
+        .feeling-btn.active.btn-inside { background: #F59E0B !important; color: #351a00 !important; font-weight: 700; box-shadow: 0 0 12px rgba(245, 158, 11, 0.5); }
+        .feeling-btn.active.btn-clear { background: rgba(255, 255, 255, 0.25) !important; color: #fff !important; }
 
-        /* Legacy alert notifications styling */
+        /* Toast notification styling */
         #status-msg {
             position: fixed;
             bottom: 24px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 10px 20px;
+            padding: 10px 22px;
             border-radius: 10px;
             font-size: 13px;
             font-weight: 600;
             text-align: center;
             display: none;
             z-index: 9999;
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
             white-space: nowrap;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
         }
         .msg-success {
-            background: rgba(1, 245, 160, 0.15);
-            color: #00e293;
-            border: 1px solid rgba(1, 245, 160, 0.3);
+            background: rgba(0, 245, 160, 0.18);
+            color: #00F5A0;
+            border: 1px solid rgba(0, 245, 160, 0.4);
         }
         .msg-error {
-            background: rgba(255, 180, 171, 0.15);
-            color: #ffb4ab;
-            border: 1px solid rgba(255, 180, 171, 0.3);
+            background: rgba(255, 75, 85, 0.18);
+            color: #FF4B55;
+            border: 1px solid rgba(255, 75, 85, 0.4);
         }
     </style>
 
@@ -90,59 +117,60 @@
             theme: {
                 extend: {
                     "colors": {
-                        "surface-bright": "#2a3a4f",
-                        "on-surface": "#d3e4fe",
-                        "error": "#ffb4ab",
+                        "surface-bright": "#1e293b",
+                        "on-surface": "#f1f5f9",
+                        "error": "#ff4b55",
                         "on-secondary-fixed": "#002111",
-                        "surface-container-low": "#0b1c30",
-                        "on-error": "#690005",
-                        "on-tertiary": "#65002e",
-                        "primary-container": "#7928ca",
-                        "surface-container-highest": "#26364a",
-                        "error-container": "#93000a",
-                        "on-secondary": "#003921",
-                        "inverse-on-surface": "#213145",
-                        "primary-fixed-dim": "#dbb8ff",
-                        "surface-container-lowest": "#000f21",
-                        "primary": "#dbb8ff",
-                        "background": "#031427",
-                        "on-background": "#d3e4fe",
-                        "inverse-primary": "#7f30d0",
-                        "on-surface-variant": "#cec2d6",
-                        "on-primary": "#470083",
-                        "on-primary-fixed": "#2b0052",
-                        "surface-dim": "#031427",
-                        "on-error-container": "#ffdad6",
-                        "surface-container-high": "#1b2b3f",
-                        "secondary": "#ceffdf",
-                        "tertiary-fixed-dim": "#ffb1c4",
-                        "on-tertiary-fixed-variant": "#8f0044",
-                        "tertiary-container": "#b00056",
-                        "on-tertiary-fixed": "#3f001a",
-                        "on-secondary-fixed-variant": "#005232",
-                        "on-primary-fixed-variant": "#6600b7",
-                        "on-tertiary-container": "#ffbece",
-                        "outline": "#988d9f",
-                        "secondary-fixed-dim": "#00e293",
-                        "surface-tint": "#dbb8ff",
-                        "primary-fixed": "#efdbff",
-                        "surface-container": "#102034",
-                        "secondary-fixed": "#50ffaf",
-                        "surface-variant": "#26364a",
-                        "on-primary-container": "#e1c4ff",
-                        "tertiary-fixed": "#ffd9e1",
-                        "secondary-container": "#01f5a0",
-                        "outline-variant": "#4c4354",
-                        "surface": "#031427",
-                        "inverse-surface": "#d3e4fe",
-                        "on-secondary-container": "#006b43",
-                        "tertiary": "#ffb1c4"
+                        "surface-container-low": "#0b1120",
+                        "on-error": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "primary-container": "#7c3aed",
+                        "surface-container-highest": "#1e293b",
+                        "error-container": "#991b1b",
+                        "on-secondary": "#022013",
+                        "inverse-on-surface": "#0f172a",
+                        "primary-fixed-dim": "#c084fc",
+                        "surface-container-lowest": "#020617",
+                        "primary": "#c084fc",
+                        "background": "#030712",
+                        "on-background": "#f8fafc",
+                        "inverse-primary": "#7c3aed",
+                        "on-surface-variant": "#94a3b8",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#2e1065",
+                        "surface-dim": "#030712",
+                        "on-error-container": "#fecdd3",
+                        "surface-container-high": "#151e32",
+                        "secondary": "#34d399",
+                        "tertiary-fixed-dim": "#f472b6",
+                        "on-tertiary-fixed-variant": "#831843",
+                        "tertiary-container": "#db2777",
+                        "on-tertiary-fixed": "#500724",
+                        "on-secondary-fixed-variant": "#064e3b",
+                        "on-primary-fixed-variant": "#581c87",
+                        "on-tertiary-container": "#fce7f3",
+                        "outline": "#64748b",
+                        "secondary-fixed-dim": "#10b981",
+                        "surface-tint": "#c084fc",
+                        "primary-fixed": "#f3e8ff",
+                        "surface-container": "#0f172a",
+                        "secondary-fixed": "#6ee7b7",
+                        "surface-variant": "#1e293b",
+                        "on-primary-container": "#f3e8ff",
+                        "tertiary-fixed": "#fce7f3",
+                        "secondary-container": "#00F5A0",
+                        "outline-variant": "#334155",
+                        "surface": "#0b1120",
+                        "inverse-surface": "#f8fafc",
+                        "on-secondary-container": "#022013",
+                        "tertiary": "#f472b6"
                     },
                     "borderRadius": {
-                        "DEFAULT": "0.125rem",
-                        "lg": "0.25rem",
-                        "xl": "0.5rem",
-                        "full": "0.75rem"
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
                     },
                     "spacing": {
                         "sm": "8px",
@@ -151,17 +179,18 @@
                         "xs": "4px",
                         "md": "16px",
                         "lg": "24px",
-                        "xl": "48px",
+                        "xl": "32px",
                         "gutter": "16px"
                     },
                     "fontFamily": {
-                        "display-lg": ["Space Grotesk"],
-                        "label-md": ["Space Grotesk"],
-                        "body-md": ["Outfit"],
-                        "numeric-data": ["Space Grotesk"],
-                        "headline-lg": ["Space Grotesk"],
-                        "headline-md": ["Space Grotesk"],
-                        "body-lg": ["Outfit"]
+                        "mono": ["Fira Code", "monospace"],
+                        "numeric-data": ["Fira Code", "monospace"],
+                        "display-lg": ["Space Grotesk", "sans-serif"],
+                        "label-md": ["Space Grotesk", "sans-serif"],
+                        "body-md": ["Outfit", "sans-serif"],
+                        "headline-lg": ["Space Grotesk", "sans-serif"],
+                        "headline-md": ["Space Grotesk", "sans-serif"],
+                        "body-lg": ["Outfit", "sans-serif"]
                     }
                 }
             }
@@ -172,114 +201,111 @@
 <body class="bg-background text-on-background font-body-md min-h-screen overflow-x-hidden selection:bg-primary selection:text-on-primary">
 
     <!-- Top Navigation Bar -->
-    <header class="fixed top-0 w-full z-50 bg-surface-container-low/60 backdrop-blur-xl border-b border-white/10 px-lg py-md shadow-2xl shadow-primary/5">
+    <header class="fixed top-0 w-full z-50 bg-[#070d1b]/90 backdrop-blur-xl border-b border-white/10 px-lg py-md shadow-2xl">
         <div class="max-w-container-max mx-auto flex justify-between items-center">
             <div class="flex items-center gap-xl">
-                <h1 class="font-display-lg text-headline-md tracking-tighter text-primary drop-shadow-[0_0_8px_rgba(219,184,255,0.4)]">
-                    Antigravity Trader
-                </h1>
-                <nav class="hidden md:flex gap-lg items-center">
-                    <a class="text-primary border-b-2 border-primary pb-2 font-bold font-label-md text-label-md" href="#">Dashboard</a>
-                    <a class="text-secondary hover:text-on-surface transition-colors font-label-md text-label-md flex items-center gap-1" href="/admin">
-                        <span class="material-symbols-outlined text-[16px]">hub</span>
-                        <span>Admin Hub</span>
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-primary shadow-[0_0_12px_rgba(192,132,252,0.3)]">
+                        <span class="material-symbols-outlined text-[20px]">terminal</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <h1 class="font-display-lg text-lg font-bold tracking-tight text-white drop-shadow-[0_0_8px_rgba(192,132,252,0.4)] leading-none">
+                            Antigravity Trader
+                        </h1>
+                        <span class="text-[10px] text-slate-400 font-mono tracking-wider">HFT OPTIONS COCKPIT</span>
+                    </div>
+                </div>
+
+                <nav class="flex gap-2 items-center">
+                    <a class="text-primary font-semibold text-xs px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 transition-all font-mono" href="/">Live Terminal</a>
+                    <a class="text-slate-400 hover:text-white transition-colors text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5 border border-transparent hover:border-white/10 font-mono" href="/admin">
+                        <span class="material-symbols-outlined text-[15px] text-secondary">hub</span>
+                        <span>Multi-Broker Admin</span>
                     </a>
-                    <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Analytics</a>
-                    <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Signals</a>
-                    <a class="text-on-surface-variant/70 hover:text-on-surface transition-colors font-label-md text-label-md" href="#">Backtest</a>
                 </nav>
             </div>
             
             <!-- Dynamic Connection & Authorization State -->
             <div class="flex items-center gap-lg">
-                <div class="flex gap-4 mr-4" id="range-tracker-summary">
-                    <span id="range-NIFTY" class="px-3 py-1 rounded bg-white/5 border border-white/10 text-xs font-mono">NIFTY: --</span>
-                    <span id="range-BANKNIFTY" class="px-3 py-1 rounded bg-white/5 border border-white/10 text-xs font-mono">BNIFTY: --</span>
+                <div class="flex gap-2" id="range-tracker-summary">
+                    <span id="range-NIFTY" class="px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono tabular-nums text-slate-300">NIFTY: --</span>
+                    <span id="range-BANKNIFTY" class="px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono tabular-nums text-slate-300">BNIFTY: --</span>
                 </div>
                 
-                <div class="flex flex-col items-end px-md border-r border-white/10">
-                    <div class="flex items-center gap-sm">
-                        <div class="w-2 h-2 rounded-full bg-secondary-container pulse-indicator"></div>
-                        <span class="font-label-md text-label-md text-secondary tracking-widest uppercase">WS: Connected</span>
-                    </div>
-                    <span class="font-numeric-data text-on-surface-variant text-xs opacity-60">System Node 01</span>
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span class="font-mono text-xs font-semibold text-emerald-400 uppercase tracking-wider">WS: LIVE</span>
+                    <span class="text-slate-600 font-mono text-xs">|</span>
+                    <span class="font-mono text-xs tabular-nums text-slate-400">Node 01</span>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span id="badge-dhan" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono text-secondary-container">🟢 DHAN</span>
-                    <span id="badge-groww" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono text-secondary">🟢 GROWW</span>
-                    <span id="badge-flat" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono text-primary">🟢 FLAT</span>
-                    <a href="/admin" class="ml-2 px-3 py-1 bg-primary-container text-on-primary-container font-label-md text-xs rounded-full hover:shadow-[0_0_15px_rgba(121,40,202,0.5)] transition-all">
-                        Admin Hub
-                    </a>
+
+                <div class="flex items-center gap-1.5 bg-slate-900/60 p-1 rounded-lg border border-slate-800">
+                    <span id="badge-dhan" class="px-2 py-0.5 rounded bg-slate-800/80 border border-emerald-500/30 text-[11px] font-mono text-emerald-400 flex items-center gap-1.5 font-semibold">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"></span>DHAN
+                    </span>
+                    <span id="badge-groww" class="px-2 py-0.5 rounded bg-slate-800/80 border border-emerald-500/30 text-[11px] font-mono text-emerald-400 flex items-center gap-1.5 font-semibold">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"></span>GROWW
+                    </span>
+                    <span id="badge-flat" class="px-2 py-0.5 rounded bg-slate-800/80 border border-purple-500/30 text-[11px] font-mono text-purple-300 flex items-center gap-1.5 font-semibold">
+                        <span class="w-1.5 h-1.5 rounded-full bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.8)]"></span>FLAT
+                    </span>
                 </div>
+
+                <!-- Guarded Master Kill Switch Trigger in Header -->
+                <button onclick="toggleKillGuard()" class="px-3 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/40 text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(244,63,94,0.2)]">
+                    <span class="material-symbols-outlined text-[16px] text-rose-400 animate-pulse">crisis_alert</span>
+                    <span>KILL SWITCH</span>
+                </button>
             </div>
         </div>
     </header>
 
-    <!-- Side Navigation Bar -->
-    <aside class="fixed left-0 top-0 h-full z-40 bg-surface-container-lowest/40 backdrop-blur-2xl border-r border-white/5 w-20 hover:w-64 transition-all duration-500 overflow-hidden group flex flex-col pt-24 pb-md">
-        <div class="flex-1 flex flex-col gap-sm">
-            <div class="flex items-center px-6 py-3 bg-primary-container/20 text-primary border-r-4 border-primary">
-                <span class="material-symbols-outlined min-w-[32px]">terminal</span>
-                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Command</span>
-            </div>
-            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
-                <span class="material-symbols-outlined min-w-[32px]">analytics</span>
-                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Terminal</span>
-            </div>
-            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
-                <span class="material-symbols-outlined min-w-[32px]">monitoring</span>
-                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Markets</span>
-            </div>
-            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
-                <span class="material-symbols-outlined min-w-[32px]">psychology</span>
-                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Algorithms</span>
-            </div>
-            <div class="flex items-center px-6 py-3 text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
-                <span class="material-symbols-outlined min-w-[32px]">history</span>
-                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">History</span>
-            </div>
-            <a href="/admin" class="flex items-center px-6 py-3 text-secondary hover:text-primary hover:bg-white/5 transition-all cursor-pointer">
-                <span class="material-symbols-outlined min-w-[32px]">hub</span>
-                <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Admin Hub</span>
-            </a>
-        </div>
-        <div class="mt-auto px-6 py-3 border-t border-white/5 text-on-surface-variant hover:text-error hover:bg-white/5 transition-all cursor-pointer">
-            <span class="material-symbols-outlined min-w-[32px]">logout</span>
-            <span class="ml-4 font-label-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity">Logout</span>
-        </div>
-    </aside>
-
     <!-- Main Content Canvas -->
-    <main class="pt-24 pl-20 pr-md pb-md max-w-container-max mx-auto">
+    <main class="pt-24 px-md pb-md max-w-container-max mx-auto">
         
         <!-- Auth strip (Dashboard lock) -->
         <section class="glass-panel p-md rounded-xl mb-md flex justify-between items-center" aria-labelledby="auth-strip-label">
-            <div class="flex flex-col">
-                <span id="auth-strip-label" class="font-label-md text-xs text-primary uppercase tracking-[0.2em]">Dashboard Security</span>
-                <span class="text-xs text-on-surface-variant/60">Unlock broker operations with your system webhook secret.</span>
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                    <span class="material-symbols-outlined text-[18px]">vpn_key</span>
+                </div>
+                <div class="flex flex-col">
+                    <span id="auth-strip-label" class="font-mono text-xs font-bold text-white uppercase tracking-wider">Dashboard Security Guard</span>
+                    <span class="text-xs text-slate-400">Unlock broker operations with your system webhook secret.</span>
+                </div>
             </div>
-            <input type="password" id="secret" name="webhook-secret"
-                   placeholder="Enter Webhook Secret to Unlock"
-                   autocomplete="current-password"
-                   class="bg-black/45 border border-white/10 rounded-lg px-4 py-2 text-center text-sm font-mono tracking-widest text-on-background focus:ring-1 focus:ring-primary focus:outline-none w-80">
+            <div class="flex items-center gap-3">
+                <input type="password" id="secret" name="webhook-secret"
+                       placeholder="Enter Webhook Secret to Unlock"
+                       autocomplete="current-password"
+                       class="bg-black/60 border border-slate-700 rounded-lg px-4 py-2 text-center text-sm font-mono tracking-widest text-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none w-80">
+                <button onclick="refreshState()" class="px-4 py-2 bg-primary-container hover:bg-primary/80 text-white font-mono text-xs font-bold rounded-lg transition-all shadow-md">
+                    Sync
+                </button>
+            </div>
         </section>
 
         <!-- Account KPIs Banner -->
         <section class="grid grid-cols-1 md:grid-cols-4 gap-md mb-lg">
-            <div class="glass-panel p-md rounded-xl flex flex-col">
-                <span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Equity Balance</span>
-                <span id="kpi-equity" class="font-display-lg text-headline-lg text-on-surface font-bold font-numeric-data">₹100,000.00</span>
+            <div class="glass-panel p-md rounded-xl flex flex-col justify-between">
+                <span class="font-mono text-xs text-slate-400 uppercase tracking-widest font-semibold">Equity Balance</span>
+                <span id="kpi-equity" class="font-mono text-2xl text-slate-100 font-bold tabular-nums mt-1">₹100,000.00</span>
             </div>
-            <div class="glass-panel p-md rounded-xl flex flex-col">
-                <span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Utilized Margin</span>
-                <span id="kpi-margin" class="font-display-lg text-headline-lg text-on-surface font-bold font-numeric-data">₹0.00</span>
+            <div class="glass-panel p-md rounded-xl flex flex-col justify-between">
+                <span class="font-mono text-xs text-slate-400 uppercase tracking-widest font-semibold">Utilized Margin</span>
+                <span id="kpi-margin" class="font-mono text-2xl text-slate-100 font-bold tabular-nums mt-1">₹0.00</span>
             </div>
-            <div class="glass-panel p-md rounded-xl flex flex-col col-span-1 md:col-span-2">
-                <span class="font-label-md text-label-md text-on-surface-variant opacity-60 uppercase tracking-widest">Net Realized PnL</span>
-                <div class="flex items-baseline gap-md">
-                    <span id="kpi-pnl" class="font-display-lg text-headline-lg text-secondary-fixed font-bold font-numeric-data">+₹0.00</span>
-                    <span id="kpi-pnl-pct" class="font-headline-md text-secondary-fixed-dim bg-secondary/10 px-2 rounded font-numeric-data">+0.00%</span>
+            <div class="glass-panel p-md rounded-xl flex flex-col col-span-1 md:col-span-2 justify-between">
+                <div class="flex justify-between items-center">
+                    <span class="font-mono text-xs text-slate-400 uppercase tracking-widest font-semibold">Net Realized PnL</span>
+                    <span class="text-[10px] text-slate-400 font-mono">Dhan HQ Direct API</span>
+                </div>
+                <div class="flex items-baseline gap-md mt-1">
+                    <span id="kpi-pnl" class="font-mono text-2xl text-emerald-400 font-bold tabular-nums">+₹0.00</span>
+                    <span id="kpi-pnl-pct" class="font-mono text-xs tabular-nums px-2 py-0.5 rounded font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20">+0.00%</span>
                 </div>
             </div>
         </section>
@@ -298,86 +324,86 @@
                         <span class="material-symbols-outlined text-primary text-[20px]">psychology</span>
                         MARKET FEELING
                     </h2>
-                    <span id="feeling-store-status" class="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[9px] font-mono text-on-surface-variant">STORE: --</span>
+                    <span id="feeling-store-status" class="bg-slate-900 border border-slate-800 px-2.5 py-0.5 rounded text-[10px] font-mono text-slate-400">STORE: --</span>
                 </div>
 
                 <!-- NIFTY feeling bias row -->
-                <div class="glass-panel p-md rounded-xl neon-border-bull" id="feeling-row-NIFTY">
+                <div class="glass-panel p-md rounded-xl border border-slate-800 transition-all" id="feeling-row-NIFTY">
                     <div class="flex justify-between items-start mb-md">
                         <div>
                             <h3 class="font-headline-md text-on-surface font-semibold text-[15px]">NIFTY 50</h3>
-                            <span class="text-xs font-numeric-data text-secondary">LTP: <span id="feeling-ltp-NIFTY">--</span></span>
+                            <span class="text-xs font-mono text-slate-400">LTP: <span id="feeling-ltp-NIFTY" class="font-mono tabular-nums text-slate-100 font-bold">--</span></span>
                         </div>
                         <span id="feeling-badge-NIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px]">None</span>
                     </div>
                     <div class="flex gap-1 flex-wrap">
-                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Bullish')">BULL</button>
-                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Bearish')">BEAR</button>
-                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', 'Inside')">INSIDE</button>
-                        <button class="feeling-btn btn-clear py-1.5 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('NIFTY', null)">❌</button>
+                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('NIFTY', 'Bullish')">BULL</button>
+                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('NIFTY', 'Bearish')">BEAR</button>
+                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('NIFTY', 'Inside')">INSIDE</button>
+                        <button class="feeling-btn btn-clear py-1.5 px-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('NIFTY', null)" title="Clear Sentiment">CLR</button>
                     </div>
                 </div>
 
                 <!-- BANKNIFTY feeling bias row -->
-                <div class="glass-panel p-md rounded-xl neon-border-neutral" id="feeling-row-BANKNIFTY">
+                <div class="glass-panel p-md rounded-xl border border-slate-800 transition-all" id="feeling-row-BANKNIFTY">
                     <div class="flex justify-between items-start mb-md">
                         <div>
                             <h3 class="font-headline-md text-on-surface font-semibold text-[15px]">BANKNIFTY</h3>
-                            <span class="text-xs font-numeric-data text-on-surface-variant/60">LTP: <span id="feeling-ltp-BANKNIFTY">--</span></span>
+                            <span class="text-xs font-mono text-slate-400">LTP: <span id="feeling-ltp-BANKNIFTY" class="font-mono tabular-nums text-slate-100 font-bold">--</span></span>
                         </div>
                         <span id="feeling-badge-BANKNIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px]">None</span>
                     </div>
                     <div class="flex gap-1 flex-wrap">
-                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Bullish')">BULL</button>
-                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Bearish')">BEAR</button>
-                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', 'Inside')">INSIDE</button>
-                        <button class="feeling-btn btn-clear py-1.5 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('BANKNIFTY', null)">❌</button>
+                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('BANKNIFTY', 'Bullish')">BULL</button>
+                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('BANKNIFTY', 'Bearish')">BEAR</button>
+                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('BANKNIFTY', 'Inside')">INSIDE</button>
+                        <button class="feeling-btn btn-clear py-1.5 px-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('BANKNIFTY', null)" title="Clear Sentiment">CLR</button>
                     </div>
                 </div>
 
                 <!-- FINNIFTY feeling bias row -->
-                <div class="glass-panel p-md rounded-xl" id="feeling-row-FINNIFTY">
+                <div class="glass-panel p-md rounded-xl border border-slate-800 transition-all" id="feeling-row-FINNIFTY">
                     <div class="flex justify-between items-start mb-md">
                         <div>
                             <h3 class="font-headline-md text-on-surface font-semibold text-[15px]">FINNIFTY</h3>
-                            <span class="text-xs font-numeric-data text-on-surface-variant/60">LTP: <span id="feeling-ltp-FINNIFTY">--</span></span>
+                            <span class="text-xs font-mono text-slate-400">LTP: <span id="feeling-ltp-FINNIFTY" class="font-mono tabular-nums text-slate-100 font-bold">--</span></span>
                         </div>
                         <span id="feeling-badge-FINNIFTY" class="feeling-badge NONE badge uppercase font-bold text-[9px]">None</span>
                     </div>
                     <div class="flex gap-1 flex-wrap">
-                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Bullish')">BULL</button>
-                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Bearish')">BEAR</button>
-                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', 'Inside')">INSIDE</button>
-                        <button class="feeling-btn btn-clear py-1.5 px-2 bg-white/5 hover:bg-white/10 text-on-surface-variant text-[10px] font-bold rounded" onclick="updateFeeling('FINNIFTY', null)">❌</button>
+                        <button class="feeling-btn btn-bullish flex-1 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('FINNIFTY', 'Bullish')">BULL</button>
+                        <button class="feeling-btn btn-bearish flex-1 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('FINNIFTY', 'Bearish')">BEAR</button>
+                        <button class="feeling-btn btn-inside flex-1 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('FINNIFTY', 'Inside')">INSIDE</button>
+                        <button class="feeling-btn btn-clear py-1.5 px-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white text-[10px] font-mono font-bold rounded cursor-pointer transition-colors" onclick="updateFeeling('FINNIFTY', null)" title="Clear Sentiment">CLR</button>
                     </div>
                 </div>
 
                 <!-- Price Levels Studio -->
-                <div class="glass-panel p-md rounded-xl mt-md">
-                    <div class="flex justify-between items-center mb-md border-b border-white/5 pb-2">
-                        <h3 class="font-headline-md text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-1">
+                <div class="glass-panel p-md rounded-xl mt-md border border-slate-800">
+                    <div class="flex justify-between items-center mb-md border-b border-slate-800 pb-2">
+                        <h3 class="font-headline-md text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-1.5">
                             <span class="material-symbols-outlined text-[16px]">layers</span> Price Levels Studio
                         </h3>
                     </div>
                     <div class="space-y-3">
-                        <button class="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded text-xs font-medium text-on-surface-variant hover:text-on-surface transition" onclick="addLevelRow('UTP')">
-                            + Add Upper Level (UTP)
+                        <button class="w-full py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-dashed border-emerald-500/30 rounded-lg text-xs font-mono font-semibold text-emerald-400 transition cursor-pointer flex items-center justify-center gap-1.5" onclick="addLevelRow('UTP')">
+                            <span class="material-symbols-outlined text-[15px]">add</span> Add Upper Level (UTP)
                         </button>
                         <div id="utp-container" class="space-y-2"></div>
 
-                        <div class="grid grid-cols-3 gap-2 items-center">
-                            <span class="text-xs font-semibold text-on-surface-variant">TP0 Base</span>
-                            <input type="number" id="tp0-low" placeholder="Low" class="col-span-1 bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
-                            <input type="number" id="tp0-high" placeholder="High" class="col-span-1 bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
+                        <div class="grid grid-cols-3 gap-2 items-center bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                            <span class="text-xs font-mono font-bold text-slate-300">TP0 Base</span>
+                            <input type="number" id="tp0-low" placeholder="Low" class="col-span-1 bg-black/60 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-mono tabular-nums text-center text-slate-100 focus:outline-none focus:border-primary">
+                            <input type="number" id="tp0-high" placeholder="High" class="col-span-1 bg-black/60 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-mono tabular-nums text-center text-slate-100 focus:outline-none focus:border-primary">
                         </div>
 
                         <div id="ltp-container" class="space-y-2"></div>
-                        <button class="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/20 rounded text-xs font-medium text-on-surface-variant hover:text-on-surface transition" onclick="addLevelRow('LTP')">
-                            + Add Lower Level (LTP)
+                        <button class="w-full py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-dashed border-rose-500/30 rounded-lg text-xs font-mono font-semibold text-rose-400 transition cursor-pointer flex items-center justify-center gap-1.5" onclick="addLevelRow('LTP')">
+                            <span class="material-symbols-outlined text-[15px]">add</span> Add Lower Level (LTP)
                         </button>
                         
-                        <button class="w-full py-2 bg-primary-container text-on-primary-container text-xs font-bold rounded-lg hover:shadow-lg transition active:scale-95" onclick="saveLevels()">
-                            Save Level Bounds
+                        <button class="w-full py-2 bg-primary-container hover:bg-primary/80 text-white font-mono text-xs font-bold rounded-lg transition-all shadow-md active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5" onclick="saveLevels()">
+                            <span class="material-symbols-outlined text-[15px]">save</span> Save Level Bounds
                         </button>
                     </div>
                 </div>
@@ -385,134 +411,7 @@
 
             <!-- Column 2: Trade Controls & Active Positions -->
             <section class="col-span-12 lg:col-span-5 flex flex-col gap-lg">
-                
-                <!-- Trade Controls panel (Hidden visually to avoid JS reference errors) -->
-                <div class="glass-panel p-lg rounded-xl" style="display: none !important;">
-                    <h2 class="font-headline-md text-sm font-bold uppercase tracking-widest text-on-surface flex items-center gap-sm mb-md pb-2 border-b border-white/5">
-                        <span class="material-symbols-outlined text-primary text-[20px]">tune</span>
-                        Trade Command Centers
-                    </h2>
-                    
-                    <div id="command-center" class="space-y-6">
-                        <!-- CALL (CE) Controls -->
-                        <div id="sector-call" data-sector="CALL" class="p-md rounded-lg bg-white/5 border border-white/10 relative">
-                            <div class="flex justify-between items-center mb-3">
-                                <h3 class="text-xs font-bold uppercase tracking-wider text-secondary">NIFTY CALL (CE)</h3>
-                                <div id="stat-CALL" class="px-2 py-0.5 rounded bg-secondary/20 border border-secondary/30 text-[9px] font-bold text-secondary uppercase animate-pulse" style="display:none">
-                                    CALL ACTIVE
-                                </div>
-                            </div>
-                            
-                            <div class="flex gap-2">
-                                <button id="btn-buy-call" onclick="agentAPI.sendUIAction('CALL')" class="flex-1 py-3 bg-secondary/10 hover:bg-secondary text-secondary hover:text-black border border-secondary/30 hover:border-transparent text-xs font-bold rounded-lg transition active:scale-95">
-                                    BUY CALL
-                                </button>
-                                
-                                <button id="btn-exit-call" onclick="agentAPI.sendUIAction('EXIT_CALL')" class="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold rounded-lg transition active:scale-95">
-                                    EXIT
-                                </button>
-                            </div>
-
-                            <!-- In-Card Active PnL Overlay -->
-                            <div id="pnl-CALL" class="mt-3 p-3 bg-black/45 border border-white/5 rounded-lg text-center" style="display:none">
-                                <div class="text-[9px] text-on-surface-variant/40 uppercase tracking-widest mb-1">CALL P&L</div>
-                                <div id="pnl-amt-CALL" class="text-2xl font-bold font-mono text-secondary">+₹0.00</div>
-                                <div id="pnl-pct-CALL" class="text-xs font-mono text-on-surface-variant mb-3">+0.00%</div>
-                                
-                                <div class="grid grid-cols-4 gap-2 text-left text-[10px] font-mono border-t border-white/5 pt-2">
-                                    <div><span class="block text-on-surface-variant/40">Entry</span><span id="entry-CALL">--</span></div>
-                                    <div><span class="block text-on-surface-variant/40">LTP</span><span id="ltp-CALL">--</span></div>
-                                    <div><span class="block text-on-surface-variant/40">Qty</span><span id="qty-CALL">--</span></div>
-                                    <div class="col-span-1 truncate"><span class="block text-on-surface-variant/40">Symbol</span><span id="sym-CALL" class="block truncate">--</span></div>
-                                </div>
-                            </div>
-
-                            <!-- CALL GTT parameters -->
-                            <div class="mt-4 pt-3 border-t border-white/5">
-                                <div class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider mb-2">Index GTT Trigger Levels</div>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
-                                        <span class="text-[10px] font-bold text-secondary font-mono mr-2">TGT</span>
-                                        <input type="number" id="call-target" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
-                                    </div>
-                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
-                                        <span class="text-[10px] font-bold text-error font-mono mr-2">SL</span>
-                                        <input type="number" id="call-sl" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
-                                    </div>
-                                </div>
-                                <div class="flex gap-2 mt-2">
-                                    <button id="btn-set-call" onclick="setConditionalOrders('CALL')" class="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold rounded-md transition">
-                                        Apply GTT
-                                    </button>
-                                    <button id="btn-modify-call" onclick="setConditionalOrders('CALL', {modify: true})" class="flex-1 py-2 bg-primary-container text-on-primary-container text-[10px] font-bold rounded-md transition" style="display:none">
-                                        Modify GTT
-                                    </button>
-                                </div>
-                                <div id="cond-status-call" class="mt-2 text-[10px] font-mono text-center text-on-surface-variant/60"></div>
-                            </div>
-                        </div>
-
-                        <!-- PUT (PE) Controls -->
-                        <div id="sector-put" data-sector="PUT" class="p-md rounded-lg bg-white/5 border border-white/10 relative">
-                            <div class="flex justify-between items-center mb-3">
-                                <h3 class="text-xs font-bold uppercase tracking-wider text-error">NIFTY PUT (PE)</h3>
-                                <div id="stat-PUT" class="px-2 py-0.5 rounded bg-error/20 border border-error/30 text-[9px] font-bold text-error uppercase animate-pulse" style="display:none">
-                                    PUT ACTIVE
-                                </div>
-                            </div>
-                            
-                            <div class="flex gap-2">
-                                <button id="btn-buy-put" onclick="agentAPI.sendUIAction('PUT')" class="flex-1 py-3 bg-error/10 hover:bg-error text-error hover:text-black border border-error/30 hover:border-transparent text-xs font-bold rounded-lg transition active:scale-95">
-                                    BUY PUT
-                                </button>
-                                
-                                <button id="btn-exit-put" onclick="agentAPI.sendUIAction('EXIT_PUT')" class="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold rounded-lg transition active:scale-95">
-                                    EXIT
-                                </button>
-                            </div>
-
-                            <!-- In-Card Active PnL Overlay -->
-                            <div id="pnl-PUT" class="mt-3 p-3 bg-black/45 border border-white/5 rounded-lg text-center" style="display:none">
-                                <div class="text-[9px] text-on-surface-variant/40 uppercase tracking-widest mb-1">PUT P&L</div>
-                                <div id="pnl-amt-PUT" class="text-2xl font-bold font-mono text-error">+₹0.00</div>
-                                <div id="pnl-pct-PUT" class="text-xs font-mono text-on-surface-variant mb-3">+0.00%</div>
-                                
-                                <div class="grid grid-cols-4 gap-2 text-left text-[10px] font-mono border-t border-white/5 pt-2">
-                                    <div><span class="block text-on-surface-variant/40">Entry</span><span id="entry-PUT">--</span></div>
-                                    <div><span class="block text-on-surface-variant/40">LTP</span><span id="ltp-PUT">--</span></div>
-                                    <div><span class="block text-on-surface-variant/40">Qty</span><span id="qty-PUT">--</span></div>
-                                    <div class="col-span-1 truncate"><span class="block text-on-surface-variant/40">Symbol</span><span id="sym-PUT" class="block truncate">--</span></div>
-                                </div>
-                            </div>
-
-                            <!-- PUT GTT parameters -->
-                            <div class="mt-4 pt-3 border-t border-white/5">
-                                <div class="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider mb-2">Index GTT Trigger Levels</div>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
-                                        <span class="text-[10px] font-bold text-secondary font-mono mr-2">TGT</span>
-                                        <input type="number" id="put-target" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
-                                    </div>
-                                    <div class="flex items-center bg-black/45 border border-white/10 rounded px-2 py-1">
-                                        <span class="text-[10px] font-bold text-error font-mono mr-2">SL</span>
-                                        <input type="number" id="put-sl" placeholder="Price" step="0.5" class="bg-transparent border-none p-0 text-xs font-mono w-full text-center focus:ring-0 focus:outline-none">
-                                    </div>
-                                </div>
-                                <div class="flex gap-2 mt-2">
-                                    <button id="btn-set-put" onclick="setConditionalOrders('PUT')" class="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold rounded-md transition">
-                                        Apply GTT
-                                    </button>
-                                    <button id="btn-modify-put" onclick="setConditionalOrders('PUT', {modify: true})" class="flex-1 py-2 bg-primary-container text-on-primary-container text-[10px] font-bold rounded-md transition" style="display:none">
-                                        Modify GTT
-                                    </button>
-                                </div>
-                                <div id="cond-status-put" class="mt-2 text-[10px] font-mono text-center text-on-surface-variant/60"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                        <!-- ARMED INDEX-TOUCH ENTRIES (GTT visual from Stitch) -->
-                <!-- ARMED INDEX-TOUCH ENTRIES (GTT visual from Stitch) -->
+                <!-- ARMED INDEX-TOUCH ENTRIES (GTT visual) -->
                 <div id="armed-gtt-card" class="flex flex-col gap-md mb-lg">
                     <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-sm px-xs font-bold uppercase tracking-wider text-xs">
                         <span class="material-symbols-outlined text-primary text-[18px]">target</span>
@@ -520,43 +419,45 @@
                     </h2>
                     
                     <!-- Loading State -->
-                    <div id="armed-gtt-loading" class="glass-panel p-lg rounded-xl text-center text-xs text-primary font-semibold animate-pulse flex items-center justify-center gap-2" style="display:none">
-                        <span class="animate-spin text-sm">⏳</span> Syncing GTT state...
+                    <div id="armed-gtt-loading" class="glass-panel p-lg rounded-xl text-center text-xs text-primary font-mono font-semibold flex items-center justify-center gap-2 border border-slate-800" style="display:none">
+                        <span class="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>
+                        <span>Syncing GTT state...</span>
                     </div>
                     
                     <!-- Error State -->
-                    <div id="armed-gtt-error" class="glass-panel p-lg rounded-xl text-center text-xs text-error font-semibold flex items-center justify-center gap-2" style="display:none">
-                        <span>⚠️</span> Failed to load GTT state.
+                    <div id="armed-gtt-error" class="glass-panel p-lg rounded-xl text-center text-xs text-rose-400 font-mono font-semibold flex items-center justify-center gap-2 border border-rose-500/30 bg-rose-950/20" style="display:none">
+                        <span class="material-symbols-outlined text-[16px] text-rose-400">warning</span>
+                        <span>Failed to load GTT state.</span>
                     </div>
                     
                     <!-- Empty State -->
-                    <div id="armed-gtt-empty" class="glass-panel p-lg rounded-xl text-center text-xs text-on-surface-variant/40 italic">
+                    <div id="armed-gtt-empty" class="glass-panel p-lg rounded-xl text-center text-xs text-slate-500 font-mono italic border border-slate-800">
                         No armed GTT entries active.
                     </div>
 
                     <!-- Active Content -->
-                    <div id="armed-gtt-content" class="glass-panel p-lg rounded-xl overflow-hidden relative" style="display:none">
+                    <div id="armed-gtt-content" class="glass-panel p-lg rounded-xl overflow-hidden relative border border-slate-800" style="display:none">
                         <!-- Scanning line animation -->
                         <div class="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent h-1/2 -top-1/2 animate-[bounce_4s_infinite] opacity-30 pointer-events-none"></div>
                         <div class="flex justify-between items-center mb-md">
                             <div>
-                                <span id="armed-gtt-status-label" class="font-label-md text-xs text-primary tracking-[0.2em] uppercase">NIFTY-ENTRY-TRIGGER</span>
-                                <h4 id="armed-gtt-title" class="font-headline-md text-on-surface font-semibold">Call Entry Trigger</h4>
+                                <span id="armed-gtt-status-label" class="font-mono text-[10px] text-primary tracking-[0.2em] uppercase font-bold">NIFTY-ENTRY-TRIGGER</span>
+                                <h4 id="armed-gtt-title" class="font-mono text-slate-100 font-bold text-sm mt-0.5">Call Entry Trigger</h4>
                             </div>
                             <div class="text-right">
-                                <span class="text-[10px] text-on-surface-variant/60 uppercase block">Distance</span>
-                                <p id="armed-gtt-distance" class="font-numeric-data text-headline-md text-secondary font-bold text-lg">--</p>
+                                <span class="text-[10px] text-slate-400 font-mono uppercase block">Distance</span>
+                                <p id="armed-gtt-distance" class="font-mono text-xl font-bold tabular-nums text-purple-400">--</p>
                             </div>
                         </div>
                         <div class="space-y-sm">
-                            <div class="flex justify-between text-xs font-numeric-data text-on-surface-variant">
-                                <span id="armed-gtt-sl" class="text-error font-semibold">SL: --</span>
-                                <span id="armed-gtt-entry" class="text-primary font-semibold">Entry: --</span>
-                                <span id="armed-gtt-tgt" class="text-secondary font-semibold">Target: --</span>
+                            <div class="flex justify-between text-xs font-mono tabular-nums">
+                                <span id="armed-gtt-sl" class="text-rose-400 font-semibold">SL: --</span>
+                                <span id="armed-gtt-entry" class="text-purple-400 font-semibold">Entry: --</span>
+                                <span id="armed-gtt-tgt" class="text-emerald-400 font-semibold">Target: --</span>
                             </div>
-                            <div class="w-full h-2 bg-white/5 rounded-full relative overflow-visible">
-                                <div id="armed-gtt-progress" class="h-full bg-primary shadow-[0_0_10px_rgba(219,184,255,0.8)] w-[0%] transition-all duration-1000 rounded-full"></div>
-                                <div id="armed-gtt-pointer" class="absolute left-[0%] -top-1 w-0.5 h-4 bg-white shadow-[0_0_8px_white] z-10"></div>
+                            <div class="w-full h-2.5 bg-slate-900 rounded-full relative overflow-visible border border-slate-800">
+                                <div id="armed-gtt-progress" class="h-full bg-gradient-to-r from-purple-500 to-emerald-400 shadow-[0_0_12px_rgba(168,85,247,0.6)] w-[0%] transition-all duration-700 rounded-full"></div>
+                                <div id="armed-gtt-pointer" class="absolute left-[0%] -top-1 w-1 h-4.5 bg-white shadow-[0_0_8px_white] rounded-sm z-10"></div>
                             </div>
                         </div>
                     </div>
@@ -570,50 +471,52 @@
                     </h2>
 
                     <!-- Loading State -->
-                    <div id="bracket-loading" class="glass-panel p-lg rounded-xl text-center text-xs text-secondary font-semibold animate-pulse flex items-center justify-center gap-2" style="display:none">
-                        <span class="animate-spin text-sm">⏳</span> Loading brackets...
+                    <div id="bracket-loading" class="glass-panel p-lg rounded-xl text-center text-xs text-secondary font-mono font-semibold flex items-center justify-center gap-2 border border-slate-800" style="display:none">
+                        <span class="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></span>
+                        <span>Loading brackets...</span>
                     </div>
                     
                     <!-- Error State -->
-                    <div id="bracket-error" class="glass-panel p-lg rounded-xl text-center text-xs text-error font-semibold flex items-center justify-center gap-2" style="display:none">
-                        <span>⚠️</span> Failed to load bracket details.
+                    <div id="bracket-error" class="glass-panel p-lg rounded-xl text-center text-xs text-rose-400 font-mono font-semibold flex items-center justify-center gap-2 border border-rose-500/30 bg-rose-950/20" style="display:none">
+                        <span class="material-symbols-outlined text-[16px] text-rose-400">warning</span>
+                        <span>Failed to load bracket details.</span>
                     </div>
                     
                     <!-- Empty State -->
-                    <div id="bracket-empty" class="glass-panel p-lg rounded-xl text-center text-xs text-on-surface-variant/40 italic">
+                    <div id="bracket-empty" class="glass-panel p-lg rounded-xl text-center text-xs text-slate-500 font-mono italic border border-slate-800">
                         No active order brackets running.
                     </div>
 
                     <!-- Active Content -->
-                    <div id="bracket-content" class="glass-panel p-lg rounded-xl border-l-4 border-secondary" style="display:none">
-                        <div class="flex justify-between items-start mb-6">
+                    <div id="bracket-content" class="glass-panel p-lg rounded-xl border-l-4 border-emerald-400 border border-slate-800" style="display:none">
+                        <div class="flex justify-between items-start mb-4">
                             <div>
-                                <div class="flex gap-2 mb-1">
-                                    <span id="bracket-status-badge" class="bg-secondary/10 text-secondary text-[10px] w-fit px-2 py-0.5 rounded border border-secondary/20 font-bold">RUNNING</span>
-                                    <span id="bracket-protection-badge" class="bg-primary/20 text-primary text-[10px] w-fit px-2 py-0.5 rounded border border-primary/20 font-bold">GTT + Polling</span>
+                                <div class="flex gap-2 mb-1.5">
+                                    <span id="bracket-status-badge" class="bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-0.5 rounded border border-emerald-500/20 font-mono font-bold tracking-wider uppercase">RUNNING</span>
+                                    <span id="bracket-protection-badge" class="bg-purple-500/10 text-purple-300 text-[10px] px-2 py-0.5 rounded border border-purple-500/20 font-mono font-bold tracking-wider uppercase">GTT + Polling</span>
                                 </div>
-                                <h4 id="bracket-symbol" class="font-headline-md text-on-surface font-bold text-[16px]">--</h4>
-                                <span id="bracket-qty-avg" class="text-xs text-on-surface-variant font-numeric-data">Qty: -- | Avg: --</span>
+                                <h4 id="bracket-symbol" class="font-mono text-slate-100 font-bold text-base tracking-wide">--</h4>
+                                <span id="bracket-qty-avg" class="text-xs text-slate-400 font-mono tabular-nums">Qty: -- | Avg: --</span>
                             </div>
                             <div class="text-right flex flex-col items-end">
-                                <p id="bracket-pnl-amt" class="text-secondary font-display-lg text-headline-lg font-bold font-numeric-data leading-none">--</p>
-                                <span id="bracket-pnl-pct" class="text-xs text-secondary-fixed-dim font-numeric-data">--</span>
-                                <span class="text-[10px] text-on-surface-variant/40 font-mono mt-1">LTP: <span id="bracket-ltp" class="text-on-surface font-semibold">--</span></span>
+                                <p id="bracket-pnl-amt" class="font-mono text-2xl font-bold tabular-nums text-emerald-400 leading-none">--</p>
+                                <span id="bracket-pnl-pct" class="text-xs font-mono tabular-nums text-emerald-300/80 mt-1">--</span>
+                                <span class="text-[10px] text-slate-400 font-mono mt-1">LTP: <span id="bracket-ltp" class="text-slate-100 font-semibold tabular-nums">--</span></span>
                             </div>
                         </div>
                         
-                        <!-- New Stitch Slider Representation of SL -> Entry -> Target -->
-                        <div id="bracket-slider-container" class="mt-lg space-y-sm" style="display:none">
-                            <div class="flex justify-between text-[10px] font-numeric-data text-on-surface-variant uppercase tracking-wider">
-                                <span id="bracket-slider-sl-val" class="text-error">SL: --</span>
-                                <span id="bracket-slider-entry-val" class="text-primary">Entry: --</span>
-                                <span id="bracket-slider-tgt-val" class="text-secondary">Target: --</span>
+                        <!-- Multi-stop risk-reward dynamic slider -->
+                        <div id="bracket-slider-container" class="mt-4 space-y-2" style="display:none">
+                            <div class="flex justify-between text-[10px] font-mono tabular-nums uppercase tracking-wider">
+                                <span id="bracket-slider-sl-val" class="text-rose-400 font-semibold">SL: --</span>
+                                <span id="bracket-slider-entry-val" class="text-purple-400 font-semibold">Entry: --</span>
+                                <span id="bracket-slider-tgt-val" class="text-emerald-400 font-semibold">Target: --</span>
                             </div>
-                            <div class="w-full h-2 bg-white/5 rounded-full overflow-hidden relative">
-                                <div id="bracket-slider-bar" class="absolute h-full bg-primary shadow-[0_0_10px_rgba(219,184,255,0.8)] w-[0%] transition-all duration-1000"></div>
-                                <div id="bracket-slider-pointer" class="absolute left-[0%] -top-1 w-0.5 h-4 bg-white shadow-[0_0_8px_white] z-10"></div>
+                            <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden relative border border-slate-800">
+                                <div id="bracket-slider-bar" class="absolute h-full transition-all duration-700 rounded-full" style="background: linear-gradient(90deg, #f43f5e 0%, #c084fc 50%, #10b981 100%); width: 0%;"></div>
+                                <div id="bracket-slider-pointer" class="absolute left-[0%] -top-1 w-1 h-4.5 bg-white shadow-[0_0_8px_white] rounded-sm z-10"></div>
                             </div>
-                            <div class="flex justify-between text-[10px] font-label-md text-on-surface-variant/40">
+                            <div class="flex justify-between text-[10px] font-mono tabular-nums text-slate-400">
                                 <span id="bracket-pct-sl">--</span>
                                 <span id="bracket-current-val">--</span>
                                 <span id="bracket-pct-tgt">--</span>
@@ -621,17 +524,13 @@
                         </div>
 
                         <!-- Additional Order Details Footer -->
-                        <div class="mt-4 flex justify-between items-center text-xs border-t border-white/5 pt-2">
-                            <span class="text-on-surface-variant/60 font-label-md">Trailing Jump</span>
-                            <span id="bracket-trailing" class="font-numeric-data text-primary font-semibold">--</span>
+                        <div class="mt-4 flex justify-between items-center text-xs border-t border-slate-800 pt-2.5">
+                            <span class="text-slate-400 font-mono text-[11px]">Trailing Jump</span>
+                            <span id="bracket-trailing" class="font-mono tabular-nums text-purple-400 font-bold">--</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Legacy Positions List Container (Hidden but preserved for state rendering) -->
-                <div id="active-positions-container" style="display:none">
-                    <div id="active-positions-list"></div>
-                </div>
             </section>
 
             <!-- Column 3: Feed, Logs & History -->
@@ -644,21 +543,24 @@
                             <span class="material-symbols-outlined text-primary text-[20px]">hub</span>
                             LIVE TRADE FEED
                         </h2>
-                        <button class="bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 rounded text-[10px] text-on-surface-variant transition" onclick="refreshTradeFeed()">↻ Refresh</button>
+                        <button class="bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-lg text-xs text-slate-300 hover:text-white transition-colors font-mono flex items-center gap-1 cursor-pointer" onclick="refreshTradeFeed()">
+                            <span class="material-symbols-outlined text-[14px]">refresh</span>
+                            <span>Refresh</span>
+                        </button>
                     </div>
                     
-                    <div class="glass-panel rounded-xl overflow-hidden flex flex-col max-h-[300px] overflow-y-auto scrollbar-hide">
+                    <div class="glass-panel rounded-xl overflow-hidden flex flex-col max-h-[300px] overflow-y-auto scrollbar-hide border border-slate-800">
                         <table class="w-full text-left border-collapse">
-                            <thead class="bg-white/5 border-b border-white/10 sticky top-0">
+                            <thead class="bg-slate-900/90 border-b border-slate-800 sticky top-0 backdrop-blur z-10">
                                 <tr>
-                                    <th class="px-md py-sm font-label-md text-[9px] text-on-surface-variant uppercase tracking-widest">Time</th>
-                                    <th class="px-md py-sm font-label-md text-[9px] text-on-surface-variant uppercase tracking-widest">Instrument</th>
-                                    <th class="px-md py-sm font-label-md text-[9px] text-on-surface-variant uppercase tracking-widest">Status</th>
+                                    <th class="px-md py-2.5 font-mono text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Time</th>
+                                    <th class="px-md py-2.5 font-mono text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Instrument</th>
+                                    <th class="px-md py-2.5 font-mono text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Status</th>
                                 </tr>
                             </thead>
-                            <tbody id="feed-body" class="divide-y divide-white/5 text-xs">
+                            <tbody id="feed-body" class="divide-y divide-slate-800/60 text-xs font-mono tabular-nums">
                                 <tr>
-                                    <td colspan="3" class="px-md py-md text-center text-on-surface-variant/40 italic">
+                                    <td colspan="3" class="px-md py-md text-center text-slate-500 italic">
                                         No trade signals yet.
                                     </td>
                                 </tr>
@@ -669,23 +571,14 @@
 
                 <!-- System Debug Logs Terminal -->
                 <div class="flex flex-col">
-                    <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-md px-xs text-sm font-bold uppercase">
-                        <span class="material-symbols-outlined text-on-surface-variant text-[20px]">terminal</span>
-                        SYSTEM DEBUG LOG
-                    </h2>
-                    <div class="glass-panel rounded-xl bg-black/40 p-md font-mono text-[10px] leading-relaxed text-secondary-fixed-dim/70 h-48 overflow-y-auto scrollbar-hide" id="activity-log-list">
-                        <!-- Polled logs are rendered here inside load/tick -->
+                    <div class="flex justify-between items-center mb-md px-xs">
+                        <h2 class="font-headline-md text-on-surface flex items-center gap-sm text-sm font-bold uppercase">
+                            <span class="material-symbols-outlined text-on-surface-variant text-[20px]">terminal</span>
+                            SYSTEM DEBUG LOG
+                        </h2>
                     </div>
-                </div>
-
-                <!-- Live Performance History list (Hidden visually to avoid JS reference errors) -->
-                <div class="flex flex-col" style="display: none !important;">
-                    <h2 class="font-headline-md text-on-surface flex items-center gap-sm mb-md px-xs text-sm font-bold uppercase">
-                        <span class="material-symbols-outlined text-on-surface-variant text-[20px]">history</span>
-                        TRADE HISTORY
-                    </h2>
-                    <div class="glass-panel p-md rounded-xl space-y-2 max-h-[220px] overflow-y-auto scrollbar-hide" id="history-list">
-                        <div class="text-center text-xs text-on-surface-variant/40 italic py-4">No closed trades yet.</div>
+                    <div class="glass-panel rounded-xl bg-[#020617] p-md font-mono text-[10px] leading-relaxed text-slate-300 h-48 overflow-y-auto custom-terminal-scroll border border-slate-800" id="activity-log-list">
+                        <!-- Polled logs are rendered here inside load/tick -->
                     </div>
                 </div>
             </section>
@@ -694,12 +587,41 @@
 
     <!-- Floating Action Button for Emergency exit -->
     <div class="fixed bottom-lg right-lg z-50">
-        <button id="btn-exit-all" onclick="agentAPI.emergencyExit()" class="w-16 h-16 rounded-full bg-error text-on-error flex items-center justify-center shadow-[0_0_30px_rgba(255,180,171,0.4)] hover:scale-110 active:scale-90 transition-all duration-300 group" data-action="exit-all">
-            <span class="material-symbols-outlined text-3xl font-bold group-hover:animate-spin">emergency_home</span>
-            <div class="absolute -top-12 right-0 bg-error text-on-error px-3 py-1 rounded text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap uppercase tracking-tighter">
-                Kill All Positions
+        <button id="btn-exit-all" onclick="toggleKillGuard()" class="w-16 h-16 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-[0_0_30px_rgba(244,63,94,0.5)] hover:scale-105 active:scale-95 transition-all duration-300 group cursor-pointer border border-rose-400/30" data-action="exit-all" title="Emergency Kill Switch">
+            <span class="material-symbols-outlined text-3xl font-bold group-hover:rotate-12 transition-transform">crisis_alert</span>
+            <div class="absolute -top-10 right-0 bg-slate-900 text-rose-400 border border-rose-500/40 px-2.5 py-1 rounded text-[10px] font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap uppercase tracking-wider shadow-lg">
+                Kill Switch
             </div>
         </button>
+    </div>
+
+    <!-- Guarded Master Kill Switch Modal -->
+    <div id="kill-guard-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden" role="dialog" aria-modal="true" aria-labelledby="kill-modal-title">
+        <div class="glass-panel p-6 rounded-2xl max-w-md w-full mx-4 border border-rose-500/40 bg-slate-950/95 shadow-[0_0_50px_rgba(244,63,94,0.3)]">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                    <span class="material-symbols-outlined text-3xl animate-pulse">crisis_alert</span>
+                </div>
+                <div class="flex-1">
+                    <h3 id="kill-modal-title" class="font-mono text-lg font-bold text-white uppercase tracking-wider">Confirm Emergency Exit</h3>
+                    <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+                        This action will immediately square off <strong class="text-rose-400">ALL open positions</strong> across Dhan, Groww, and Flattrade and cancel all pending GTT conditional orders.
+                    </p>
+                </div>
+            </div>
+            <div class="mt-4 p-3 rounded-lg bg-rose-950/40 border border-rose-800/50 text-[11px] font-mono text-rose-300">
+                ⚠️ Fail-safe interlock active. Only execute during unexpected volatility or emergency market risk.
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button onclick="toggleKillGuard()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-semibold transition-colors cursor-pointer">
+                    Cancel (ESC)
+                </button>
+                <button onclick="confirmMasterKill()" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-mono font-bold tracking-wider uppercase transition-all shadow-[0_0_20px_rgba(244,63,94,0.4)] active:scale-95 flex items-center gap-1.5 cursor-pointer">
+                    <span class="material-symbols-outlined text-[16px]">dangerous</span>
+                    <span>Abort All Positions</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Background Atmospheric blur shaders -->
@@ -714,6 +636,27 @@
         let utpCount = 0;
         let ltpCount = 0;
         let isFirstLoad = true;
+
+        function toggleKillGuard() {
+            const modal = document.getElementById('kill-guard-modal');
+            if (modal) {
+                modal.classList.toggle('hidden');
+            }
+        }
+
+        function confirmMasterKill() {
+            toggleKillGuard();
+            emergencyExit(true);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('kill-guard-modal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    modal.classList.add('hidden');
+                }
+            }
+        });
 
         function showGttState(stateName) {
             document.getElementById('armed-gtt-loading').style.display = (stateName === 'loading') ? 'flex' : 'none';
@@ -854,6 +797,7 @@
 
         function updateHistoryUI(history) {
             const histEl = document.getElementById('history-list');
+            if (!histEl) return;
             if (history && history.length > 0) {
                 histEl.innerHTML = history.slice(0, 10).map(t => renderHistoryCard(t)).join('');
             } else {
@@ -902,22 +846,39 @@
             const callActive = (activeSide === 'CALL');
             const putActive = (activeSide === 'PUT');
 
-            // 2. Update Buttons & Labels
-            document.getElementById('btn-buy-call').disabled = callActive;
-            document.getElementById('btn-exit-call').disabled = !callActive;
-            document.getElementById('btn-set-call').disabled = !callActive;
-            document.getElementById('stat-CALL').style.display = callActive ? 'block' : 'none';
+            // Store active state in window for agentAPI and other queries
+            window.tradingState = {
+                activeSide,
+                callActive,
+                putActive,
+                sector: sector || null
+            };
 
-            document.getElementById('btn-buy-put').disabled = putActive;
-            document.getElementById('btn-exit-put').disabled = !putActive;
-            document.getElementById('btn-set-put').disabled = !putActive;
-            document.getElementById('stat-PUT').style.display = putActive ? 'block' : 'none';
+            // Safely update legacy buttons if present
+            const btnBuyCall = document.getElementById('btn-buy-call');
+            if (btnBuyCall) btnBuyCall.disabled = callActive;
+            const btnExitCall = document.getElementById('btn-exit-call');
+            if (btnExitCall) btnExitCall.disabled = !callActive;
+            const btnSetCall = document.getElementById('btn-set-call');
+            if (btnSetCall) btnSetCall.disabled = !callActive;
+            const statCall = document.getElementById('stat-CALL');
+            if (statCall) statCall.style.display = callActive ? 'block' : 'none';
 
-            // 3. Update In-Card P&L for Active Sector
+            const btnBuyPut = document.getElementById('btn-buy-put');
+            if (btnBuyPut) btnBuyPut.disabled = putActive;
+            const btnExitPut = document.getElementById('btn-exit-put');
+            if (btnExitPut) btnExitPut.disabled = !putActive;
+            const btnSetPut = document.getElementById('btn-set-put');
+            if (btnSetPut) btnSetPut.disabled = !putActive;
+            const statPut = document.getElementById('stat-PUT');
+            if (statPut) statPut.style.display = putActive ? 'block' : 'none';
+
+            // 3. Update In-Card P&L for Active Sector if present
             const sectors = ['CALL', 'PUT'];
             sectors.forEach(s => {
                 const pnlEl = document.getElementById(`pnl-${s}`);
                 const buyEl = document.getElementById(`btn-buy-${s.toLowerCase()}`);
+                if (!pnlEl || !buyEl) return;
 
                 if ((s === 'CALL' && callActive) || (s === 'PUT' && putActive)) {
                     if (sector) {
@@ -926,17 +887,25 @@
                         const isProfit = sector.pnl_abs >= 0;
                         const sign = isProfit ? '+' : '';
                         const amtEl = document.getElementById(`pnl-amt-${s}`);
-                        amtEl.textContent = `${sign}₹${sector.pnl_abs}`;
-                        amtEl.style.color = isProfit ? 'var(--success)' : 'var(--danger)';
+                        if (amtEl) {
+                            amtEl.textContent = `${sign}₹${sector.pnl_abs}`;
+                            amtEl.style.color = isProfit ? 'var(--success)' : 'var(--danger)';
+                        }
                         
                         const pctEl = document.getElementById(`pnl-pct-${s}`);
-                        pctEl.textContent = `${sign}${sector.pnl_pct}%`;
-                        pctEl.style.color = isProfit ? 'var(--success)' : 'var(--danger)';
+                        if (pctEl) {
+                            pctEl.textContent = `${sign}${sector.pnl_pct}%`;
+                            pctEl.style.color = isProfit ? 'var(--success)' : 'var(--danger)';
+                        }
 
-                        document.getElementById(`entry-${s}`).textContent = `₹${sector.entry_price}`;
-                        document.getElementById(`ltp-${s}`).textContent = `₹${sector.ltp}`;
-                        document.getElementById(`qty-${s}`).textContent = sector.quantity;
-                        document.getElementById(`sym-${s}`).textContent = sector.symbol;
+                        const entryEl = document.getElementById(`entry-${s}`);
+                        if (entryEl) entryEl.textContent = `₹${sector.entry_price}`;
+                        const ltpEl = document.getElementById(`ltp-${s}`);
+                        if (ltpEl) ltpEl.textContent = `₹${sector.ltp}`;
+                        const qtyEl = document.getElementById(`qty-${s}`);
+                        if (qtyEl) qtyEl.textContent = sector.quantity;
+                        const symEl = document.getElementById(`sym-${s}`);
+                        if (symEl) symEl.textContent = sector.symbol;
                     }
                 } else {
                     pnlEl.style.display = 'none';
@@ -1067,17 +1036,17 @@
                 const amtEl = document.getElementById('bracket-pnl-amt');
                 amtEl.textContent = pnlText;
                 if (isProfit) {
-                    amtEl.className = 'text-secondary font-display-lg text-headline-lg font-bold font-numeric-data leading-none';
+                    amtEl.className = 'font-mono text-2xl font-bold tabular-nums text-emerald-400 leading-none';
                 } else {
-                    amtEl.className = 'text-error font-display-lg text-headline-lg font-bold font-numeric-data leading-none';
+                    amtEl.className = 'font-mono text-2xl font-bold tabular-nums text-rose-500 leading-none';
                 }
                 
                 const pctEl = document.getElementById('bracket-pnl-pct');
                 pctEl.textContent = `${pnlPctText}`;
                 if (isProfit) {
-                    pctEl.className = 'text-xs text-secondary font-numeric-data';
+                    pctEl.className = 'text-xs font-mono tabular-nums text-emerald-300/80 mt-1';
                 } else {
-                    pctEl.className = 'text-xs text-error font-numeric-data';
+                    pctEl.className = 'text-xs font-mono tabular-nums text-rose-400/80 mt-1';
                 }
                 
                 // Update new Stitch dynamic slider bar
@@ -1137,11 +1106,11 @@
                     
                     const amtEl = document.getElementById('bracket-pnl-amt');
                     amtEl.textContent = `${sign}₹${pnlVal}`;
-                    amtEl.className = isProfit ? 'text-secondary font-display-lg text-headline-lg font-bold font-numeric-data leading-none' : 'text-error font-display-lg text-headline-lg font-bold font-numeric-data leading-none';
+                    amtEl.className = isProfit ? 'font-mono text-2xl font-bold tabular-nums text-emerald-400 leading-none' : 'font-mono text-2xl font-bold tabular-nums text-rose-500 leading-none';
                     
                     const pctEl = document.getElementById('bracket-pnl-pct');
                     pctEl.textContent = `--`;
-                    pctEl.className = 'text-xs text-on-surface-variant/40 font-numeric-data';
+                    pctEl.className = 'text-xs font-mono tabular-nums text-slate-400 mt-1';
                     
                     const targetVal = parseFloat(bracketTrade.target_price);
                     const slVal = parseFloat(bracketTrade.sl_price);
@@ -1183,15 +1152,15 @@
                 }
             }
 
-            // 7. Sync GTT inputs with current state if they match or are active
+            // 7. Sync GTT inputs with current state if legacy controls exist
             const activePrefix = activeSide === 'PUT' ? 'put' : 'call';
-            if (activeSide !== 'NONE' && sector) {
-                const tInp = document.getElementById(`${activePrefix}-target`);
-                const sInp = document.getElementById(`${activePrefix}-sl`);
-                const stEl = document.getElementById(`cond-status-${activePrefix}`);
-                const modBtn = document.getElementById(`btn-modify-${activePrefix}`);
-                const setBtn = document.getElementById(`btn-set-${activePrefix}`);
+            const tInp = document.getElementById(`${activePrefix}-target`);
+            const sInp = document.getElementById(`${activePrefix}-sl`);
+            const stEl = document.getElementById(`cond-status-${activePrefix}`);
+            const modBtn = document.getElementById(`btn-modify-${activePrefix}`);
+            const setBtn = document.getElementById(`btn-set-${activePrefix}`);
 
+            if (tInp && sInp && stEl) {
                 const tLbl = document.querySelector(`#sector-${activePrefix} .cond-label.target`);
                 const sLbl = document.querySelector(`#sector-${activePrefix} .cond-label.sl`);
                 const pnlTitle = document.querySelector(`#sector-${activePrefix} .cond-panel-title`);
@@ -1199,37 +1168,39 @@
                 if (tLbl) tLbl.textContent = 'Target';
                 if (sLbl) sLbl.textContent = 'SL';
 
-                if (sector.idx_target_level) {
+                if (sector && sector.idx_target_level) {
                     if (pnlTitle) pnlTitle.innerHTML = 'Index Conditional GTT <span class="text-secondary font-bold text-[9px]">(ACTIVE)</span>';
 
-                    if (tInp && !tInp.getAttribute('data-active')) {
+                    if (!tInp.getAttribute('data-active')) {
                         tInp.value = sector.idx_target_level;
                         tInp.setAttribute('data-active', sector.idx_target_level);
                     }
-                    if (sInp && !sInp.getAttribute('data-active')) {
+                    if (!sInp.getAttribute('data-active')) {
                         sInp.value = sector.idx_sl_level;
                         sInp.setAttribute('data-active', sector.idx_sl_level);
                     }
                     stEl.textContent = `✅ Index GTT — T:${sector.idx_target_level} SL:${sector.idx_sl_level}`;
 
-                    setBtn.style.display = 'none';
+                    if (setBtn) setBtn.style.display = 'none';
                     const currentT = parseFloat(tInp.value);
                     const currentS = parseFloat(sInp.value);
                     if (currentT !== sector.idx_target_level || currentS !== sector.idx_sl_level) {
-                        modBtn.style.display = 'block';
-                        modBtn.disabled = false;
+                        if (modBtn) {
+                            modBtn.style.display = 'block';
+                            modBtn.disabled = false;
+                        }
                     } else {
-                        modBtn.style.display = 'none';
+                        if (modBtn) modBtn.style.display = 'none';
                     }
-                } else if (sector.tgt_price) {
+                } else if (sector && sector.tgt_price) {
                     if (pnlTitle) pnlTitle.innerHTML = 'Super Order Bracket <span class="text-secondary font-bold text-[9px]">(ACTIVE)</span>';
 
                     tInp.value = sector.tgt_price;
                     sInp.value = sector.sl_price;
                     stEl.textContent = `✅ Premium Bracket — T:₹${sector.tgt_price} SL:₹${sector.sl_price}`;
 
-                    setBtn.style.display = 'none';
-                    modBtn.style.display = 'none';
+                    if (setBtn) setBtn.style.display = 'none';
+                    if (modBtn) modBtn.style.display = 'none';
                 } else {
                     if (pnlTitle) pnlTitle.innerHTML = 'Order Protections <span class="text-error font-bold text-[9px]">(PENDING)</span>';
 
@@ -1238,25 +1209,17 @@
                     tInp.placeholder = 'Pending';
                     sInp.placeholder = 'Pending';
                     stEl.textContent = `⏳ Bounds Pending...`;
-                    setBtn.style.display = 'none';
-                    modBtn.style.display = 'none';
-                }
-            } else {
-                ['call', 'put'].forEach(p => {
-                    const stEl = document.getElementById(`cond-status-${p}`);
-                    if (stEl) stEl.textContent = '';
-                    const setBtn = document.getElementById(`btn-set-${p}`);
-                    if (setBtn) setBtn.style.display = 'block';
-                    const modBtn = document.getElementById(`btn-modify-${p}`);
+                    if (setBtn) setBtn.style.display = 'none';
                     if (modBtn) modBtn.style.display = 'none';
-
-                    const tLbl = document.querySelector(`#sector-${p} .cond-label.target`);
-                    const sLbl = document.querySelector(`#sector-${p} .cond-label.sl`);
-                    if (tLbl) tLbl.textContent = 'Target';
-                    if (sLbl) sLbl.textContent = 'SL';
-
-                    const pnlTitle = document.querySelector(`#sector-${p} .cond-panel-title`);
-                    if (pnlTitle) pnlTitle.textContent = 'Index GTT Trigger Levels';
+                }
+            } else if (stEl) {
+                ['call', 'put'].forEach(p => {
+                    const statusEl = document.getElementById(`cond-status-${p}`);
+                    if (statusEl) statusEl.textContent = '';
+                    const setB = document.getElementById(`btn-set-${p}`);
+                    if (setB) setB.style.display = 'block';
+                    const modB = document.getElementById(`btn-modify-${p}`);
+                    if (modB) modB.style.display = 'none';
                 });
             }
         }
@@ -1356,12 +1319,12 @@
             const name = `${type}${count}`;
 
             const div = document.createElement('div');
-            div.className = 'grid grid-cols-3 gap-2 items-center';
+            div.className = 'grid grid-cols-3 gap-2 items-center bg-slate-900/60 p-2 rounded-lg border border-slate-800';
             div.id = `row-${name}`;
             div.innerHTML = `
-                <span class="text-xs font-semibold text-on-surface-variant font-mono">${name}</span>
-                <input type="number" id="${name}-low" placeholder="Low" value="${low}" class="bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
-                <input type="number" id="${name}-high" placeholder="High" value="${high}" class="bg-black/45 border border-white/10 rounded px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-primary">
+                <span class="text-xs font-mono font-bold text-slate-300">${name}</span>
+                <input type="number" id="${name}-low" placeholder="Low" value="${low}" class="col-span-1 bg-black/60 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-mono tabular-nums text-center text-slate-100 focus:outline-none focus:border-primary">
+                <input type="number" id="${name}-high" placeholder="High" value="${high}" class="col-span-1 bg-black/60 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-mono tabular-nums text-center text-slate-100 focus:outline-none focus:border-primary">
             `;
 
             if (type === 'UTP') {
@@ -1743,37 +1706,16 @@
             emergencyExit: () => emergencyExit(true),
             getState: () => ({
                 trend: document.getElementById('feeling-badge-NIFTY')?.textContent,
-                quantity: document.getElementById('qty-CALL')?.textContent || '50',
-                symbol: document.getElementById('sym-CALL')?.textContent || 'NIFTY Option',
-                callActive: document.getElementById('stat-CALL').style.display !== 'none',
-                putActive: document.getElementById('stat-PUT').style.display !== 'none',
-                statusMsg: document.getElementById('status-msg').textContent
+                quantity: window.tradingState?.sector?.quantity || '50',
+                symbol: window.tradingState?.sector?.symbol || 'NIFTY Option',
+                callActive: window.tradingState?.callActive || false,
+                putActive: window.tradingState?.putActive || false,
+                statusMsg: document.getElementById('status-msg')?.textContent
             }),
             refresh: () => refreshState(),
             setConditionalOrders: (side, opts) => setConditionalOrders(side, opts),
             cancelConditionalOrders: (side) => cancelConditionalOrders(side)
         };
-
-        // Input monitoring for modify button visibility
-        ['call-target', 'call-sl', 'put-target', 'put-sl'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('input', () => {
-                    const prefix = id.split('-')[0];
-                    const modBtn = document.getElementById(`btn-modify-${prefix}`);
-                    const target = document.getElementById(`${prefix}-target`);
-                    const sl = document.getElementById(`${prefix}-sl`);
-
-                    const tActive = parseFloat(target.getAttribute('data-active'));
-                    const sActive = parseFloat(sl.getAttribute('data-active'));
-
-                    if (tActive && sActive) {
-                        const changed = (parseFloat(target.value) !== tActive || parseFloat(sl.value) !== sActive);
-                        modBtn.style.display = changed ? 'block' : 'none';
-                    }
-                });
-            }
-        });
     </script>
 </body>
 

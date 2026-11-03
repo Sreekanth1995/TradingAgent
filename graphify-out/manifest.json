@@ -444,9 +444,9 @@
     "semantic_hash": ""
   },
   "templates/index.html": {
-    "mtime": 1793715139.3409984,
-    "seen": 1793715304.94173,
-    "ast_hash": "ba6c821b46401f982a4080f513765f56",
+    "mtime": 1793724385.994559,
+    "seen": 1793724500.8024461,
+    "ast_hash": "5a5dee6309b25253043c6fbf1e87436e",
     "semantic_hash": ""
   },
   ".agents/AGENTS.md": {
@@ -756,9 +756,9 @@
     "semantic_hash": ""
   },
   "templates/admin.html": {
-    "mtime": 1793714511.8985894,
-    "seen": 1793715304.941729,
-    "ast_hash": "a79bdcac9ece957e48eccab930ad01f5",
+    "mtime": 1793724468.8971338,
+    "seen": 1793724500.8024452,
+    "ast_hash": "a01240d73ccb51d3ceacccf938cffb83",
     "semantic_hash": ""
   },
   "templates/stitch/broker_gateway.html": {
@@ -783,6 +783,18 @@
     "mtime": 1793714511.901394,
     "seen": 1793715304.9417322,
     "ast_hash": "1108a5690d8af62ea5ce7f0ec261e390",
+    "semantic_hash": ""
+  },
+  "design-system/antigravity-trader/MASTER.md": {
+    "mtime": 1793722024.6467612,
+    "seen": 1793722095.75636,
+    "ast_hash": "67b8741e32716fa0b78113e8f8cbd279",
+    "semantic_hash": ""
+  },
+  "design-system/antigravity-trader/pages/dashboard.md": {
+    "mtime": 1793722034.8309417,
+    "seen": 1793722095.756361,
+    "ast_hash": "46ebc321c8d931c09f689e208c8c5576",
     "semantic_hash": ""
   }
 }

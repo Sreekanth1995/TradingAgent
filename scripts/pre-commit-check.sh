@@ -23,7 +23,7 @@ echo ""
 
 # 3. Run Unit Tests
 echo "3️⃣  Running Unit Tests..."
-python3 verify_strategy.py
+pytest
 echo "✅ Tests passed"
 echo ""
 

@@ -14,6 +14,7 @@ dhan_scrip_master.csv.tmp
 # Runtime state (generated at runtime, not committed)
 ai_context.txt
 levels.json
+feelings.json
 trade_history.json
 trade_feed.db
 
