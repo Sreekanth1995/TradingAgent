@@ -49,6 +49,9 @@ rsync -avz --progress \
   --exclude='.env' \
   --exclude='trade_history.json' \
   --exclude='levels.json' \
+  --exclude='feelings.json' \
+  --exclude='trade_feed.db' \
+  --exclude='.gstack*' \
   "$PROJECT_DIR/" $SERVER_USER@$SERVER_IP:$APP_DIR/
 
 # Step 4: Upload .env separately
