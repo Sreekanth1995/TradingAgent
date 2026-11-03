@@ -18,8 +18,8 @@
     "semantic_hash": "c66e465232ca0fe28e466a12d7fdc2d1"
   },
   "broker_dhan.py": {
-    "mtime": 1792610956.7839458,
-    "seen": 1792614647.862865,
+    "mtime": 1793714511.8820474,
+    "seen": 1793715304.9416552,
     "ast_hash": "083eb254cca49c9789319c6b9f15bbc2",
     "semantic_hash": ""
   },
@@ -30,9 +30,9 @@
     "semantic_hash": "e1cce51044a5041fde703f492b1b342b"
   },
   "conditional_order_engine.py": {
-    "mtime": 1792610956.7844908,
-    "seen": 1792614647.8628669,
-    "ast_hash": "5f642d031b24c500e288430516ab3b95",
+    "mtime": 1793714511.8826828,
+    "seen": 1793715304.941657,
+    "ast_hash": "dda50a9905984f0dbffe9a2c4fd19b8f",
     "semantic_hash": ""
   },
   "constants.py": {
@@ -54,14 +54,14 @@
     "semantic_hash": "8df1127936162d759a8738371041a756"
   },
   "mcp_server.py": {
-    "mtime": 1784003692.5959723,
-    "seen": 1791601545.694688,
-    "ast_hash": "f4de960b49f4ae238c91c80f82228786",
-    "semantic_hash": "f4de960b49f4ae238c91c80f82228786"
+    "mtime": 1793714511.8943768,
+    "seen": 1793715304.94166,
+    "ast_hash": "63084c432e92bd22e2bf6dcc8b2b424a",
+    "semantic_hash": ""
   },
   "scripts/deploy_vultr.sh": {
-    "mtime": 1792610956.7939072,
-    "seen": 1792614647.8628721,
+    "mtime": 1793714511.896612,
+    "seen": 1793715304.941661,
     "ast_hash": "79ab8cb3cda675afec18fdb03af7b8df",
     "semantic_hash": "79ab8cb3cda675afec18fdb03af7b8df"
   },
@@ -84,9 +84,9 @@
     "semantic_hash": "22056de4df49866973fc745828b85a2a"
   },
   "server.py": {
-    "mtime": 1792616350.28843,
-    "seen": 1792616467.181653,
-    "ast_hash": "40e7574267203da5d3e86a355295f202",
+    "mtime": 1793715154.006388,
+    "seen": 1793715304.941664,
+    "ast_hash": "8fa7bc9df203a877a7061166f0f3d10b",
     "semantic_hash": ""
   },
   "simulations/backtest_report.py": {
@@ -150,8 +150,8 @@
     "semantic_hash": "82b24bbdd270054ec76e57a16ae174fc"
   },
   "tests/test_conditional_entry.py": {
-    "mtime": 1792610956.7978776,
-    "seen": 1792614647.862884,
+    "mtime": 1793714511.9021928,
+    "seen": 1793715304.941674,
     "ast_hash": "5584ba5a83082c754f8311338e33de34",
     "semantic_hash": ""
   },
@@ -228,20 +228,20 @@
     "semantic_hash": "0a2eb542d4a6dbf5d9aaf90eb87a1843"
   },
   ".planning/REQUIREMENTS.md": {
-    "mtime": 1792610956.7749949,
-    "seen": 1792614647.8628962,
+    "mtime": 1793714511.8675218,
+    "seen": 1793715304.941688,
     "ast_hash": "ca79c38006e5abc9f57628cfbdbf2c47",
     "semantic_hash": ""
   },
   ".planning/ROADMAP.md": {
-    "mtime": 1792616451.4956262,
-    "seen": 1792616467.181679,
+    "mtime": 1793714511.868163,
+    "seen": 1793715304.941689,
     "ast_hash": "2b0fe7d54013bfb72e520f222e584ae1",
     "semantic_hash": ""
   },
   ".planning/STATE.md": {
-    "mtime": 1792616460.0707724,
-    "seen": 1792616467.1816802,
+    "mtime": 1793714511.868672,
+    "seen": 1793715304.941689,
     "ast_hash": "7284272f845c3bbb562b323dcc91ab29",
     "semantic_hash": ""
   },
@@ -408,8 +408,8 @@
     "semantic_hash": "b9f4fda043cacb270357a1fed3c5bf13"
   },
   "TODOS.md": {
-    "mtime": 1792610956.779542,
-    "seen": 1792614647.862932,
+    "mtime": 1793714511.8741937,
+    "seen": 1793715304.941725,
     "ast_hash": "954651065439a5d012571820114a7d01",
     "semantic_hash": ""
   },
@@ -438,20 +438,20 @@
     "semantic_hash": "e2ea155b9e0be6e931cd5683800f497a"
   },
   "requirements.txt": {
-    "mtime": 1792615870.2268746,
-    "seen": 1792616467.1817238,
+    "mtime": 1793714511.8950803,
+    "seen": 1793715304.941728,
     "ast_hash": "a49a4542039c3e82b521935a47fd677a",
     "semantic_hash": ""
   },
   "templates/index.html": {
-    "mtime": 1792616382.4982593,
-    "seen": 1792616467.181725,
-    "ast_hash": "d6ebaa55b181d0679ad25f5feb4a581b",
+    "mtime": 1793715139.3409984,
+    "seen": 1793715304.94173,
+    "ast_hash": "ba6c821b46401f982a4080f513765f56",
     "semantic_hash": ""
   },
   ".agents/AGENTS.md": {
-    "mtime": 1792610956.7724514,
-    "seen": 1792614647.862895,
+    "mtime": 1793714511.864842,
+    "seen": 1793715304.941687,
     "ast_hash": "68b329da9893e34099c7d8ad5cb9c940",
     "semantic_hash": ""
   },
@@ -498,290 +498,290 @@
     "semantic_hash": ""
   },
   "broker/__init__.py": {
-    "mtime": 1792610956.779984,
-    "seen": 1792614647.862856,
+    "mtime": 1793714511.8746595,
+    "seen": 1793715304.941636,
     "ast_hash": "cedb9e4f12ad4b94140e0530226a5197",
     "semantic_hash": ""
   },
   "broker/auth_service.py": {
-    "mtime": 1792610956.7802293,
-    "seen": 1792614647.8628569,
+    "mtime": 1793714511.8749113,
+    "seen": 1793715304.941638,
     "ast_hash": "849c9fe6803ac5cb26d369689b4124ca",
     "semantic_hash": ""
   },
   "broker/client.py": {
-    "mtime": 1792620098.5659568,
-    "seen": 1792620141.451848,
+    "mtime": 1793714511.875575,
+    "seen": 1793715304.941639,
     "ast_hash": "ca2a0b978d1807709f612a79c003a094",
     "semantic_hash": ""
   },
   "broker/common.py": {
-    "mtime": 1792610956.7811217,
-    "seen": 1792614647.862859,
+    "mtime": 1793714511.8759189,
+    "seen": 1793715304.94164,
     "ast_hash": "0a9fa832f6580c091ab0724cc408e604",
     "semantic_hash": ""
   },
   "broker/conditional_order_service.py": {
-    "mtime": 1792610956.7814293,
-    "seen": 1792614647.86286,
+    "mtime": 1793714511.8761811,
+    "seen": 1793715304.94164,
     "ast_hash": "991be5ad12810d11cce96c0a6c73336e",
     "semantic_hash": ""
   },
   "broker/instrument_service.py": {
-    "mtime": 1792610956.7818165,
-    "seen": 1792614647.8628612,
+    "mtime": 1793714511.879599,
+    "seen": 1793715304.94165,
     "ast_hash": "7b00ed1a8c97120ba2b2281aea7db15b",
     "semantic_hash": ""
   },
   "broker/interfaces.py": {
-    "mtime": 1792610956.7823756,
-    "seen": 1792614647.862862,
+    "mtime": 1793714511.879892,
+    "seen": 1793715304.9416509,
     "ast_hash": "9dccd62db6e6b1e9daf5efd85dff322a",
     "semantic_hash": ""
   },
   "broker/market_data_service.py": {
-    "mtime": 1792610956.782553,
-    "seen": 1792614647.862862,
+    "mtime": 1793714511.8805153,
+    "seen": 1793715304.941652,
     "ast_hash": "63cf08b69ec76991fff5fb4283a296aa",
     "semantic_hash": ""
   },
   "broker/order_service.py": {
-    "mtime": 1792610956.7827792,
-    "seen": 1792614647.862863,
+    "mtime": 1793714511.880826,
+    "seen": 1793715304.941653,
     "ast_hash": "4f116ff3f8d8a935b889e5ecc5696fcf",
     "semantic_hash": ""
   },
   "broker/safety_service.py": {
-    "mtime": 1792610956.7832663,
-    "seen": 1792614647.8628638,
-    "ast_hash": "26527d9244c245922a46d7af2ced7f46",
+    "mtime": 1793714511.881286,
+    "seen": 1793715304.941654,
+    "ast_hash": "883768b23b8ca8026e44ea3c09403b63",
     "semantic_hash": ""
   },
   "broker/socket_service.py": {
-    "mtime": 1792610956.7835734,
-    "seen": 1792614647.8628638,
+    "mtime": 1793714511.8816898,
+    "seen": 1793715304.941654,
     "ast_hash": "d9e061bfa513d83fae66a774a1eff5b4",
     "semantic_hash": ""
   },
   "tests/test_modular_broker.py": {
-    "mtime": 1792610956.798337,
-    "seen": 1792614647.862889,
+    "mtime": 1793714511.9030664,
+    "seen": 1793715304.941681,
     "ast_hash": "83e48e0ea1d459bf03ccfa3e372d5408",
     "semantic_hash": ""
   },
   ".planning/phases/13-modular-broker-facade/13-PLAN.md": {
-    "mtime": 1792610956.7765236,
-    "seen": 1792614647.862925,
+    "mtime": 1793714511.8690894,
+    "seen": 1793715304.941715,
     "ast_hash": "53087c5fb1e99d349459fb911eb4c03b",
     "semantic_hash": ""
   },
   ".planning/phases/13-modular-broker-facade/13-SUMMARY.md": {
-    "mtime": 1792610956.7768052,
-    "seen": 1792614647.862925,
+    "mtime": 1793714511.8694448,
+    "seen": 1793715304.941716,
     "ast_hash": "b0c5bfe55b15f0693843d0d59fc1619d",
     "semantic_hash": ""
   },
   ".planning/phases/17-zero-downtime-scrip-reload/17-PLAN.md": {
-    "mtime": 1792610956.7772663,
-    "seen": 1792614647.862926,
+    "mtime": 1793714511.8697445,
+    "seen": 1793715304.941716,
     "ast_hash": "80aa2c511585b2964f713440f61dc3ab",
     "semantic_hash": ""
   },
   ".planning/phases/17-zero-downtime-scrip-reload/17-SUMMARY.md": {
-    "mtime": 1792610956.7776165,
-    "seen": 1792614647.8629272,
+    "mtime": 1793714511.8699715,
+    "seen": 1793715304.941717,
     "ast_hash": "2c21b2eec5acfb8bbc42523f8381dc24",
     "semantic_hash": ""
   },
   ".planning/phases/18-kill-switch-super-order-legs/18-PLAN.md": {
-    "mtime": 1792610956.7780044,
-    "seen": 1792614647.862928,
+    "mtime": 1793714511.870279,
+    "seen": 1793715304.941718,
     "ast_hash": "29860a95e325acc9e43b313e5f62f5d7",
     "semantic_hash": ""
   },
   ".planning/phases/18-kill-switch-super-order-legs/18-SUMMARY.md": {
-    "mtime": 1792610956.7783673,
-    "seen": 1792614647.862928,
+    "mtime": 1793714511.8705282,
+    "seen": 1793715304.941718,
     "ast_hash": "4398c03c9c2eb82296a3e4e008240d36",
     "semantic_hash": ""
   },
   ".planning/phases/19-approach-c-reconciliation/19-PLAN.md": {
-    "mtime": 1792610956.7786412,
-    "seen": 1792614647.8629289,
+    "mtime": 1793714511.8708699,
+    "seen": 1793715304.941719,
     "ast_hash": "cb133869b73bf0888ba08840c58187dd",
     "semantic_hash": ""
   },
   ".planning/phases/19-approach-c-reconciliation/19-SUMMARY.md": {
-    "mtime": 1792610956.778892,
-    "seen": 1792614647.8629289,
+    "mtime": 1793714511.8710864,
+    "seen": 1793715304.941719,
     "ast_hash": "3c0ed29803d4914a9d88a32dc21c1baf",
     "semantic_hash": ""
   },
   ".planning/phases/20-groww-multi-account/20-CONTEXT.md": {
-    "mtime": 1792613122.9523659,
-    "seen": 1792614647.862931,
+    "mtime": 1793714511.872237,
+    "seen": 1793715304.9417212,
     "ast_hash": "d98fdf190399116fd16d9302e9c11354",
     "semantic_hash": ""
   },
   ".planning/phases/21-flattrade-broker-integration/21-CONTEXT.md": {
-    "mtime": 1792615429.9647272,
-    "seen": 1792615449.5162408,
+    "mtime": 1793714511.873643,
+    "seen": 1793715304.9417229,
     "ast_hash": "08c5280068d8f952fd5354352371c678",
     "semantic_hash": ""
   },
   "broker/flattrade/__init__.py": {
-    "mtime": 1792616017.9845421,
-    "seen": 1792616467.18163,
+    "mtime": 1793714511.8764138,
+    "seen": 1793715304.941642,
     "ast_hash": "ecbc279486a775f93c6bf342459f7353",
     "semantic_hash": ""
   },
   "broker/flattrade/auth_service.py": {
-    "mtime": 1792616029.1253867,
-    "seen": 1792616467.181631,
+    "mtime": 1793714511.8766608,
+    "seen": 1793715304.941642,
     "ast_hash": "39c9d7d55cccf04996c9dff0674d072a",
     "semantic_hash": ""
   },
   "broker/flattrade/client.py": {
-    "mtime": 1792616069.0170767,
-    "seen": 1792616467.181632,
+    "mtime": 1793714511.8770247,
+    "seen": 1793715304.941643,
     "ast_hash": "23515cc4ed02ba1715726aae41826874",
     "semantic_hash": ""
   },
   "broker/flattrade/instrument_service.py": {
-    "mtime": 1792616036.3943498,
-    "seen": 1792616467.181633,
+    "mtime": 1793714511.8772402,
+    "seen": 1793715304.941644,
     "ast_hash": "14d90bca4b8dc990806162c2c9423e85",
     "semantic_hash": ""
   },
   "broker/flattrade/mock_client.py": {
-    "mtime": 1792616078.6810052,
-    "seen": 1792616467.181633,
+    "mtime": 1793714511.877452,
+    "seen": 1793715304.9416451,
     "ast_hash": "9fa08dd8fddd5853a8c2ad76e440c5c5",
     "semantic_hash": ""
   },
   "broker/flattrade/order_service.py": {
-    "mtime": 1792616057.6905112,
-    "seen": 1792616467.181634,
+    "mtime": 1793714511.877787,
+    "seen": 1793715304.9416451,
     "ast_hash": "3456787b99e5926bab1c7bbc7ea8f440",
     "semantic_hash": ""
   },
   "broker/groww/__init__.py": {
-    "mtime": 1792615921.9760919,
-    "seen": 1792616467.181634,
+    "mtime": 1793714511.8780189,
+    "seen": 1793715304.941646,
     "ast_hash": "6691a8f9bde9c52e71cf23e4326d512e",
     "semantic_hash": ""
   },
   "broker/groww/auth_service.py": {
-    "mtime": 1792615933.1546144,
-    "seen": 1792616467.1816351,
+    "mtime": 1793714511.8782537,
+    "seen": 1793715304.941647,
     "ast_hash": "ddd5ebd4f19ec3cb186e8767e7c99283",
     "semantic_hash": ""
   },
   "broker/groww/client.py": {
-    "mtime": 1792615982.5968308,
-    "seen": 1792616467.1816351,
+    "mtime": 1793714511.8784692,
+    "seen": 1793715304.941647,
     "ast_hash": "340774403aab1c7bd6f8b15e6c2a7fb9",
     "semantic_hash": ""
   },
   "broker/groww/instrument_service.py": {
-    "mtime": 1792615944.1950378,
-    "seen": 1792616467.181636,
+    "mtime": 1793714511.8786838,
+    "seen": 1793715304.9416478,
     "ast_hash": "2334f621722f46d033ed36b759d32860",
     "semantic_hash": ""
   },
   "broker/groww/mock_client.py": {
-    "mtime": 1792615994.4143949,
-    "seen": 1792616467.181637,
+    "mtime": 1793714511.8788977,
+    "seen": 1793715304.941649,
     "ast_hash": "995695ef636800d8ae8d6c5efee04763",
     "semantic_hash": ""
   },
   "broker/groww/order_service.py": {
-    "mtime": 1792615970.7868297,
-    "seen": 1792616467.181637,
+    "mtime": 1793714511.8792415,
+    "seen": 1793715304.941649,
     "ast_hash": "34a01ac8e7ecb0fefec0102994a667b3",
     "semantic_hash": ""
   },
   "broker/manager.py": {
-    "mtime": 1792620102.8365638,
-    "seen": 1792620141.451862,
+    "mtime": 1793714511.880224,
+    "seen": 1793715304.941652,
     "ast_hash": "75c79467706461ab1eea190b7a7eec7d",
     "semantic_hash": ""
   },
   "tests/test_admin_dashboard.py": {
-    "mtime": 1792616392.3000188,
-    "seen": 1792616467.181661,
+    "mtime": 1793714511.901693,
+    "seen": 1793715304.941671,
     "ast_hash": "1921b6ebb91c03e1158b7eb1d1756d14",
     "semantic_hash": ""
   },
   "tests/test_flattrade_client.py": {
-    "mtime": 1792616088.1432514,
-    "seen": 1792616467.1816661,
+    "mtime": 1793714511.9024868,
+    "seen": 1793715304.941677,
     "ast_hash": "21e25402bcff150764ca2f0f1f5198f2",
     "semantic_hash": ""
   },
   "tests/test_groww_client.py": {
-    "mtime": 1792616005.8062773,
-    "seen": 1792616467.181667,
+    "mtime": 1793714511.9027634,
+    "seen": 1793715304.941678,
     "ast_hash": "1106fc56ada810c229b845e85eb3ba5d",
     "semantic_hash": ""
   },
   "tests/test_multi_broker.py": {
-    "mtime": 1792616179.8700998,
-    "seen": 1792616467.1816719,
+    "mtime": 1793714511.9033396,
+    "seen": 1793715304.941683,
     "ast_hash": "08e1ee38243cf914a369a408a2825896",
     "semantic_hash": ""
   },
   ".planning/phases/20-groww-multi-account/20-01-PLAN.md": {
-    "mtime": 1792616415.5393527,
-    "seen": 1792616467.1817138,
+    "mtime": 1793714511.8715107,
+    "seen": 1793715304.94172,
     "ast_hash": "87cf04501df27e92812415847d87a856",
     "semantic_hash": ""
   },
   ".planning/phases/20-groww-multi-account/20-02-PLAN.md": {
-    "mtime": 1792616422.857394,
-    "seen": 1792616467.181715,
+    "mtime": 1793714511.871724,
+    "seen": 1793715304.9417212,
     "ast_hash": "edaf3851a9a7904fca89fc585b1508d4",
     "semantic_hash": ""
   },
   ".planning/phases/21-flattrade-broker-integration/21-01-PLAN.md": {
-    "mtime": 1792616430.6585774,
-    "seen": 1792616467.181716,
+    "mtime": 1793714511.872963,
+    "seen": 1793715304.9417222,
     "ast_hash": "7468cbce1d24eac090ead1423d2b6f16",
     "semantic_hash": ""
   },
   ".planning/phases/21-flattrade-broker-integration/21-02-PLAN.md": {
-    "mtime": 1792616439.0981665,
-    "seen": 1792616467.181717,
+    "mtime": 1793714511.8732104,
+    "seen": 1793715304.9417229,
     "ast_hash": "f19ad6fe1d33ad4944387247a1ae602c",
     "semantic_hash": ""
   },
   "templates/admin.html": {
-    "mtime": 1792616258.8796136,
-    "seen": 1792616467.1817238,
+    "mtime": 1793714511.8985894,
+    "seen": 1793715304.941729,
     "ast_hash": "a79bdcac9ece957e48eccab930ad01f5",
     "semantic_hash": ""
   },
   "templates/stitch/broker_gateway.html": {
-    "mtime": 1792615734.2542388,
-    "seen": 1792616467.181725,
+    "mtime": 1793714511.900158,
+    "seen": 1793715304.94173,
     "ast_hash": "9f3a62bfe27a428e7b81d8aadbd12913",
     "semantic_hash": ""
   },
   "templates/stitch/main_dashboard.html": {
-    "mtime": 1792615735.6757698,
-    "seen": 1792616467.181726,
+    "mtime": 1793714511.9005504,
+    "seen": 1793715304.941731,
     "ast_hash": "2c6f9e2cac57e20b53d8dc428b50de00",
     "semantic_hash": ""
   },
   "templates/stitch/multi_account_terminal.html": {
-    "mtime": 1792615735.1737375,
-    "seen": 1792616467.181727,
+    "mtime": 1793714511.900968,
+    "seen": 1793715304.941731,
     "ast_hash": "ba28e19400e286d3e1109210fb93441e",
     "semantic_hash": ""
   },
   "templates/stitch/risk_limits.html": {
-    "mtime": 1792615733.5318542,
-    "seen": 1792616467.181727,
+    "mtime": 1793714511.901394,
+    "seen": 1793715304.9417322,
     "ast_hash": "1108a5690d8af62ea5ce7f0ec261e390",
     "semantic_hash": ""
   }
