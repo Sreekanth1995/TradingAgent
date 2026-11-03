@@ -1574,10 +1574,33 @@ def conditional_order():
                 logger.info(f"Replacing armed pending entry {existing_side} with new {side} entry for {underlying}")
                 conditional_engine.cancel_pending_entry(underlying)
             else:
-                return jsonify({
-                    "status": "error",
-                    "message": f"{underlying} already has a live open {existing_side} position. Exit it first."
-                }), 400
+                # Reconcile against live broker positions to avoid ghost-block if position was closed externally
+                has_broker_pos = False
+                sec_id = str(existing_state.get('security_id', ''))
+                sym = str(existing_state.get('symbol', ''))
+                try:
+                    broker_positions = broker.get_positions() or []
+                    for bp in broker_positions:
+                        b_sec = str(bp.get('securityId', ''))
+                        b_sym = str(bp.get('tradingSymbol', ''))
+                        b_net = int(bp.get('netQty', 0))
+                        if b_net != 0 and ((sec_id and b_sec == sec_id) or (sym and b_sym == sym)):
+                            has_broker_pos = True
+                            break
+                except Exception as bpe:
+                    logger.warning(f"Error checking broker positions in position guard: {bpe}")
+                    has_broker_pos = True  # Safety fallback: preserve existing state on broker API error
+
+                if not has_broker_pos:
+                    logger.warning(f"Position guard reconciliation: {underlying} state was {existing_side} ({sym}) but broker netQty is 0. Auto-clearing ghost state.")
+                    conditional_engine._clear_state(underlying)
+                    existing_state = conditional_engine._get_state(underlying)
+                    existing_side = existing_state.get('side', 'NONE')
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": f"{underlying} already has a live open {existing_side} position. Exit it first."
+                    }), 400
 
         # 5. SL / Target required for both paths
         sl_index = data.get('sl_index')
