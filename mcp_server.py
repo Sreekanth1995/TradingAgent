@@ -28,8 +28,16 @@ async def _call(endpoint: str, data: dict = None, method: str = "POST"):
                 resp = await client.post(f"{BASE_URL}{endpoint}", json=payload)
             else:
                 resp = await client.get(f"{BASE_URL}{endpoint}", params=payload)
-            resp.raise_for_status()
-            return resp.json()
+            try:
+                body = resp.json()
+            except Exception:
+                body = None
+
+            if not resp.is_success:
+                if body and isinstance(body, dict) and "message" in body:
+                    return body
+                resp.raise_for_status()
+            return body
         except Exception as e:
             return {"status": "error", "message": str(e)}
 

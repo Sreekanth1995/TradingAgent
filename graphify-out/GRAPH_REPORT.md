@@ -1,7 +1,7 @@
 # Graph Report - TradingAgent  (2026-11-04)
 
 ## Corpus Check
-- 126 files · ~94,817 words
+- 126 files · ~94,840 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 7 file(s) not represented in the graph (top: (none) 5, .example 1, .pine 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `af6b89bd`
+- Built from commit: `2c628766`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
