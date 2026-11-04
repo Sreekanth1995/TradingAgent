@@ -1,24 +1,25 @@
 # Graph Report - TradingAgent  (2026-11-04)
 
 ## Corpus Check
-- 126 files · ~94,840 words
+- 126 files · ~95,121 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 7 file(s) not represented in the graph (top: (none) 5, .example 1, .pine 1)
 
 ## Summary
-- 1512 nodes · 2952 edges · 131 communities (53 shown, 78 thin omitted)
+- 1516 nodes · 2956 edges · 148 communities (51 shown, 97 thin omitted)
 - Extraction: 89% EXTRACTED · 11% INFERRED · 0% AMBIGUOUS · INFERRED: 336 edges (avg confidence: 0.9)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2c628766`
+- Built from commit: `ead2ddef`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- SuperOrderEngine
+- ._set_state
 - FeelingState
 - derive_entry_trigger
+- ._get_state
 - mcp_server.py
 - Milestone 0.1.0: Live Trading Foundation
 - route
@@ -34,7 +35,7 @@
 - TestLtpSpec
 - test_phase4_positions.py
 - Tech Stack
-- os
+- broker/instrument_service.py
 - read_json
 - MockDhanClient
 - .process_signal
@@ -44,7 +45,7 @@
 - exit_conditional_order
 - Architecture Overview
 - TestRouteGate
-- DhanInstrumentService
+- .get_itm_contract
 - .get_itm_contract
 - updateUI
 - Phase 20: Groww Broker & Multi-Account Support - Context
@@ -72,6 +73,8 @@
 - Plan: Phase 18 - Kill Switch Super Order Leg Cancellation
 - Summary: Phase 18 - Kill Switch Super Order Leg Cancellation
 - ConditionalOrderServiceInterface
+- SuperOrderEngine
+- TestSmartExitFix
 - deploy_vultr.sh
 - pre-commit-check.sh
 - run_test_loop.sh
@@ -89,10 +92,13 @@
 - Summary: Phase 13 - Modular Broker Facade & Dedicated Services
 - Plan: Phase 17 - Zero-Downtime Atomic Scrip Reload & Lot Map Guard
 - FlatTradeOrderService
+- index_id_for
+- scrip_status
 - Plan: Phase 13 - Modular Broker Facade & Dedicated Services
 - test_dhan_client_offline_initialization
-- test_multi_broker.py
-- test_groww_client.py
+- server_app
+- .place_super_order
+- GrowwAuthService
 - GrowwOrderService
 - test_flattrade_client.py
 - FlatTradeClient
@@ -103,17 +109,15 @@
 - ConditionalOrderEngine
 - FlatTradeInstrumentService
 - .place_order
-- simulate_trading.py
 - GrowwInstrumentService
 - 2. Component Redesigns & Upgrades
-- test_multi_broker_toggle_and_statuses
+- test_multi_broker_lot_multipliers
 - Design System Master File: Antigravity Trader
 - TestUnreadableRoutes
-- .get_account_statuses
+- test_multi_broker_toggle_and_statuses
 - Implementation Decisions
-- .monitor_positions
 - validate_sl_target
-- pytest
+- test_gtt_orders.py
 - BacktestEngine
 - Goal
 - Plan: Phase 21 - Plan 02: Multi-Broker Admin Dashboard UI & Global Control
@@ -140,8 +144,8 @@
   .planning/phases/20-groww-multi-account/20-02-PLAN.md → broker/manager.py
 - `Key Changes` --references--> `DhanSafetyService`  [INFERRED]
   .planning/phases/18-kill-switch-super-order-legs/18-SUMMARY.md → broker/safety_service.py
-- `Goal` --references--> `ConditionalOrderEngine`  [INFERRED]
-  .planning/phases/19-approach-c-reconciliation/19-PLAN.md → conditional_order_engine.py
+- `Tasks` --references--> `DhanAuthService`  [INFERRED]
+  .planning/phases/13-modular-broker-facade/13-PLAN.md → broker/auth_service.py
 
 ## Import Cycles
 - None detected.
@@ -154,11 +158,7 @@
 - **Fail-Closed Operator Alarm Architecture** — docs_architecture_alarm_pipeline, docs_architecture_broker_disagreement, templates_index_refreshactivitylogs, readme_alarm_pipeline [INFERRED 0.95]
 - **State-Aware UI Position Management Loop** — templates_index_refreshstate, templates_index_updateui, templates_index_senduiaction, planning_phases_08_ui_management_08_context_state_aware_dashboard [INFERRED 0.95]
 
-## Communities (131 total, 78 thin omitted)
-
-### Community 0 - "SuperOrderEngine"
-Cohesion: 0.10
-Nodes (4): SuperOrderEngine, TestOppositeSignalExit, test_level_cross_does_not_open_position_when_current_side_none(), TestSmartExitFix
+## Communities (148 total, 97 thin omitted)
 
 ### Community 1 - "FeelingState"
 Cohesion: 0.13
@@ -167,6 +167,10 @@ Nodes (4): FeelingState, TestEngineGuard, TestLifecycle, TestPersistence
 ### Community 2 - "derive_entry_trigger"
 Cohesion: 0.20
 Nodes (4): derive_entry_trigger(), round_to_tick(), TestDeriveEntryTrigger, TestRoundToTick
+
+### Community 3 - "._get_state"
+Cohesion: 0.14
+Nodes (4): Tasks, Key Changes, TestConditionalOrderEngine, TestMonitorGuard
 
 ### Community 4 - "mcp_server.py"
 Cohesion: 0.08
@@ -193,12 +197,12 @@ Cohesion: 0.10
 Nodes (10): _add_activity_log(), _compute_zone(), _contra_pending_warnings(), dy_signal(), get_zone(), kill_broker_route(), manual_exit(), _post_to_slack_async() (+2 more)
 
 ### Community 12 - "json"
-Cohesion: 0.17
-Nodes (10): parse_csv(), simulate_today(), simulate_from_csv(), client(), test_api_accounts_get(), test_api_accounts_kill(), test_api_accounts_login(), test_api_accounts_lot_multiplier() (+2 more)
+Cohesion: 0.10
+Nodes (11): parse_csv(), MockBroker, simulate(), client(), test_api_accounts_get(), test_api_accounts_kill(), test_api_accounts_login(), test_api_accounts_lot_multiplier() (+3 more)
 
 ### Community 13 - "test_modular_broker.py"
-Cohesion: 0.09
-Nodes (9): AuthServiceInterface, MarketDataServiceInterface, SafetyServiceInterface, SocketServiceInterface, DhanMarketDataService, DhanSocketService, Tasks, Key Changes (+1 more)
+Cohesion: 0.08
+Nodes (11): DhanInstrumentService, AuthServiceInterface, MarketDataServiceInterface, SafetyServiceInterface, SocketServiceInterface, DhanMarketDataService, DhanSocketService, Tasks (+3 more)
 
 ### Community 14 - "broker/__init__.py"
 Cohesion: 0.19
@@ -216,12 +220,12 @@ Nodes (6): _get_active_positions(), client(), test_get_active_positions_empty(),
 Cohesion: 0.40
 Nodes (4): Backend, DevOps, Frontend, Tech Stack
 
-### Community 19 - "os"
-Cohesion: 0.21
-Nodes (3): attempt_renew_token(), check_health(), main()
+### Community 19 - "broker/instrument_service.py"
+Cohesion: 0.20
+Nodes (5): attempt_renew_token(), check_health(), main(), simulate_today(), simulate_from_csv()
 
 ### Community 20 - "read_json"
-Cohesion: 0.15
+Cohesion: 0.16
 Nodes (6): read_json(), ReadResult, write_json(), TestRead, TestWrite, writer()
 
 ### Community 26 - "NIFTY Options Trading Bot Strategy"
@@ -239,10 +243,6 @@ Nodes (8): _add_to_history(), cancel_conditional_orders(), exit_conditional_orde
 ### Community 31 - "Architecture Overview"
 Cohesion: 0.25
 Nodes (6): Conditional Order Engine Component, Operational Hardening PR #9a, Architecture Overview, Shared Constants Architecture, Super Order Engine Component, Native GTT Leg Management
-
-### Community 33 - "DhanInstrumentService"
-Cohesion: 0.10
-Nodes (3): DhanInstrumentService, load_scrip_background(), test_zero_downtime_scrip_reload_preserves_maps()
 
 ### Community 35 - "updateUI"
 Cohesion: 0.29
@@ -273,8 +273,8 @@ Cohesion: 0.40
 Nodes (3): _event_stream(), events(), stream()
 
 ### Community 48 - "test_conditional_entry.py"
-Cohesion: 0.12
-Nodes (10): arm_call(), make_engine(), test_postback_rejected_clears_pending_state(), test_reconciliation_sweep_arms_bracket_when_postback_dropped(), TestArmConditionalEntry, TestConditionalFill, TestFlush, TestModifyPendingAndSetLevels (+2 more)
+Cohesion: 0.10
+Nodes (12): arm_call(), make_engine(), test_cancel_conditional_orders_endpoint_while_pending_cancels_entry(), test_exit_conditional_order_endpoint_while_pending_cancels_entry(), test_postback_rejected_clears_pending_state(), test_reconciliation_sweep_arms_bracket_when_postback_dropped(), TestArmConditionalEntry, TestConditionalFill (+4 more)
 
 ### Community 50 - "Alarm Pipeline"
 Cohesion: 0.50
@@ -294,7 +294,7 @@ Nodes (3): Executive Summary, Key Changes, Summary: Phase 18 - Kill Switch Super
 
 ### Community 88 - "test_feeling_gate.py"
 Cohesion: 0.13
-Nodes (5): derive_side(), normalize_feeling(), server_app(), TestContraPending, TestSSEInvisibility
+Nodes (4): derive_side(), normalize_feeling(), TestContraPending, TestSSEInvisibility
 
 ### Community 91 - "test_money_safety_9a.py"
 Cohesion: 0.09
@@ -312,12 +312,12 @@ Nodes (3): Executive Summary, Key Changes, Summary: Phase 17 - Zero-Downtime Ato
 Cohesion: 0.50
 Nodes (3): Goal, Plan: Phase 17 - Zero-Downtime Atomic Scrip Reload & Lot Map Guard, Tasks
 
-### Community 111 - "test_multi_broker.py"
-Cohesion: 0.15
-Nodes (5): DummyRedis, test_multi_broker_account_tag_override(), test_multi_broker_fail_safe_isolation(), test_multi_broker_lot_multipliers(), test_multi_broker_parallel_dispatch()
+### Community 111 - ".place_super_order"
+Cohesion: 0.18
+Nodes (4): DummyRedis, test_multi_broker_account_tag_override(), test_multi_broker_fail_safe_isolation(), test_multi_broker_parallel_dispatch()
 
-### Community 112 - "test_groww_client.py"
-Cohesion: 0.13
+### Community 112 - "GrowwAuthService"
+Cohesion: 0.16
 Nodes (4): GrowwAuthService, DummyRedis, test_groww_auth_service_dry_run(), test_groww_order_service_dry_run()
 
 ### Community 114 - "test_flattrade_client.py"
@@ -325,16 +325,16 @@ Cohesion: 0.18
 Nodes (4): FlatTradeAuthService, DummyRedis, test_flattrade_auth_service_dry_run(), test_flattrade_order_service_dry_run()
 
 ### Community 117 - "logging"
-Cohesion: 0.09
-Nodes (5): index_id_for(), is_index_id(), strike_step_for(), test_banknifty_strike_step_and_itm_selection(), test_expiry_selection_dhan_client()
+Cohesion: 0.10
+Nodes (4): is_index_id(), strike_step_for(), test_banknifty_strike_step_and_itm_selection(), test_expiry_selection_dhan_client()
+
+### Community 120 - "ConditionalOrderEngine"
+Cohesion: 0.11
+Nodes (5): ConditionalOrderEngine, Goal, Plan: Phase 19 - Approach C Autonomous Reconciliation Safety Net, Executive Summary, Summary: Phase 19 - Approach C Autonomous Reconciliation Safety Net
 
 ### Community 121 - "FlatTradeInstrumentService"
 Cohesion: 0.21
 Nodes (5): FlatTradeInstrumentService, Goal, Plan: Phase 21 - Plan 01: FlatTrade Broker Client & Dedicated Services, Tasks, test_flattrade_instrument_service()
-
-### Community 123 - "simulate_trading.py"
-Cohesion: 0.23
-Nodes (3): MockBroker, simulate(), test_no_untimed_requests_in_broker_package()
 
 ### Community 125 - "2. Component Redesigns & Upgrades"
 Cohesion: 0.25
@@ -344,20 +344,16 @@ Nodes (7): 1. Layout Architecture (1440px Cockpit Grid), 2. Component Redesigns 
 Cohesion: 0.33
 Nodes (5): 1. Visual Foundation & Color Tokens, 2. Typography & Tabular Number Rules, 3. High-Performance Glassmorphism & Elevation, 4. UI/UX Pre-Delivery Checklist, Design System Master File: Antigravity Trader
 
-### Community 129 - ".get_account_statuses"
-Cohesion: 0.33
-Nodes (3): Goal, Plan: Phase 20 - Plan 02: MultiBrokerManager & Dual-Broker Routing, Tasks
+### Community 129 - "test_multi_broker_toggle_and_statuses"
+Cohesion: 0.22
+Nodes (4): Goal, Plan: Phase 20 - Plan 02: MultiBrokerManager & Dual-Broker Routing, Tasks, test_multi_broker_toggle_and_statuses()
 
 ### Community 130 - "Implementation Decisions"
 Cohesion: 0.40
 Nodes (5): Groww Order Execution Architecture, Implementation Decisions, Instrument & Scrip Resolution, Multi-Account Order Routing & Allocation, the agent's Discretion
 
-### Community 131 - ".monitor_positions"
-Cohesion: 0.15
-Nodes (7): Goal, Plan: Phase 19 - Approach C Autonomous Reconciliation Safety Net, Tasks, Executive Summary, Key Changes, Summary: Phase 19 - Approach C Autonomous Reconciliation Safety Net, TestMonitorGuard
-
-### Community 133 - "pytest"
-Cohesion: 0.25
+### Community 133 - "test_gtt_orders.py"
+Cohesion: 0.29
 Nodes (3): client(), test_gtt_orders_success(), test_gtt_orders_unauthorized()
 
 ### Community 136 - "Goal"
@@ -370,23 +366,23 @@ Nodes (3): Goal, Plan: Phase 21 - Plan 02: Multi-Broker Admin Dashboard UI & Glo
 
 ## Knowledge Gaps
 - **43 isolated node(s):** `updateFeeling`, `Direct Signal Strategy`, `Unauthenticated SSE and Last-Signal Endpoints`, `SSE Queue Blocking DoS Vulnerability`, `Operational Hardening PR #9a` (+38 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 605 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **78 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 607 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **97 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `DhanClient` connect `DhanClient` to `.get_account_statuses`, `Goal`, `DhanOrderService`, `test_expiry_selection_only_today_available`, `test_modular_broker.py`, `broker/__init__.py`, `TestLtpSpec`, `TestSecurityIdFailClosed`, `DhanInstrumentService`, `Phase 21: FlatTrade Broker Integration - Context`, `DhanAuthService`, `setter`, `DhanConditionalOrderService`, `.test_broker_pending_orders_flexible_keys`, `.get_limits`, `test_dhan_client_facade_delegation`, `load_scrip_background`, `Key Changes`, `Summary: Phase 13 - Modular Broker Facade & Dedicated Services`, `Plan: Phase 17 - Zero-Downtime Atomic Scrip Reload & Lot Map Guard`, `Plan: Phase 13 - Modular Broker Facade & Dedicated Services`, `test_dhan_client_offline_initialization`, `logging`?**
-  _High betweenness centrality (0.131) - this node is a cross-community bridge._
+- **Why does `DhanClient` connect `DhanClient` to `test_multi_broker_toggle_and_statuses`, `Goal`, `DhanOrderService`, `test_expiry_selection_only_today_available`, `test_modular_broker.py`, `broker/__init__.py`, `TestLtpSpec`, `TestSecurityIdFailClosed`, `Phase 21: FlatTrade Broker Integration - Context`, `DhanAuthService`, `setter`, `DhanConditionalOrderService`, `.test_broker_pending_orders_flexible_keys`, `.get_limits`, `test_dhan_client_facade_delegation`, `load_scrip_background`, `Key Changes`, `Summary: Phase 13 - Modular Broker Facade & Dedicated Services`, `Plan: Phase 17 - Zero-Downtime Atomic Scrip Reload & Lot Map Guard`, `scrip_status`, `Plan: Phase 13 - Modular Broker Facade & Dedicated Services`, `test_dhan_client_offline_initialization`, `logging`?**
+  _High betweenness centrality (0.129) - this node is a cross-community bridge._
 - **Are the 24 inferred relationships involving `DhanClient` (e.g. with `DhanAuthService` and `ExchangeSegment`) actually correct?**
   _`DhanClient` has 24 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `updateFeeling`, `Direct Signal Strategy`, `Unauthenticated SSE and Last-Signal Endpoints` to the rest of the system?**
   _43 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `SuperOrderEngine` be split into smaller, more focused modules?**
-  _Cohesion score 0.1 - nodes in this community are weakly interconnected._
-- **Why does `MockDhanClient` connect `MockDhanClient` to `SuperOrderEngine`, `FeelingState`, `.get_itm_contract`, `.monitor_positions`, `server.py`, `test_multi_broker.py`, `test_conditional_entry.py`, `logging`, `test_feeling_gate.py`, `.get_pending_protection`, `exit_conditional_order`, `test_multi_broker_toggle_and_statuses`?**
-  _High betweenness centrality (0.090) - this node is a cross-community bridge._
-- **Are the 5 inferred relationships involving `MockDhanClient` (e.g. with `TestArmConditionalEntry` and `TestConditionalFill`) actually correct?**
-  _`MockDhanClient` has 5 INFERRED edges - model-reasoned connections that need verification._
 - **Should `FeelingState` be split into smaller, more focused modules?**
   _Cohesion score 0.1349206349206349 - nodes in this community are weakly interconnected._
+- **Why does `MockDhanClient` connect `MockDhanClient` to `FeelingState`, `test_multi_broker_toggle_and_statuses`, `.cancel_super_order`, `._get_state`, `.get_completed_trades`, `server.py`, `.get_index_id`, `.get_index_spot_fallback`, `.get_multi_margin_calculator`, `.get_order_status`, `.get_positions`, `.margin_calculator`, `.modify_super_entry_leg`, `.modify_super_sl_leg`, `.modify_super_target_leg`, `exit_conditional_order`, `.get_itm_contract`, `test_conditional_entry.py`, `.get_pending_protection`, `test_groww_client.py`, `SuperOrderEngine`, `.get_ltp`, `.exit_super_order`, `test_feeling_gate.py`, `.place_super_order`, `logging`, `._alarm`, `test_multi_broker_lot_multipliers`?**
+  _High betweenness centrality (0.089) - this node is a cross-community bridge._
+- **Are the 5 inferred relationships involving `MockDhanClient` (e.g. with `TestArmConditionalEntry` and `TestConditionalFill`) actually correct?**
+  _`MockDhanClient` has 5 INFERRED edges - model-reasoned connections that need verification._
+- **Should `._get_state` be split into smaller, more focused modules?**
+  _Cohesion score 0.14482758620689656 - nodes in this community are weakly interconnected._

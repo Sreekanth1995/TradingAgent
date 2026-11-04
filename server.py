@@ -2129,6 +2129,15 @@ def exit_conditional_order():
                 logger.warning(f"Exit fallback GTT cleanup failed: {fe}")
             return jsonify({"status": "success", "message": f"No active conditional position for {underlying} (all GTT alerts cleared)"}), 200
         
+        if side in ('PENDING_CALL', 'PENDING_PUT'):
+            res = conditional_engine.cancel_pending_entry(underlying)
+            status_code = 200 if res.get('status') == 'success' else 400
+            return jsonify({
+                "status": res.get("status", "success"),
+                "message": f"Cancelled pending {side} entry for {underlying}",
+                "result": res
+            }), status_code
+
         feed_id = state.get('trade_feed_id')
         entry_price = float(state.get('entry_price') or 0)
         qty = int(state.get('quantity') or 1)
@@ -2454,14 +2463,23 @@ def cancel_conditional_orders():
                 state.pop(key, None)
             super_order_engine._set_state(underlying, state)
 
+        results = []
+
         # 3. Alerts from conditional_engine state
         if conditional_engine:
             cond_state = conditional_engine._get_state(underlying)
-            for k in ('idx_target_alert_id', 'idx_sl_alert_id', 'conditional_target_alert_id', 'conditional_sl_alert_id'):
+            for k in ('entry_alert_id', 'idx_target_alert_id', 'idx_sl_alert_id', 'conditional_target_alert_id', 'conditional_sl_alert_id'):
                 aid = cond_state.get(k)
                 if aid:
                     alert_ids_to_cancel.add(str(aid))
-            conditional_engine.cancel_active_conditional_orders(underlying, cond_state)
+            if cond_state.get('side') in ('PENDING_CALL', 'PENDING_PUT'):
+                c_res = conditional_engine.cancel_pending_entry(underlying)
+                entry_aid = cond_state.get('entry_alert_id')
+                if entry_aid and str(entry_aid) in alert_ids_to_cancel:
+                    alert_ids_to_cancel.discard(str(entry_aid))
+                    results.append({"alert_id": str(entry_aid), "cancelled": c_res.get("status") == "success"})
+            else:
+                conditional_engine.cancel_active_conditional_orders(underlying, cond_state)
 
         # 4. Fallback sweep: Check active GTT orders at broker for any remaining alerts
         try:
@@ -2477,7 +2495,6 @@ def cancel_conditional_orders():
         except Exception as ge:
             logger.warning(f"GTT sweep check warning: {ge}")
 
-        results = []
         for alert_id in alert_ids_to_cancel:
             r = broker.cancel_conditional_order(alert_id)
             results.append({"alert_id": alert_id, "cancelled": r.get("success")})

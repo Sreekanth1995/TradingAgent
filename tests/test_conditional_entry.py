@@ -591,3 +591,85 @@ def test_reconciliation_missing_pending_protection_alarms_and_flags_failed():
     alarm_calls = [str(call) for call in log.call_args_list if 'UNPROTECTED POSITION' in str(call)]
     assert len(alarm_calls) > 0
 
+
+def test_exit_conditional_order_endpoint_while_pending_cancels_entry():
+    """Verify /exit-conditional-order cancels armed pending entry without attempting a short exit."""
+    from unittest.mock import patch
+    from server import app, conditional_engine, broker
+
+    app.config['TESTING'] = True
+    corr_id = 'ENTRY:NIFTY:exit_pending_test'
+    conditional_engine._set_state('NIFTY', {
+        'side': 'PENDING_CALL',
+        'symbol': 'NIFTY_MOCK_24550_CE',
+        'security_id': CE_SID,
+        'entry_alert_id': 'ALERT_EXIT_PENDING',
+        'idx_sec_id': '13',
+        'quantity': 1,
+        'correlation_id': corr_id,
+        'idx_sl_level': 24500.0,
+        'idx_target_level': 24700.0,
+    })
+    conditional_engine.store_pending_protection(corr_id, {
+        'underlying': 'NIFTY',
+        'target_level': 24700.0,
+        'sl_level': 24500.0,
+        'quantity': 1,
+    })
+
+    with patch('server.SECRET', 'test_secret'), \
+         patch.object(broker, 'cancel_conditional_order', return_value={'success': True}) as mock_cancel:
+        with app.test_client() as client:
+            resp = client.post('/exit-conditional-order', json={
+                'secret': 'test_secret',
+                'underlying': 'NIFTY'
+            })
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data['status'] == 'success'
+            assert 'Cancelled pending PENDING_CALL entry for NIFTY' in data['message']
+            mock_cancel.assert_called_once_with('ALERT_EXIT_PENDING')
+            assert conditional_engine._get_state('NIFTY')['side'] == 'NONE'
+
+
+def test_cancel_conditional_orders_endpoint_while_pending_cancels_entry():
+    """Verify /cancel-conditional-orders cancels armed pending entry and clears state."""
+    from unittest.mock import patch
+    from server import app, conditional_engine, broker
+
+    app.config['TESTING'] = True
+    corr_id = 'ENTRY:NIFTY:cancel_pending_test'
+    conditional_engine._set_state('NIFTY', {
+        'side': 'PENDING_CALL',
+        'symbol': 'NIFTY_MOCK_24550_CE',
+        'security_id': CE_SID,
+        'entry_alert_id': 'ALERT_CANCEL_PENDING',
+        'idx_sec_id': '13',
+        'quantity': 1,
+        'correlation_id': corr_id,
+        'idx_sl_level': 24500.0,
+        'idx_target_level': 24700.0,
+    })
+    conditional_engine.store_pending_protection(corr_id, {
+        'underlying': 'NIFTY',
+        'target_level': 24700.0,
+        'sl_level': 24500.0,
+        'quantity': 1,
+    })
+
+    with patch('server.SECRET', 'test_secret'), \
+         patch.object(broker, 'cancel_conditional_order', return_value={'success': True}) as mock_cancel:
+        with app.test_client() as client:
+            resp = client.post('/cancel-conditional-orders', json={
+                'secret': 'test_secret',
+                'underlying': 'NIFTY'
+            })
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data['status'] == 'success'
+            cancelled = data['cancelled']
+            assert any(item.get('alert_id') == 'ALERT_CANCEL_PENDING' and item.get('cancelled') is True for item in cancelled)
+            mock_cancel.assert_called_once_with('ALERT_CANCEL_PENDING')
+            assert conditional_engine._get_state('NIFTY')['side'] == 'NONE'
+
+
