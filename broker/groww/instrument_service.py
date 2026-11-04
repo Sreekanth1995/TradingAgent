@@ -7,6 +7,7 @@ Groww natively routes by `trading_symbol` on `EXCHANGE_NSE` and `SEGMENT_FNO`.
 import logging
 from datetime import datetime
 from typing import Optional, Dict, Any
+from constants import strike_step_for
 
 logger = logging.getLogger("broker.groww.instrument")
 
@@ -54,12 +55,13 @@ class GrowwInstrumentService:
         """Resolves ITM option contract for Groww execution."""
         try:
             spot = float(spot_price)
-            atm_strike = round(spot / 50) * 50
+            step = strike_step_for(underlying)
+            atm_strike = round(spot / step) * step
             if side.upper() in ('CE', 'CALL'):
-                strike = atm_strike - 50
+                strike = atm_strike - step
                 opt_type = 'CE'
             else:
-                strike = atm_strike + 50
+                strike = atm_strike + step
                 opt_type = 'PE'
 
             trading_symbol = self.format_trading_symbol(underlying, strike, opt_type, expiry)

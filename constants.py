@@ -38,3 +38,19 @@ def index_name_for(sec_id):
 def is_index_id(sec_id):
     """True if sec_id is a known Dhan index security id."""
     return str(sec_id) in INDEX_IDS
+
+
+# Standard strike intervals per index
+INDEX_STRIKE_STEPS = {
+    "NIFTY": 50,
+    "BANKNIFTY": 100,
+    "FINNIFTY": 50,
+}
+
+
+def strike_step_for(underlying):
+    """Returns the strike step for an index (50 for NIFTY/FINNIFTY, 100 for BANKNIFTY)."""
+    if not underlying:
+        return 50
+    return INDEX_STRIKE_STEPS.get(str(underlying).upper(), 50)
+

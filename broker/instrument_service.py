@@ -2,11 +2,12 @@
 
 import os
 import csv
+import sys
 import logging
 import threading
 import requests
 from typing import Dict, Any, Optional, Set, Callable
-from constants import index_id_for
+from constants import index_id_for, strike_step_for
 
 logger = logging.getLogger("broker.instrument")
 
@@ -83,6 +84,10 @@ class DhanInstrumentService:
             if os.path.getsize(csv_file) < MIN_VALID_SIZE:
                 logger.warning(f"Existing CSV too small ({os.path.getsize(csv_file)//1024} KB). Re-downloading.")
                 return True
+            # Safety critical: If scrip map is empty, download is required regardless of time
+            if not self.scrip_map or len(self.scrip_map) == 0:
+                logger.warning("Scrip map is currently empty. Download required for trading operations.")
+                return True
 
             import pytz
             from datetime import datetime, time, timedelta
@@ -142,41 +147,58 @@ class DhanInstrumentService:
         temp_lot_map: Dict[str, int] = {}
         temp_exact_symbol_map: Dict[str, Dict[str, Any]] = {}
         count = 0
-        try:
-            with open(csv_file, 'r', encoding='utf-8-sig') as f:
-                reader = csv.DictReader(f)
-                headers = reader.fieldnames or []
-                if 'SEM_EXM_EXCH_ID' not in headers:
-                    logger.error(f"Expected column 'SEM_EXM_EXCH_ID' not found. Got: {headers}.")
-                    return len(self.scrip_map)
-                for row in reader:
-                    if row.get('SEM_EXM_EXCH_ID') == 'NSE' and row.get('SEM_INSTRUMENT_NAME') in ['OPTIDX', 'OPTSTK', 'FUTIDX', 'FUTSTK']:
-                        sym = row.get('SM_SYMBOL_NAME', '').strip()
-                        if not sym:
-                            sym = row.get('SEM_TRADING_SYMBOL', '').split('-')[0]
-                        sym = sym.strip()
-                        strike = float(row.get('SEM_STRIKE_PRICE', 0))
-                        opt_type = row.get('SEM_OPTION_TYPE')
-                        expiry_raw = row.get('SEM_EXPIRY_DATE', '').split(" ")[0]
-                        key = (sym, strike, opt_type, expiry_raw)
-                        sec_id = row.get('SEM_SMST_SECURITY_ID', '').strip()
-                        temp_scrip_map[key] = sec_id
-                        try:
-                            temp_lot_map[sec_id] = int(float(row.get('SEM_LOT_UNITS', 1)))
-                        except Exception:
-                            temp_lot_map[sec_id] = 1
 
-                        trading_sym = row.get('SEM_TRADING_SYMBOL', '').strip()
-                        if trading_sym:
-                            temp_exact_symbol_map[trading_sym] = {
-                                "security_id": sec_id,
-                                "strike": strike,
-                                "expiry": expiry_raw,
-                                "symbol": trading_sym,
-                                "opt_type": opt_type,
-                                "underlying": sym
-                            }
-                        count += 1
+        # Prevent field size overflow on huge CSV lines
+        try:
+            csv.field_size_limit(sys.maxsize)
+        except Exception:
+            pass
+
+        def _clean_stream(filepath):
+            with open(filepath, 'r', encoding='utf-8-sig', errors='replace') as f:
+                for line in f:
+                    if '\x00' in line:
+                        line = line.replace('\x00', '')
+                    if line:
+                        yield line
+
+        try:
+            reader = csv.DictReader(_clean_stream(csv_file))
+            headers = reader.fieldnames or []
+            if 'SEM_EXM_EXCH_ID' not in headers:
+                logger.error(f"Expected column 'SEM_EXM_EXCH_ID' not found. Got: {headers}.")
+                if not force_download and len(self.scrip_map) == 0:
+                    logger.warning("Scrip master headers invalid. Attempting emergency force download...")
+                    return self._load_scrip_master(force_download=True)
+                return len(self.scrip_map)
+            for row in reader:
+                if row.get('SEM_EXM_EXCH_ID') == 'NSE' and row.get('SEM_INSTRUMENT_NAME') in ['OPTIDX', 'OPTSTK', 'FUTIDX', 'FUTSTK']:
+                    sym = row.get('SM_SYMBOL_NAME', '').strip()
+                    if not sym:
+                        sym = row.get('SEM_TRADING_SYMBOL', '').split('-')[0]
+                    sym = sym.strip()
+                    strike = float(row.get('SEM_STRIKE_PRICE', 0))
+                    opt_type = row.get('SEM_OPTION_TYPE')
+                    expiry_raw = row.get('SEM_EXPIRY_DATE', '').split(" ")[0]
+                    key = (sym, strike, opt_type, expiry_raw)
+                    sec_id = row.get('SEM_SMST_SECURITY_ID', '').strip()
+                    temp_scrip_map[key] = sec_id
+                    try:
+                        temp_lot_map[sec_id] = int(float(row.get('SEM_LOT_UNITS', 1)))
+                    except Exception:
+                        temp_lot_map[sec_id] = 1
+
+                    trading_sym = row.get('SEM_TRADING_SYMBOL', '').strip()
+                    if trading_sym:
+                        temp_exact_symbol_map[trading_sym] = {
+                            "security_id": sec_id,
+                            "strike": strike,
+                            "expiry": expiry_raw,
+                            "symbol": trading_sym,
+                            "opt_type": opt_type,
+                            "underlying": sym
+                        }
+                    count += 1
 
             temp_expiry_indices: Set[str] = set()
             import pytz
@@ -199,9 +221,15 @@ class DhanInstrumentService:
                 return count
             else:
                 logger.error("Scrip master parsing produced 0 valid instruments; preserving previous maps.")
+                if not force_download and len(self.scrip_map) == 0:
+                    logger.warning("Scrip master parsed 0 instruments. Attempting emergency force download...")
+                    return self._load_scrip_master(force_download=True)
                 return len(self.scrip_map)
         except Exception as e:
             logger.error(f"Error parsing CSV: {e}; preserving previous maps.")
+            if not force_download and len(self.scrip_map) == 0:
+                logger.warning("Scrip master parse failed with exception. Attempting emergency force download...")
+                return self._load_scrip_master(force_download=True)
             return len(self.scrip_map)
 
     def is_expiry_day(self, underlying: str) -> bool:
@@ -297,15 +325,25 @@ class DhanInstrumentService:
         if not self.scrip_map:
             waited = self._scrip_ready.wait(timeout=30)
             if not self.scrip_map:
-                logger.error("get_itm_contract: scrip_map is empty after wait. CSV may be missing.")
-                return None
+                logger.error("get_itm_contract: scrip_map is empty after wait. Triggering synchronous emergency reload.")
+                try:
+                    self._load_scrip_master(force_download=True)
+                except Exception as e:
+                    logger.error(f"Emergency reload failed: {e}")
+                if not self.scrip_map:
+                    logger.error("get_itm_contract: scrip_map still empty. CSV may be missing or unparseable.")
+                    return None
         try:
             spot = float(spot_price)
-            atm_strike = round(spot / 50) * 50
-            if side == 'CE':
-                strike = atm_strike - 50
+            step = strike_step_for(underlying)
+            atm_strike = round(spot / step) * step
+            norm_side = side.upper()
+            if norm_side in ('CE', 'CALL'):
+                strike = atm_strike - step
+                opt_type = 'CE'
             else:
-                strike = atm_strike + 50
+                strike = atm_strike + step
+                opt_type = 'PE'
 
             if self.is_expiry_day(underlying):
                 expiry = self.get_next_expiry(underlying)
@@ -317,22 +355,22 @@ class DhanInstrumentService:
                 logger.error(f"No expiry found for {underlying}")
                 return None
 
-            sec_id = self.get_security_id(underlying, strike, side, expiry)
+            sec_id = self.get_security_id(underlying, strike, opt_type, expiry)
             if sec_id:
-                logger.info(f"Selected ITM for {underlying} ({side}): {strike} Exp: {expiry} -> ID: {sec_id}")
+                logger.info(f"Selected ITM for {underlying} ({opt_type}): {strike} Exp: {expiry} -> ID: {sec_id}")
                 exp_dt = expiry.replace("-", "")
                 tv_exp = exp_dt[2:]
-                tv_cp = "C" if side == "CE" else "P"
+                tv_cp = "C" if opt_type == "CE" else "P"
                 tv_symbol = f"NSE:{underlying}{tv_exp}{tv_cp}{int(strike)}"
                 return {
                     "security_id": sec_id,
                     "strike": strike,
                     "expiry": expiry,
-                    "symbol": f"{underlying}_{int(strike)}_{side}",
+                    "symbol": f"{underlying}_{int(strike)}_{opt_type}",
                     "tv_symbol": tv_symbol,
                 }
             else:
-                logger.error(f"Could not find exact ITM contract for {underlying} {strike} {side} {expiry}")
+                logger.error(f"Could not find exact ITM contract for {underlying} {strike} {opt_type} {expiry}")
                 return None
         except Exception as e:
             logger.error(f"Error in ITM Selection: {e}")

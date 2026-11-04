@@ -95,3 +95,36 @@ def test_expiry_selection_only_today_available(monkeypatch):
     assert len(alarms) == 1
     assert "fallback rejected" in alarms[0][1]
     assert "🚨" in alarms[0][0]
+
+
+def test_banknifty_strike_step_and_itm_selection(monkeypatch):
+    from constants import strike_step_for
+    assert strike_step_for("NIFTY") == 50
+    assert strike_step_for("FINNIFTY") == 50
+    assert strike_step_for("BANKNIFTY") == 100
+
+    monkeypatch.setattr(DhanClient, "_load_scrip_master", lambda self: None)
+    client = DhanClient()
+    client.scrip_loaded = True
+    client._scrip_ready.set()
+
+    future_exp = "2026-11-23"
+    client.scrip_map = {
+        ("BANKNIFTY", 55700.0, "CE", future_exp): "62174",
+        ("BANKNIFTY", 55900.0, "PE", future_exp): "62182",
+    }
+
+    # At spot 55800:
+    # ATM = round(55800 / 100) * 100 = 55800
+    # ITM CE = 55800 - 100 = 55700
+    # ITM PE = 55800 + 100 = 55900
+    ce_contract = client.get_itm_contract("BANKNIFTY", "CE", 55800.0)
+    assert ce_contract is not None
+    assert ce_contract["strike"] == 55700.0
+    assert ce_contract["security_id"] == "62174"
+
+    pe_contract = client.get_itm_contract("BANKNIFTY", "PE", 55800.0)
+    assert pe_contract is not None
+    assert pe_contract["strike"] == 55900.0
+    assert pe_contract["security_id"] == "62182"
+
